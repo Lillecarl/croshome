@@ -1,0 +1,79 @@
+{
+  "nodes": {
+    "catppuccin": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1764325801,
+        "narHash": "sha256-LQ7tsrXs1wuB6KBwUctL3JlUsG/FWI2pCI6NkoO52dk=",
+        "owner": "catppuccin",
+        "repo": "nix",
+        "rev": "a696fed6b9b6aa89ef495842cdca3fc2a7cef0de",
+        "type": "github"
+      },
+      "original": {
+        "owner": "catppuccin",
+        "repo": "nix",
+        "type": "github"
+      }
+    },
+    "flake-compatish": {
+      "locked": {
+        "lastModified": 1764433250,
+        "narHash": "sha256-XmH5ASnPyD2LMaJHG+lgVSy3vcNF+uqBA0AwcSdkIqc=",
+        "path": "/home/lillecarl/Code/flake-compatish",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/lillecarl/Code/flake-compatish",
+        "type": "path"
+      }
+    },
+    "home-manager": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1764433774,
+        "narHash": "sha256-fWpQ5bn9Omm6XptwaIhuWogFStQzrX76YB66q4jNSuk=",
+        "path": "/home/lillecarl/Code/home-manager",
+        "type": "path"
+      },
+      "original": {
+        "path": "/home/lillecarl/Code/home-manager",
+        "type": "path"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1764242076,
+        "narHash": "sha256-sKoIWfnijJ0+9e4wRvIgm/HgE27bzwQxcEmo2J/gNpI=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "2fad6eac6077f03fe109c4d4eb171cf96791faa4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "catppuccin": "catppuccin",
+        "flake-compatish": "flake-compatish",
+        "home-manager": "home-manager",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
