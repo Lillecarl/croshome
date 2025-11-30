@@ -21,15 +21,19 @@
       }
     },
     "flake-compatish": {
+      "flake": false,
       "locked": {
-        "lastModified": 1764433250,
-        "narHash": "sha256-XmH5ASnPyD2LMaJHG+lgVSy3vcNF+uqBA0AwcSdkIqc=",
-        "path": "/home/lillecarl/Code/flake-compatish",
-        "type": "path"
+        "lastModified": 1764453176,
+        "narHash": "sha256-/buZfkFEfX8pArH7r3gLaPrWGl/l5y1h5rjcaRrPBAQ=",
+        "owner": "lillecarl",
+        "repo": "flake-compatish",
+        "rev": "3216c4e8a957a6efffab69fe8352ec99aa7a9b11",
+        "type": "github"
       },
       "original": {
-        "path": "/home/lillecarl/Code/flake-compatish",
-        "type": "path"
+        "owner": "lillecarl",
+        "repo": "flake-compatish",
+        "type": "github"
       }
     },
     "home-manager": {
@@ -39,14 +43,18 @@
         ]
       },
       "locked": {
-        "lastModified": 1764433774,
-        "narHash": "sha256-fWpQ5bn9Omm6XptwaIhuWogFStQzrX76YB66q4jNSuk=",
-        "path": "/home/lillecarl/Code/home-manager",
-        "type": "path"
+        "lastModified": 1764361670,
+        "narHash": "sha256-jgWzgpIaHbL3USIq0gihZeuy1lLf2YSfwvWEwnfAJUw=",
+        "owner": "nix-community",
+        "repo": "home-manager",
+        "rev": "780be8ef503a28939cf9dc7996b48ffb1a3e04c6",
+        "type": "github"
       },
       "original": {
-        "path": "/home/lillecarl/Code/home-manager",
-        "type": "path"
+        "owner": "nix-community",
+        "ref": "master",
+        "repo": "home-manager",
+        "type": "github"
       }
     },
     "nixpkgs": {

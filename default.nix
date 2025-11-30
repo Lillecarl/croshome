@@ -5,7 +5,7 @@ let
         lockFile = builtins.readFile ./flake.lock;
         lockAttrs = builtins.fromJSON lockFile;
         fcLockInfo = lockAttrs.nodes.flake-compatish.locked;
-        flake-compatish = import fcLockInfo.path;
+        flake-compatish = import (builtins.fetchTree fcLockInfo);
       in
       flake-compatish ./.
     ).inputs;
