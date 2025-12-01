@@ -115,6 +115,7 @@
         nixd
         nixfmt
         nerd-fonts.hack
+        fish-lsp
       ];
       sessionVariables = {
         EDITOR = lib.getExe config.programs.helix.package;
