@@ -21,12 +21,8 @@
         emoji = [ "Hack" ];
       };
     };
-    programs.ripgrep = {
-      enable = true;
-    };
-    programs.fd = {
-      enable = true;
-    };
+    programs.ripgrep.enable = true;
+    programs.fd.enable = true;
     programs.lsd = {
       enable = true;
       enableFishIntegration = true;
