@@ -21,6 +21,9 @@
         emoji = [ "Hack" ];
       };
     };
+    programs.ripgrep = {
+      enable = true;
+    };
     programs.foot = {
       enable = true;
       settings = {
