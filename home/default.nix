@@ -24,6 +24,9 @@
     programs.ripgrep = {
       enable = true;
     };
+    programs.fd = {
+      enable = true;
+    };
     programs.foot = {
       enable = true;
       settings = {
