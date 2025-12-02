@@ -27,6 +27,10 @@
     programs.fd = {
       enable = true;
     };
+    programs.lsd = {
+      enable = true;
+      enableFishIntegration = true;
+    };
     programs.foot = {
       enable = true;
       settings = {
