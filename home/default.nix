@@ -123,6 +123,7 @@
         nixfmt
         nerd-fonts.hack
         fish-lsp
+        kubectl
       ];
       sessionVariables = {
         EDITOR = lib.getExe config.programs.helix.package;
