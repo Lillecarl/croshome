@@ -83,14 +83,17 @@
           set-option -sa terminal-features ',foot:RGB'
         '';
     };
-    programs.kitty = {
+    programs.fish = {
       enable = true;
-      settings = {
-        shell = lib.getExe config.programs.fish.package;
-        editor = lib.getExe config.programs.helix.package;
+      shellAbbrs = {
+        kc = "kubectl";
+        sc = "sudo systemctl";
+        scu = "systemctl --user";
+        jc = "journalctl --unit";
+        jcu = "journalctl --user --unit";
+        kns = "kubens";
       };
     };
-    programs.fish.enable = true;
     programs.jujutsu = {
       enable = true;
       settings = {
