@@ -10,6 +10,8 @@
     inputs.catppuccin.homeModules.catppuccin
   ];
   config = {
+    programs.kubecolor.enable = true;
+    programs.k9s.enable = true;
     catppuccin.enable = true;
     fonts.fontconfig = {
       enable = true;
@@ -121,6 +123,9 @@
         nerd-fonts.hack
         fish-lsp
         kubectl
+        kubectx
+        stern
+        viddy
       ];
       sessionVariables = {
         EDITOR = lib.getExe config.programs.helix.package;
