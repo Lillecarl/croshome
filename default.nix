@@ -17,7 +17,7 @@ in
   home = inputs.home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
     modules = [
-      ./home
+      ./cros
     ];
     extraSpecialArgs = {
       inherit inputs;
