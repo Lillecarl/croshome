@@ -1,14 +1,14 @@
 let
-  inputs =
-    (
-      let
-        lockFile = builtins.readFile ./flake.lock;
-        lockAttrs = builtins.fromJSON lockFile;
-        fcLockInfo = lockAttrs.nodes.flake-compatish.locked;
-        flake-compatish = import (builtins.fetchTree fcLockInfo);
-      in
-      flake-compatish ./.
-    ).inputs;
+  flake = (
+    let
+      lockFile = builtins.readFile ./flake.lock;
+      lockAttrs = builtins.fromJSON lockFile;
+      fcLockInfo = lockAttrs.nodes.flake-compatish.locked;
+      flake-compatish = import (builtins.fetchTree fcLockInfo);
+    in
+    flake-compatish ./.
+  );
+  inherit (flake) inputs;
 
   pkgs = import inputs.nixpkgs { };
 in
@@ -24,3 +24,4 @@ in
     };
   };
 }
+// flake.impure
