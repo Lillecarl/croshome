@@ -10,10 +10,7 @@
     inputs.catppuccin.homeModules.catppuccin
   ];
   config = {
-    catppuccin = {
-      enable = true;
-      # disable catppuccin modules here
-    };
+    catppuccin.enable = true;
     fonts.fontconfig = {
       enable = true;
       defaultFonts = {
