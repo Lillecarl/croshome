@@ -19,5 +19,14 @@
     };
   };
   outputs = inputs: {
+    nixosConfigurations.hetztop = inputs.nixpkgs.lib.nixosSystem {
+      system = "aarch64-linux";
+      modules = [
+        ./nixos
+      ];
+      specialArgs = {
+        inherit inputs;
+      };
+    };
   };
 }
