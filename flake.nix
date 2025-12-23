@@ -18,15 +18,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
-  outputs = inputs: {
-    nixosConfigurations.hetztop = inputs.nixpkgs.lib.nixosSystem {
-      system = "aarch64-linux";
-      modules = [
-        ./nixos
-      ];
-      specialArgs = {
-        inherit inputs;
-      };
+  outputs =
+    let
+      default = import ./default.nix;
+    in
+    inputs: {
+      nixosConfigurations.hetztop = default.hetztopSystem { system = "x86_64-linux"; };
     };
-  };
 }

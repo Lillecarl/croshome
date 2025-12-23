@@ -10,9 +10,11 @@ let
   );
   inherit (flake) inputs;
 
-  pkgs = import inputs.nixpkgs { };
+  pkgs = import inputs.nixpkgs {
+    config.allowUnfree = true;
+  };
 in
-{
+rec {
   inherit inputs pkgs;
   home = inputs.home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
@@ -23,5 +25,14 @@ in
       inherit inputs;
     };
   };
+  hetztop = hetztopSystem { system = builtins.currentSystem; };
+  hetztopSystem = { system ? builtins.currentSystem }: inputs.nixpkgs.lib.nixosSystem {
+    inherit system;
+    modules = [
+      ./nixos
+    ];
+    specialArgs = {
+      inherit inputs;
+    };
+  };
 }
-// flake.impure
