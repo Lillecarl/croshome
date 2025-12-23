@@ -7,9 +7,11 @@
 }:
 {
   config = {
+    programs.fish.enable = true;
     users.users.lillecarl = {
       isNormalUser = true;
       openssh.authorizedKeys.keyFiles = [ ../lillecarl.pub ];
+      shell = pkgs.fish;
     };
     home-manager = {
       useGlobalPkgs = true;
