@@ -9,6 +9,7 @@
   config = {
     programs.fish.enable = true;
     users.users.lillecarl = {
+      extraGroups = [ "wheel" ];
       isNormalUser = true;
       openssh.authorizedKeys.keyFiles = [ ../lillecarl.pub ];
       shell = pkgs.fish;
