@@ -35,10 +35,6 @@
       clock24 = true;
       extraConfig = # tmux
         ''
-          bind -n C-S-h select-pane -L
-          bind -n C-S-j select-pane -D
-          bind -n C-S-k select-pane -U
-          bind -n C-S-l select-pane -R
           bind -n M-h select-pane -L
           bind -n M-j select-pane -D
           bind -n M-k select-pane -U
