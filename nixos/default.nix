@@ -13,6 +13,7 @@
     (modulesPath + "/profiles/qemu-guest.nix")
     ../home
     ./disko.nix
+    ./installscript.nix
   ];
   config = {
     boot.loader.grub.enable = true;
