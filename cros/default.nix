@@ -120,15 +120,18 @@
       shell.enableFishIntegration = true;
       stateVersion = "25.11";
       packages = with pkgs; [
-        wl-clipboard
-        nixd
-        nixfmt
-        nerd-fonts.hack
+        claude-code
         fish-lsp
         kubectl
         kubectx
+        nerd-fonts.hack
+        nixd
+        nixfmt
+        rclone
         stern
         viddy
+        waypipe
+        wl-clipboard
       ];
       sessionVariables = {
         EDITOR = lib.getExe config.programs.helix.package;
