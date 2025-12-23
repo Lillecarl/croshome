@@ -20,6 +20,10 @@
     boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "virtio_scsi" ];
     boot.kernelPackages = pkgs.linuxPackages_latest;
     networking.hostName = "hetztop";
+    services.openssh = {
+      enable = true;
+      openFirewall = true;
+    };
     system.stateVersion = "25.11";
   };
 }

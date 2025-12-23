@@ -1,14 +1,14 @@
 let
-  flake = (
-    let
-      lockFile = builtins.readFile ./flake.lock;
-      lockAttrs = builtins.fromJSON lockFile;
-      fcLockInfo = lockAttrs.nodes.flake-compatish.locked;
-      flake-compatish = import (builtins.fetchTree fcLockInfo);
-    in
-    flake-compatish ./.
-  );
-  inherit (flake) inputs;
+  inputs =
+    (
+      let
+        lockFile = builtins.readFile ./flake.lock;
+        lockAttrs = builtins.fromJSON lockFile;
+        fcLockInfo = lockAttrs.nodes.flake-compatish.locked;
+        flake-compatish = import (builtins.fetchTree fcLockInfo);
+      in
+      flake-compatish ./.
+    ).inputs;
 
   pkgs = import inputs.nixpkgs {
     config.allowUnfree = true;
@@ -26,13 +26,18 @@ rec {
     };
   };
   hetztop = hetztopSystem { system = builtins.currentSystem; };
-  hetztopSystem = { system ? builtins.currentSystem }: inputs.nixpkgs.lib.nixosSystem {
-    inherit system;
-    modules = [
-      ./nixos
-    ];
-    specialArgs = {
-      inherit inputs;
+  hetztopx = hetztopSystem { system = "x86_64-linux"; };
+  hetztopSystem =
+    {
+      system ? builtins.currentSystem,
+    }:
+    inputs.nixpkgs.lib.nixosSystem {
+      inherit system;
+      modules = [
+        ./nixos
+      ];
+      specialArgs = {
+        inherit inputs;
+      };
     };
-  };
 }

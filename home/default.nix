@@ -2,17 +2,19 @@
   config,
   pkgs,
   lib,
+  inputs,
   ...
 }:
 {
-  users.users.lillecarl = {
-    isNormalUser = true;
+  config = {
+    users.users.lillecarl = {
+      isNormalUser = true;
       openssh.authorizedKeys.keyFiles = [ ../lillecarl.pub ];
+    };
+    home-manager = {
+      useGlobalPkgs = true;
+      extraSpecialArgs = { inherit inputs; };
+      users.lillecarl = import ./lillecarl.nix;
+    };
   };
-  # home-manager.users.lillecarl =
-  #   { ... }:
-  #   {
-  #     imports = [ ./lillecarl.nix ];
-  #     home.stateVersion = config.system.stateVersion;
-  #   };
 }

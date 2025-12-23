@@ -2,12 +2,14 @@
   config,
   pkgs,
   lib,
+  osConfig,
   inputs,
   ...
 }:
 {
   imports = [ inputs.catppuccin.homeModules.catppuccin ];
   config = {
+    home.stateVersion = osConfig.system.stateVersion;
     home.packages = with pkgs; [
       stern
     ];

@@ -19,10 +19,11 @@
     };
   };
   outputs =
+    inputs:
     let
       default = import ./default.nix;
     in
-    inputs: {
+    {
       nixosConfigurations.hetztop = default.hetztopSystem { system = "x86_64-linux"; };
     };
 }
