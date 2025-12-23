@@ -7,6 +7,7 @@
 {
   users.users.lillecarl = {
     isNormalUser = true;
+      openssh.authorizedKeys.keyFiles = [ ../lillecarl.pub ];
   };
   # home-manager.users.lillecarl =
   #   { ... }:
