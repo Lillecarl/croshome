@@ -38,6 +38,8 @@ rec {
       ];
       specialArgs = {
         inherit inputs;
+        self = ./.;
+        selfStr = toString ./.;
       };
     };
 }

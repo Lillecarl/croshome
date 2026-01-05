@@ -1,7 +1,7 @@
 {
-  config,
+  self,
+  selfStr,
   pkgs,
-  lib,
   inputs,
   ...
 }:
@@ -17,7 +17,7 @@
     };
     home-manager = {
       useGlobalPkgs = true;
-      extraSpecialArgs = { inherit inputs; };
+      extraSpecialArgs = { inherit inputs self selfStr; };
       users.lillecarl = import ./lillecarl.nix;
     };
   };

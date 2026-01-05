@@ -1,4 +1,5 @@
 {
+  selfStr,
   config,
   pkgs,
   lib,
