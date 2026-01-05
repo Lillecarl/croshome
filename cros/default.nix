@@ -114,6 +114,8 @@
     };
     programs.helix.enable = true;
     programs.direnv.enable = true;
+    # Latest Lix is the coolest Nix currently
+    nix.package = pkgs.lixPackageSets.latest.lix;
     home = {
       username = "lillecarl";
       homeDirectory = "/home/lillecarl";
