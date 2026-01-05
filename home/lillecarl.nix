@@ -10,6 +10,9 @@
   imports = [ inputs.catppuccin.homeModules.catppuccin ];
   config = {
     home.stateVersion = osConfig.system.stateVersion;
+    home.sessionVariables = {
+      EDITOR = lib.getExe config.programs.helix.package;
+    };
     home.packages = with pkgs; [
       stern
     ];
