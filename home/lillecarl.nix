@@ -33,6 +33,7 @@
       enable = true;
       enableFishIntegration = true;
     };
+    catppuccin.enable = true;
     programs.kubecolor.enable = true;
     programs.k9s.enable = true;
     programs.fish.enable = true;
