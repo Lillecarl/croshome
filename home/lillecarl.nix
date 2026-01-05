@@ -14,7 +14,20 @@
       EDITOR = lib.getExe config.programs.helix.package;
     };
     home.packages = with pkgs; [
+      gitui
+      lazygit
+      claude-code
+      fish-lsp
+      kubectl
+      kubectx
+      nerd-fonts.hack
+      nixd
+      nixfmt
+      rclone
       stern
+      viddy
+      waypipe
+      wl-clipboard
     ];
     programs.kubeswitch = {
       enable = true;
