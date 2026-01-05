@@ -46,6 +46,30 @@
     programs.ripgrep.enable = true;
     programs.fd.enable = true;
     programs.jq.enable = true;
+
+    # emacs base configuration
+    programs.emacs = {
+      enable = true;
+      extraPackages =
+        ep: with ep; [
+          which-key
+          vterm
+          meow
+          consult
+          vertico
+          orderless
+          nix-ts-mode
+          clipetty
+          multiple-cursors
+          treesit-grammars.with-all-grammars
+        ];
+    };
+    # emacs symlinks
+    home.file.".emacs.d/init.el".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/emacs/init.el";
+    home.file.".emacs.d/early-init.el".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/emacs/early-init.el";
+    home.file.".emacs.d/config".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/emacs/config";
+
     programs.tmux = {
       enable = true;
       shell = lib.getExe config.programs.fish.package;
