@@ -67,10 +67,6 @@
       clock24 = true;
       extraConfig = # tmux
         ''
-          bind -n C-S-h select-pane -L
-          bind -n C-S-j select-pane -D
-          bind -n C-S-k select-pane -U
-          bind -n C-S-l select-pane -R
           bind -n M-h select-pane -L
           bind -n M-j select-pane -D
           bind -n M-k select-pane -U
@@ -78,8 +74,7 @@
           # Use the modern terminfo for tmux
           set -g default-terminal "tmux-256color"
 
-          # Tell tmux that 'foot' supports RGB (True Color)
-          # The leading comma is important
+          # Tell tmux that 'foot' supports RGB (True Color), the leading comma is important
           set-option -sa terminal-features ',foot:RGB'
         '';
     };
