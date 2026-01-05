@@ -20,7 +20,10 @@
     boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "virtio_scsi" ];
     boot.kernelPackages = pkgs.linuxPackages_latest;
     networking.hostName = "hetztop";
-    nix.settings.experimental-features = [ "nix-command" "flakes" "read-only-local-store" ];
+    nix = {
+      settings.experimental-features = [ "nix-command" "flakes" "read-only-local-store" ];
+      package = pkgs.lixPackageSets.latest.lix;
+    };
     services.openssh = {
       enable = true;
       openFirewall = true;
