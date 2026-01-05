@@ -24,6 +24,9 @@
       settings.experimental-features = [ "nix-command" "flakes" "read-only-local-store" ];
       package = pkgs.lixPackageSets.latest.lix;
     };
+    nixpkgs = {
+      config.allowUnfree = true;
+    };
     services.openssh = {
       enable = true;
       openFirewall = true;
