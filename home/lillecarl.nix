@@ -11,9 +11,6 @@
   imports = [ inputs.catppuccin.homeModules.catppuccin ];
   config = {
     home.stateVersion = osConfig.system.stateVersion;
-    home.sessionVariables = {
-      EDITOR = lib.getExe config.programs.helix.package;
-    };
     home.packages = with pkgs; [
       gitui
       lazygit
@@ -37,7 +34,13 @@
     catppuccin.enable = true;
     programs.kubecolor.enable = true;
     programs.k9s.enable = true;
-    programs.fish.enable = true;
+    programs.fish = {
+      enable = true;
+      shellInit = # fish
+      ''
+        set --global --export EDITOR hx
+      '';
+    };
     programs.lsd.enable = true;
     programs.ripgrep.enable = true;
     programs.fd.enable = true;
@@ -83,7 +86,10 @@
       enable = true;
       settings = { };
     };
-    programs.helix.enable = true;
+    programs.helix = {
+      enable = true;
+      defaultEditor = true;
+    };
     programs.direnv.enable = true;
   };
 }
