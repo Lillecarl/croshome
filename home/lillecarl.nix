@@ -32,6 +32,7 @@
       enableFishIntegration = true;
     };
     catppuccin.enable = true;
+    programs.htop.enable = true;
     programs.kubecolor.enable = true;
     programs.k9s.enable = true;
     programs.fish = {
