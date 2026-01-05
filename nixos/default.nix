@@ -19,6 +19,10 @@
     boot.loader.grub.enable = true;
     boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "virtio_scsi" ];
     boot.kernelPackages = pkgs.linuxPackages_latest;
+    environment.systemPackages = with pkgs.pkgsBuildBuild; [
+      foot.terminfo
+      tmux.terminfo
+    ];
     networking.hostName = "hetztop";
     nix = {
       settings.experimental-features = [ "nix-command" "flakes" "read-only-local-store" ];
