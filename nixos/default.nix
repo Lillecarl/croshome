@@ -1,7 +1,5 @@
 {
-  config,
   pkgs,
-  lib,
   modulesPath,
   inputs,
   ...
@@ -27,6 +25,9 @@
     nix = {
       settings.experimental-features = [ "nix-command" "flakes" "read-only-local-store" ];
       package = pkgs.lixPackageSets.latest.lix;
+      nixPath = [
+        "nixpkgs=${toString inputs.nixpkgs.outPath}"
+      ];
     };
     nixpkgs = {
       config.allowUnfree = true;
