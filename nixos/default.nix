@@ -35,8 +35,12 @@
       settings.experimental-features = [ "nix-command" "flakes" "read-only-local-store" ];
       package = pkgs.lixPackageSets.latest.lix;
       nixPath = [
-        "nixpkgs=${toString inputs.nixpkgs.outPath}"
+        "nixpkgs=${inputs.nixpkgs.outPath}"
       ];
+      registry = {
+        nixpkgs.flake = inputs.nixpkgs;
+        n.flake = inputs.nixpkgs;
+      };
     };
     nixpkgs = {
       config.allowUnfree = true;
