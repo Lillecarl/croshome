@@ -45,6 +45,8 @@
     };
     xdg.configFile."fish/functions".source =
       config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/fish/functions";
+    xdg.configFile."fish/conf.d".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/fish/conf.d";
     programs.lsd.enable = true;
     programs.ripgrep.enable = true;
     programs.fd.enable = true;
