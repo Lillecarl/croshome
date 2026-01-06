@@ -15,7 +15,11 @@
   ];
   config = {
     boot.loader.grub.enable = true;
-    boot.initrd.availableKernelModules = [ "ahci" "xhci_pci" "virtio_scsi" ];
+    boot.initrd.availableKernelModules = [
+      "ahci"
+      "xhci_pci"
+      "virtio_scsi"
+    ];
     boot.kernelPackages = pkgs.linuxPackages_latest;
     # Support building crossPlatform with QEMU
     boot.binfmt.emulatedSystems = [
@@ -32,7 +36,11 @@
     ];
     networking.hostName = "hetztop";
     nix = {
-      settings.experimental-features = [ "nix-command" "flakes" "read-only-local-store" ];
+      settings.experimental-features = [
+        "nix-command"
+        "flakes"
+        "read-only-local-store"
+      ];
       package = pkgs.lixPackageSets.latest.lix;
       nixPath = [
         "nixpkgs=${inputs.nixpkgs.outPath}"

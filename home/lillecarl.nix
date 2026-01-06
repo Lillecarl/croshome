@@ -39,10 +39,12 @@
     programs.fish = {
       enable = true;
       shellInit = # fish
-      ''
-        set --global --export EDITOR hx
-      '';
+        ''
+          set --global --export EDITOR hx
+        '';
     };
+    xdg.configFile."fish/functions".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/fish/functions";
     programs.lsd.enable = true;
     programs.ripgrep.enable = true;
     programs.fd.enable = true;
@@ -66,10 +68,12 @@
         ];
     };
     # emacs symlinks
-    home.file.".emacs.d/init.el".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/init.el";
+    home.file.".emacs.d/init.el".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/init.el";
     home.file.".emacs.d/early-init.el".source =
       config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/early-init.el";
-    home.file.".emacs.d/config".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/config";
+    home.file.".emacs.d/config".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/config";
 
     programs.tmux = {
       enable = true;
