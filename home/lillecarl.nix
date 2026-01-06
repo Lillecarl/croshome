@@ -66,10 +66,10 @@
         ];
     };
     # emacs symlinks
-    home.file.".emacs.d/init.el".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/emacs/init.el";
+    home.file.".emacs.d/init.el".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/init.el";
     home.file.".emacs.d/early-init.el".source =
-      config.lib.file.mkOutOfStoreSymlink "${selfStr}/emacs/early-init.el";
-    home.file.".emacs.d/config".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/emacs/config";
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/early-init.el";
+    home.file.".emacs.d/config".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/emacs/config";
 
     programs.tmux = {
       enable = true;
