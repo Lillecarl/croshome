@@ -103,6 +103,7 @@
       settings = {
         user.name = "lillecarl";
         user.email = "git@lillecarl.com";
+        git.private-commits = "description(glob:'private:*')";
       };
     };
     programs.git = {
