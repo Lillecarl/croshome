@@ -131,6 +131,7 @@
         viddy
         waypipe
         wl-clipboard
+        sshuttle
       ];
       sessionVariables = {
         EDITOR = lib.getExe config.programs.helix.package;

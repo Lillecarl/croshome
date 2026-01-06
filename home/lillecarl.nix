@@ -26,6 +26,7 @@
       viddy
       waypipe
       wl-clipboard
+      sshuttle
     ];
     programs.kubeswitch = {
       enable = true;
