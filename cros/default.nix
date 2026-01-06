@@ -33,6 +33,9 @@
         main = {
           shell = lib.getExe config.programs.fish.package;
         };
+        url = {
+          launch = "xdg-open \${url}";
+        };
         key-bindings =
           let
             # Bind everything with and without Mod2 (numlock) since it's locked on ChromeOS for some reason
@@ -51,6 +54,8 @@
             font-increase = csMod "equal";
             font-reset = csMod "0";
             spawn-terminal = csMod "n";
+            show-urls-copy = csMod "p";
+            show-urls-launch = csMod "o";
           };
       };
     };
