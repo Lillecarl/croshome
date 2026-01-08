@@ -12,11 +12,9 @@ let
 in
 rec {
   inherit inputs;
-  pkgs = import inputs.nixpkgs {
-    config.allowUnfree = true;
-    overlays = [ ];
-  };
+  pkgs = import inputs.nixpkgs { };
   home = inputs.home-manager.lib.homeManagerConfiguration {
+    inherit pkgs;
     modules = [
       ./cros
       ./nixpkgs.nix

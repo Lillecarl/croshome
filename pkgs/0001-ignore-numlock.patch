@@ -1,0 +1,27 @@
+From 89ca869f0bd9b56815f36f55b74e1987acb4363f Mon Sep 17 00:00:00 2001
+From: lillecarl <git@lillecarl.com>
+Date: Thu, 8 Jan 2026 23:43:31 +0000
+Subject: [PATCH] ignore numlock
+
+---
+ url-mode.c | 4 ++++
+ 1 file changed, 4 insertions(+)
+
+diff --git a/url-mode.c b/url-mode.c
+index 44809f5f..28c8bb7b 100644
+--- a/url-mode.c
++++ b/url-mode.c
+@@ -195,6 +195,10 @@ urls_input(struct seat *seat, struct terminal *term,
+      * Key bindings
+      */
+ 
++     /* ChromeOS/sommelier bug: mod2 stuck depressed - ignore it */
++    mods &= ~(1 << 4);  /* Clear bit 4 (mod2/NumLock) */
++    consumed &= ~(1 << 4);  /* Also clear from consumed */
++
+     /* Match untranslated symbols */
+     tll_foreach(bindings->url, it) {
+         const struct key_binding *bind = &it->item;
+-- 
+2.52.0
+
