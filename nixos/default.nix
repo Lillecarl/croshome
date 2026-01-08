@@ -36,6 +36,7 @@
     ];
     networking.hostName = "hetztop";
     nix = {
+      settings.trusted-users = [ "lillecarl" ];
       settings.experimental-features = [
         "nix-command"
         "flakes"
