@@ -9,17 +9,17 @@ let
       in
       flake-compatish ./.
     ).inputs;
-
-  pkgs = import inputs.nixpkgs {
-    config.allowUnfree = true;
-  };
 in
 rec {
-  inherit inputs pkgs;
+  inherit inputs;
+  pkgs = import inputs.nixpkgs {
+    config.allowUnfree = true;
+    overlays = [ ];
+  };
   home = inputs.home-manager.lib.homeManagerConfiguration {
-    inherit pkgs;
     modules = [
       ./cros
+      ./nixpkgs.nix
     ];
     extraSpecialArgs = {
       inherit inputs;
@@ -35,6 +35,7 @@ rec {
       inherit system;
       modules = [
         ./nixos
+        ./nixpkgs.nix
       ];
       specialArgs = {
         inherit inputs;
