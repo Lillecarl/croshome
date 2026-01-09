@@ -8,8 +8,8 @@
 {
   imports = [
     inputs.catppuccin.homeModules.catppuccin
-    ./home/foot.nix
-    ./home/fonts.nix
+    ../home/foot.nix
+    ../home/fonts.nix
   ];
   config = {
     programs.kubecolor.enable = true;
