@@ -41,6 +41,10 @@
     programs.htop.enable = true;
     programs.kubecolor.enable = true;
     programs.k9s.enable = true;
+    programs.xonsh = {
+      enable = true;
+      fishCompletion.enable = true;
+    };
     programs.fish = {
       enable = true;
       shellInit = # fish
