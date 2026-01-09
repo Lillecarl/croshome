@@ -122,6 +122,7 @@
       shell.enableFishIntegration = true;
       stateVersion = "25.11";
       packages = with pkgs; [
+        mosh
         gitui
         lazygit
         claude-code
