@@ -27,3 +27,4 @@
 (load-config "vertico.el")
 (load-config "consult.el")
 (load-config "treesit.el")
+(load-config "theme.el")

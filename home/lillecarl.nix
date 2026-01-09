@@ -97,6 +97,7 @@
           nix-ts-mode
           clipetty
           multiple-cursors
+          catppuccin-theme
           treesit-grammars.with-all-grammars
         ];
     };
