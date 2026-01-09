@@ -21,6 +21,9 @@
 (require 'clipetty)
 (global-clipetty-mode)
 
+;; Enable line numbers globally
+(global-display-line-numbers-mode 1)
+
 (load-config "meow.el")
 (load-config "which-key.el")
 (load-config "vterm.el")
