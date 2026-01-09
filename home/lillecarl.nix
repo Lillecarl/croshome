@@ -32,6 +32,11 @@
       waypipe
       wl-clipboard
       sshuttle
+      # Python LSP and plugins
+      python3Packages.python-lsp-server
+      python3Packages.pylsp-mypy
+      python3Packages.python-lsp-ruff
+      python3Packages.pylsp-rope
     ];
     programs.kubeswitch = {
       enable = true;
