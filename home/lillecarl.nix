@@ -93,6 +93,7 @@
           consult
           vertico
           orderless
+          nix-mode
           nix-ts-mode
           clipetty
           multiple-cursors

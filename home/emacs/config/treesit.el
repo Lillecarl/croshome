@@ -1,5 +1,9 @@
 ;;; treesit.el -*- lexical-binding: t -*-
 
+;; Load base modes so their auto-mode-alist entries get registered
+(require 'nix-mode)
+(require 'nix-ts-mode)
+
 ;; Remap all common modes - emacs falls back if grammar unavailable
 (setq major-mode-remap-alist
       '((bash-mode . bash-ts-mode)
