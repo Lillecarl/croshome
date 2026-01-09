@@ -1,0 +1,11 @@
+--- /tmp/corfu-terminal.el.orig	2026-01-09 13:50:06.095107560 +0000
++++ /tmp/corfu-terminal.el	2026-01-09 13:51:05.484155447 +0000
+@@ -42,6 +42,8 @@
+ (require 'popon)
+ (require 'cl-lib)
+ 
++(defvar corfu-terminal-mode)
++
+ (defgroup corfu-terminal nil
+   "Corfu popup on terminal."
+   :group 'convenience

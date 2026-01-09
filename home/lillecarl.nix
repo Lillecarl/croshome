@@ -104,6 +104,13 @@
           clipetty
           multiple-cursors
           catppuccin-theme
+          corfu
+          (corfu-terminal.overrideAttrs (old: {
+            patches = (old.patches or []) ++ [
+              ./emacs/corfu-terminal-fix-warning.patch
+            ];
+          }))
+          cape
           treesit-grammars.with-all-grammars
         ];
     };

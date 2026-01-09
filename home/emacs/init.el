@@ -29,6 +29,7 @@
 (load-config "vterm.el")
 (load-config "vertico.el")
 (load-config "consult.el")
+(load-config "corfu.el")
 (load-config "treesit.el")
 (load-config "eglot.el")
 (load-config "theme.el")
