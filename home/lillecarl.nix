@@ -61,6 +61,10 @@
         };
       };
       fishCompletion.enable = true;
+      extraPackages =
+        ps: with ps; [
+          xonsh.xontribs.xontrib-abbrevs
+        ];
     };
     programs.fish = {
       enable = true;
