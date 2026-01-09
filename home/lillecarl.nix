@@ -8,7 +8,11 @@
   ...
 }:
 {
-  imports = [ inputs.catppuccin.homeModules.catppuccin ];
+  imports = [
+    inputs.catppuccin.homeModules.catppuccin
+    ./foot.nix
+    ./fonts.nix
+  ];
   config = {
     home.stateVersion = osConfig.system.stateVersion;
     home.packages = with pkgs; [
