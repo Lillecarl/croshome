@@ -4,6 +4,9 @@
 (require 'nix-mode)
 (require 'nix-ts-mode)
 
+;; Maximum syntax highlighting level (default is 3, max is 4)
+(setq treesit-font-lock-level 4)
+
 ;; Remap all common modes - emacs falls back if grammar unavailable
 (setq major-mode-remap-alist
       '((bash-mode . bash-ts-mode)
