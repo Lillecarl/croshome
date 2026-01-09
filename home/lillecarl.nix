@@ -43,6 +43,23 @@
     programs.k9s.enable = true;
     programs.xonsh = {
       enable = true;
+      package = pkgs.xonsh.override {
+        python3 = pkgs.python3.override {
+          packageOverrides = self: pypkgs: {
+            xonsh = pypkgs.xonsh.overrideAttrs {
+              version = "0.22.0";
+              doCheck = false;
+              doInstallCheck = false;
+              src = builtins.fetchTree {
+                type = "github";
+                owner = "xonsh";
+                repo = "xonsh";
+                ref = "0.22.0";
+              };
+            };
+          };
+        };
+      };
       fishCompletion.enable = true;
     };
     programs.fish = {
