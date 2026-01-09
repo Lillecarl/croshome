@@ -90,6 +90,7 @@
     # emacs base configuration
     programs.emacs = {
       enable = true;
+      package = pkgs.emacs-pgtk;
       extraPackages =
         ep: with ep; [
           which-key
