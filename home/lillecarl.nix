@@ -12,6 +12,7 @@
     inputs.catppuccin.homeModules.catppuccin
     ./foot.nix
     ./fonts.nix
+    ./modules/xonsh.nix
   ];
   config = {
     home.stateVersion = osConfig.system.stateVersion;
