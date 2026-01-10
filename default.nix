@@ -12,7 +12,10 @@ let
 in
 rec {
   inherit inputs;
-  pkgs = import inputs.nixpkgs { };
+  pkgs = import inputs.nixpkgs {
+    system = builtins.currentSystem;
+    overlays = [ (import ./pkgs) ];
+  };
   home = inputs.home-manager.lib.homeManagerConfiguration {
     inherit pkgs;
     modules = [
