@@ -7,7 +7,12 @@ let
         fcLockInfo = lockAttrs.nodes.flake-compatish.locked;
         flake-compatish = import (builtins.fetchTree fcLockInfo);
       in
-      flake-compatish ./.
+      flake-compatish {
+        source = ./.;
+        overrides = {
+          self = ./.;
+        };
+      }
     ).inputs;
 in
 rec {
