@@ -10,9 +10,11 @@
 {
   imports = [
     inputs.catppuccin.homeModules.catppuccin
-    ./foot.nix
+    ./fish.nix
     ./fonts.nix
+    ./foot.nix
     ./vcs.nix
+
     ./modules/xonsh.nix
   ];
   config = {
@@ -72,25 +74,6 @@
           xonsh.xontribs.xontrib-abbrevs
           sh
         ];
-    };
-    programs.fish = {
-      enable = true;
-      shellInit = # fish
-        ''
-          set --global --export EDITOR hx
-        '';
-    };
-    xdg.configFile."fish/functions".source =
-      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/fish/functions";
-    xdg.configFile."fish/conf.d".source =
-      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/fish/conf.d";
-    programs.zoxide = {
-      enable = true;
-      enableFishIntegration = true;
-    };
-    programs.starship = {
-      enable = true;
-      enableFishIntegration = true;
     };
     programs.lsd.enable = true;
     programs.ripgrep.enable = true;
