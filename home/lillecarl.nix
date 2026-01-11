@@ -88,6 +88,10 @@
       enable = true;
       enableFishIntegration = true;
     };
+    programs.starship = {
+      enable = true;
+      enableFishIntegration = true;
+    };
     programs.lsd.enable = true;
     programs.ripgrep.enable = true;
     programs.fd.enable = true;
