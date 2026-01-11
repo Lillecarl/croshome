@@ -49,4 +49,6 @@ rec {
         selfStr = toString ./.;
       };
     };
+  oc = hetztop.config;
+  hc = oc.home-manager.users.lillecarl;
 }
