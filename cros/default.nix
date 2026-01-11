@@ -78,7 +78,22 @@
     programs.helix.enable = true;
     programs.direnv.enable = true;
     # Latest Lix is the coolest Nix currently
-    nix.package = pkgs.lixPackageSets.latest.lix;
+    nix = {
+      settings.trusted-users = [ "lillecarl" ];
+      settings.experimental-features = [
+        "nix-command"
+        "flakes"
+        "read-only-local-store"
+      ];
+      package = pkgs.lixPackageSets.latest.lix;
+      nixPath = [
+        "nixpkgs=${inputs.nixpkgs.outPath}"
+      ];
+      registry = {
+        nixpkgs.flake = inputs.nixpkgs;
+        n.flake = inputs.nixpkgs;
+      };
+    };
     home = {
       username = "lillecarl";
       homeDirectory = "/home/lillecarl";
