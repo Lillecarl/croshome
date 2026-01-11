@@ -10,6 +10,21 @@ final: prev: {
     src = /home/lillecarl/Code/tmux;
   };
 
+  mosh = prev.mosh.overrideAttrs (pa: {
+    src = builtins.fetchTree {
+      type = "github";
+      owner = "mobile-shell";
+      repo = "mosh";
+      ref = "master";
+    };
+    patches = [
+      "${prev.path}/pkgs/by-name/mo/mosh/ssh_path.patch"
+      "${prev.path}/pkgs/by-name/mo/mosh/mosh-client_path.patch"
+      "${prev.path}/pkgs/by-name/mo/mosh/bash_completion_datadir.patch"
+      (builtins.fetchurl "https://patch-diff.githubusercontent.com/raw/mobile-shell/mosh/pull/1367.patch")
+    ];
+  });
+
   hetztop-forward =
     let
       sessionConfig = prev.writeText "tmuxp.yaml" (
