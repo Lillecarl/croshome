@@ -131,6 +131,8 @@
       clock24 = true;
       extraConfig = # tmux
         ''
+          source-file ~/.config/tmux/linked.conf
+
           bind -n M-h select-pane -L
           bind -n M-j select-pane -D
           bind -n M-k select-pane -U
@@ -143,6 +145,9 @@
           set-option -sa terminal-features ',foot:RGB'
         '';
     };
+    xdg.configFile."tmux/linked.conf".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/tmux-linked.conf";
+
     programs.helix = {
       enable = true;
       defaultEditor = true;
