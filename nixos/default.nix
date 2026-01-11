@@ -12,6 +12,7 @@
     ../home
     ./disko.nix
     ./installscript.nix
+    ./podman.nix
   ];
   config = {
     boot.loader.grub.enable = true;

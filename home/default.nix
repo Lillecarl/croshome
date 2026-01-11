@@ -9,7 +9,10 @@
   config = {
     programs.fish.enable = true;
     users.users.lillecarl = {
-      extraGroups = [ "wheel" ];
+      extraGroups = [
+        "wheel"
+        "podman"
+      ];
       hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
       isNormalUser = true;
       openssh.authorizedKeys.keyFiles = [ ../lillecarl.pub ];
