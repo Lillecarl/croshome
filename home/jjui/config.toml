@@ -1,0 +1,13 @@
+[custom_commands]
+"split after" = { key = ["ctrl+s"], args = [
+  "split",
+  "--insert-after",
+  "$change_id"
+], show = "interactive" }
+"new after" = { key = ["N"], args = [
+  "new",
+  "--insert-after",
+  "$change_id",
+  "--insert-before",
+  "$change_id+",
+] }
