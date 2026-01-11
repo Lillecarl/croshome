@@ -69,6 +69,7 @@
       extraPackages =
         ps: with ps; [
           xonsh.xontribs.xontrib-abbrevs
+          sh
         ];
     };
     programs.fish = {
