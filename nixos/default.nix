@@ -36,12 +36,15 @@
     ];
     networking.hostName = "hetztop";
     nix = {
-      settings.trusted-users = [ "lillecarl" ];
-      settings.experimental-features = [
-        "nix-command"
-        "flakes"
-        "read-only-local-store"
-      ];
+      settings = {
+        trusted-users = [ "lillecarl" ];
+        experimental-features = [
+          "nix-command"
+          "flakes"
+          "read-only-local-store"
+        ];
+        sandbox = "relaxed";
+      };
       package = pkgs.lixPackageSets.latest.lix;
       nixPath = [
         "nixpkgs=${inputs.nixpkgs.outPath}"
