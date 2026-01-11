@@ -17,7 +17,7 @@ rec {
     overlays = [ (import ./pkgs) ];
   };
   home = inputs.home-manager.lib.homeManagerConfiguration {
-    inherit pkgs;
+    pkgs = import inputs.nixpkgs { };
     modules = [
       ./cros
       ./nixpkgs.nix
