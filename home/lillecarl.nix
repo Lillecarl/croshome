@@ -163,6 +163,16 @@
     programs.helix = {
       enable = true;
       defaultEditor = true;
+      extraPackages = [
+        pkgs.bash-language-server
+        pkgs.fish-lsp
+        pkgs.tombi
+        pkgs.vscode-json-languageserver
+        pkgs.yaml-language-server
+        # pkgs.pyright
+        pkgs.ty
+        pkgs.ruff
+      ];
     };
     programs.direnv.enable = true;
   };
