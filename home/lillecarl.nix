@@ -12,6 +12,7 @@
     inputs.catppuccin.homeModules.catppuccin
     ./foot.nix
     ./fonts.nix
+    ./vcs.nix
     ./modules/xonsh.nix
   ];
   config = {
@@ -141,25 +142,6 @@
           # The leading comma is important
           set-option -sa terminal-features ',foot:RGB'
         '';
-    };
-    programs.jujutsu = {
-      enable = true;
-      settings = {
-        user.name = "lillecarl";
-        user.email = "git@lillecarl.com";
-        git.private-commits = "description(glob:'private:*')";
-      };
-    };
-    programs.git = {
-      enable = true;
-      settings = {
-        user.name = "lillecarl";
-        user.email = "git@lillecarl.com";
-      };
-    };
-    programs.jjui = {
-      enable = true;
-      settings = { };
     };
     programs.helix = {
       enable = true;
