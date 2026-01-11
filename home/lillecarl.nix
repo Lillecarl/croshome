@@ -133,10 +133,6 @@
         ''
           source-file ~/.config/tmux/linked.conf
 
-          bind -n M-h select-pane -L
-          bind -n M-j select-pane -D
-          bind -n M-k select-pane -U
-          bind -n M-l select-pane -R
           # Use the modern terminfo for tmux
           set -g default-terminal "tmux-256color"
 
