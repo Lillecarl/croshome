@@ -36,6 +36,7 @@
       tmux.terminfo
     ];
     networking.hostName = "hetztop";
+    environment.etc.nixpkgs.source = inputs.nixpkgs.outPath;
     nix = {
       settings = {
         trusted-users = [ "lillecarl" ];
@@ -48,7 +49,7 @@
       };
       package = pkgs.lixPackageSets.latest.lix;
       nixPath = [
-        "nixpkgs=${inputs.nixpkgs.outPath}"
+        "nixpkgs=/etc/nixpkgs"
       ];
       registry = {
         nixpkgs.flake = inputs.nixpkgs;
