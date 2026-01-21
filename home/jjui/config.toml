@@ -11,3 +11,6 @@
   "--insert-before",
   "$change_id+",
 ] }
+
+[keys.inline_describe]
+editor = ["ctrl+e"]
