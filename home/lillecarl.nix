@@ -21,21 +21,23 @@
   config = {
     home.stateVersion = osConfig.system.stateVersion;
     home.packages = with pkgs; [
-      gitui
-      lazygit
       claude-code
       fish-lsp
+      fzf
+      gitui
       kubectl
+      kubectl-explore
       kubectx
+      lazygit
       nerd-fonts.hack
       nixd
       nixfmt
       rclone
+      sshuttle
       stern
       viddy
       waypipe
       wl-clipboard
-      sshuttle
       # Python LSP and plugins
       python3Packages.python-lsp-server
       python3Packages.pylsp-mypy
@@ -142,12 +144,12 @@
       extraPackages = [
         pkgs.bash-language-server
         pkgs.fish-lsp
-        pkgs.tombi
-        pkgs.vscode-json-languageserver
-        pkgs.yaml-language-server
-        # pkgs.pyright
-        pkgs.ty
+        pkgs.marksman
         pkgs.ruff
+        pkgs.tombi
+        pkgs.ty
+        pkgs.vscode-langservers-extracted
+        pkgs.yaml-language-server
       ];
     };
     programs.direnv.enable = true;
