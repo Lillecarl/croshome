@@ -1,6 +1,6 @@
 # /etc/systemd/user/sommelier@0.service.d/cros-sommelier-override.conf
 [Service]
-Environment="SOMMELIER_ACCELERATORS=Super_L,<Alt>bracketleft,<Alt>bracketright,<Alt>tab,<Alt>minus,<Alt>equal,<Control>space"
+Environment="SOMMELIER_ACCELERATORS=Super_L,<Alt>bracketleft,<Alt>bracketright,<Alt>tab,<Alt>minus,<Alt>equal,<Alt>space"
 
 # systemctl --user edit cros-garcon.service
 [Service]
