@@ -13,6 +13,7 @@
     ./fish.nix
     ./fonts.nix
     ./foot.nix
+    ./github.nix
     ./vcs.nix
 
     ./modules/xonsh.nix
