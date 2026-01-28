@@ -97,6 +97,17 @@
           which-key
           vterm
           meow
+          (trivialBuild {
+            pname = "meow-vterm";
+            version = "0-unstable";
+            src = pkgs.fetchFromGitHub {
+              owner = "accelbread";
+              repo = "meow-vterm";
+              rev = "fc7e86a268b523ca12ff451e91aabe5485fbc975";
+              hash = "sha256-oWWnyxTT/xdMq4CxLKb8BtjsPajg5sMctOq4dPHZzJk=";
+            };
+            packageRequires = [ meow vterm ];
+          })
           consult
           vertico
           orderless
