@@ -20,6 +20,11 @@
   ];
   config = {
     home.stateVersion = osConfig.system.stateVersion;
+    # ~/.local/bin
+    home.file.".local/bin".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/localbin";
+    home.sessionPath = [
+      "${config.home.homeDirectory}/.local/bin"
+    ];
     home.packages = with pkgs; [
       claude-code
       fish-lsp
