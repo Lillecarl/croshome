@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+NODE=$1
+IP=$(kubectl get node $NODE -o jsonpath='{.status.addresses[?(@.type=="InternalIP")].address}')
+USERNAME=$(kubectl get node $NODE -o jsonpath='{.metadata.annotations.ssh-user}' 2>/dev/null)
+USERNAME=${USERNAME:-hetzkube}  # fallback
+ssh "$USERNAME@$IP"

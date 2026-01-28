@@ -1,0 +1,5 @@
+k9s:
+  liveViewAutoRefresh: true
+  skipLatestRevCheck: true
+  ui:
+    skin: catppuccin-mocha

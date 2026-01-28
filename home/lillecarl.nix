@@ -15,6 +15,7 @@
     ./foot.nix
     ./github.nix
     ./vcs.nix
+    ./k9s.nix
 
     ./modules/xonsh.nix
   ];
@@ -56,7 +57,6 @@
     catppuccin.enable = true;
     programs.htop.enable = true;
     programs.kubecolor.enable = true;
-    programs.k9s.enable = true;
     programs.xonsh = {
       enable = true;
       package = pkgs.xonsh.override {

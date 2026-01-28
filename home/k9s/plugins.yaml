@@ -1,0 +1,10 @@
+plugins:
+  node-ssh:
+    shortCut: Shift-X
+    description: SSH to node
+    scopes:
+      - node
+    command: k9s-ssh-node
+    background: false
+    args:
+      - $NAME
