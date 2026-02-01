@@ -45,6 +45,13 @@
           "flakes"
           "read-only-local-store"
         ];
+        trusted-public-keys = [
+          "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
+          "nix-csi.cachix.org-1:i4w33gR4efO67jpz8U7g/MdvRQ6mQ3LEF9fB8tES60g="
+        ];
+        substituters = [
+          "https://nix-csi.cachix.org"
+        ];
         sandbox = "relaxed";
       };
       package = pkgs.lixPackageSets.latest.lix;
