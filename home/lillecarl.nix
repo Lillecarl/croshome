@@ -62,17 +62,21 @@
       package = pkgs.xonsh.override {
         python3 = pkgs.python3.override {
           packageOverrides = self: pypkgs: {
-            xonsh = pypkgs.xonsh.overrideAttrs {
-              version = "0.22.0";
-              doCheck = false;
-              doInstallCheck = false;
-              src = builtins.fetchTree {
-                type = "github";
-                owner = "xonsh";
-                repo = "xonsh";
-                ref = "0.22.0";
+            xonsh =
+              let
+                version = "0.22.1";
+              in
+              pypkgs.xonsh.overrideAttrs {
+                inherit version;
+                doCheck = false;
+                doInstallCheck = false;
+                src = builtins.fetchTree {
+                  type = "github";
+                  owner = "xonsh";
+                  repo = "xonsh";
+                  ref = version;
+                };
               };
-            };
           };
         };
       };
@@ -106,7 +110,10 @@
               rev = "fc7e86a268b523ca12ff451e91aabe5485fbc975";
               hash = "sha256-oWWnyxTT/xdMq4CxLKb8BtjsPajg5sMctOq4dPHZzJk=";
             };
-            packageRequires = [ meow vterm ];
+            packageRequires = [
+              meow
+              vterm
+            ];
           })
           consult
           vertico
