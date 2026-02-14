@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -e
+
+logfile="/tmp/nix-$(date +%s).log"
+echo "Logging to: $logfile"
+
+nix "$@" |& tee "$logfile"
+status=$?
+
+if [ $status -eq 0 ]; then
+  echo "[claudenix] succeeded (exit code: $status)"
+else
+  echo "[claudenix] failed (exit code: $status)"
+fi
+
+exit $status
