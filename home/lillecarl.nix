@@ -59,6 +59,7 @@
     catppuccin.enable = true;
     programs.htop.enable = true;
     programs.kubecolor.enable = true;
+
     programs.xonsh = {
       enable = true;
       package = pkgs.xonsh.override {
@@ -66,7 +67,7 @@
           packageOverrides = self: pypkgs: {
             xonsh =
               let
-                version = "0.22.1";
+                version = "0.22.4";
               in
               pypkgs.xonsh.overrideAttrs {
                 inherit version;
