@@ -28,6 +28,7 @@
       "${config.home.homeDirectory}/.local/bin"
     ];
     home.packages = with pkgs; [
+      just
       claude-code
       fish-lsp
       fzf
