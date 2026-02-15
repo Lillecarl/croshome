@@ -16,6 +16,7 @@
     ./github.nix
     ./vcs.nix
     ./k9s.nix
+    ./yazi.nix
 
     ./modules/xonsh.nix
   ];
