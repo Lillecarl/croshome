@@ -76,6 +76,14 @@
       settings = { };
     };
     programs.helix.enable = true;
+    programs.ssh = {
+      enable = true;
+      matchBlocks = {
+        "*" = {
+          serverAliveInterval = 15;
+        };
+      };
+    };
     programs.direnv = {
       enable = true;
       nix-direnv.enable = true;
