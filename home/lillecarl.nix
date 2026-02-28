@@ -165,6 +165,11 @@
     xdg.configFile."tmux/linked.conf".source =
       config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/tmux-linked.conf";
 
+    home.file.".claude/settings.json".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/settings.json";
+    home.file.".claude/skills".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
+
     programs.helix = {
       enable = true;
       defaultEditor = true;
