@@ -1,4 +1,6 @@
 final: prev: {
+  jj-hunk = final.callPackage ./jj-hunk.nix { };
+
   foot = prev.foot.overrideAttrs (pattrs: {
     patches = pattrs.patches or [ ] ++ [
       ./0001-ignore-numlock.patch

@@ -29,6 +29,7 @@
     ];
     home.packages = with pkgs; [
       just
+      jj-hunk
       claude-code
       fish-lsp
       fzf
