@@ -83,6 +83,9 @@
           serverAliveInterval = 15;
         };
       };
+      extraConfig = ''
+        WarnWeakCrypto no
+      '';
     };
     programs.direnv = {
       enable = true;
