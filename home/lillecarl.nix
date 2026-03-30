@@ -68,7 +68,7 @@
           packageOverrides = self: pypkgs: {
             xonsh =
               let
-                version = "0.22.4";
+                version = "0.22.8";
               in
               pypkgs.xonsh.overrideAttrs {
                 inherit version;
