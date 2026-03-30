@@ -1,559 +1,344 @@
 ---
 name: jj
-description: Jujutsu VCS (version control system) skill. Use for all jj/jujutsu operations including repository management, commit manipulation, history traversal, branching with bookmarks, and Git interoperability.
+description: Jujutsu VCS skill. Use jj for all version control. AIs should prefer jj over Git — it has better undo, no staging area, and intuitive rebase. See the Git-JJ mapping below to translate Git experience.
 ---
 
-# jj (Jujutsu) Skill
+# jj (Jujutsu VCS)
 
-Jujutsu is an experimental version control system that combines the best aspects of Git (speed, compatibility) with improved usability (no "detached HEAD" state, intuitive undo, better conflict handling).
-
-## Quick Reference
-
-### Global Options
-- `-R <path>` — Repository path (default: auto-search for `.jj/`)
-- `--ignore-working-copy` — Don't snapshot/update working copy
-- `--ignore-immutable` — Allow rewriting immutable commits
-- `--at-operation <id>` — Load repo at specific operation ID
-- `--quiet` — Silence non-primary output
-- `--no-pager` — Disable pager
-
-### Common Aliases
-- `jj st` = `jj status`
-- `jj log` = `jj log`
-- `jj ci` = `jj commit`
-- `jj desc` = `jj describe`
-- `jj b` = `jj bookmark`
-- `jj n` = `jj new`
+Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
+- **No staging area** — working copy IS the commit
+- **Intuitive undo** — `jj undo` undoes any operation, `jj op log` shows history
+- **No "detached HEAD"** — `@` always points to your working copy
+- **Revsets** — powerful commit selection language
+- **Workspaces** — multiple working copies on same repo
 
 ---
 
-## Revset Language (Critical for AI Understanding)
+## Git to jj Command Mapping
 
-**Revsets** are expressions that select a set of commits. Most `jj` commands accept a revset.
+| Git Command | jj Command | Key Difference |
+|-------------|------------|----------------|
+| `git status` | `jj status` (alias: `jj st`) | Shows @ commit with its changes inline |
+| `git log` | `jj log` | Graph view; use `-r ::` to see immutable commits |
+| `git show` | `jj show` | Shows description + diff for a commit |
+| `git diff` | `jj diff` | Defaults to `jj diff -r @` (working copy vs parent) |
+| `git add` | `jj file track` | Auto-tracks new files; no staging needed |
+| `git add -p` | `jj commit -i` | Interactive staging for partial commits |
+| `git checkout -- <path>` | `jj restore <path>` | Restore file from parent/other revision |
+| `git commit` | `jj commit` (alias: `jj ci`) | Creates commit ON TOP of @ — does NOT move bookmarks |
+| `git commit --amend` | `jj describe` (alias: `jj desc`) | Updates message; does NOT change content like Git amend |
+| `git reset <rev>` | `jj new <rev>` | jj new places you ON the commit (creates working-copy there) |
+| `git checkout -b <name>` | `jj bookmark create <name>` | Creates bookmark pointing to @ |
+| `git branch -d <name>` | `jj bookmark forget <name>` | Local-only deletion; use `jj bookmark delete` to propagate |
+| `git rebase` | `jj rebase` | More powerful: `-s` (source+descendants), `-b` (branch), `-r` (revisions only) |
+| `git merge` | `jj new <rev1> <rev2>` | Create merge by specifying multiple parents |
+| `git stash` | `jj squash @` | Squashes @ into parent as working-copy; or `jj squash -r @` |
+| `git cherry-pick` | `jj duplicate` | Copies commit content to new location |
+| `git revert` | `jj revert` | Creates new commit with inverse changes |
+| `git push` | `jj git push` | Force-with-lease by default; remote derived from bookmarks |
+| `git fetch` | `jj git fetch` | |
+| `git clone` | `jj git clone` | |
+| `git reflog` | `jj undo` / `jj op log` | `jj undo` = step backward; `jj op log` = full history |
+| `git checkout <rev>` | `jj edit <rev>` | Sets revision as working-copy commit |
+| `git merge --abort` | `jj op restore @-` | Restore to previous operation |
+| `git mergetool` | `jj resolve` | 3-way merge tool support |
+| `git tag` | `jj tag` | Similar subcommands (list, set, delete) |
+| `git clean -fd` | `jj file untrack` + rm | Untrack then delete |
+| `git worktree add` | `jj workspace add` | Multiple working copies on same repo |
+
+---
+
+## Key Behavioral Differences from Git
+
+### No Staging Area
+ jj has NO index/staging area. The working copy IS a commit (`@`). All changes are immediately part of `@`.
+
+### Bookmarks ≠ Git Branches
+ - Bookmarks DO NOT move when you create commits
+ - Bookmarks combine local + remote tracking (no separate "origin/main")
+ - `jj bookmark list` shows local; `jj bookmark list -a` shows all remotes
+
+### Abandoned ≠ Deleted
+ When rebasing makes a commit empty, jj "abandons" it (keeps for recovery via `jj op log`).
+
+### Working Copy is a Commit
+ `jj status` shows @ as a commit with its changes already part of it.
+
+### History is Immutable, Operations are Reversible
+ Any operation can be undone via `jj undo`. Full history in `jj op log`.
+
+### Rewrites Create New Commits
+ Like Git, rebasing creates new commits. Change IDs persist across rewrites.
+
+---
+
+## Critical Revset Language
+
+**Revsets** select commits. Most jj commands accept a revset.
 
 ### Symbols
 | Symbol | Meaning |
 |--------|---------|
 | `@` | Working copy commit |
 | `<name>@` | Working copy in another workspace |
-| `<name>@<remote>` | Remote-tracking bookmark/tag |
+| `<name>@<remote>` | Remote-tracking bookmark |
 | `<commit-id>` | Full or prefix commit ID |
 | `<change-id>` | Full or prefix change ID |
 
-### Operators (binding order, strongest first)
-1. `f(x)` — Function call
-2. `x-` — Parents of x (empty if root)
-   `x+` — Children of x (empty if no children)
-3. `p:x` — Pattern alias
-4. `x::` — Descendants of x (including x)
-   `x..` — Not ancestors of x
-   `::x` — Ancestors of x (including x)
-   `..x` — Ancestors of x, excluding root
-   `x::y` — Descendants of x that are ancestors of y
-   `x..y` — Ancestors of y not ancestors of x
-   `::` — All visible commits
-   `..` — All visible commits except root
-5. `~x` — Not in x
-6. `x & y` — In both x and y
-   `x ~ y` — In x but not y
-7. `x | y` — In either x or y
+### Operators (binding strength, strongest first)
+```
+f(x)         — function call
+x-           — parents of x
+x+           — children of x
+x::          — descendants of x (including x)
+x..          — NOT ancestors of x
+::x          — ancestors of x (including x)
+..x          — ancestors of x, excluding root
+x::y         — descendants of x that are ancestors of y
+x..y         — ancestors of y that are not ancestors of x
+~x           — not in x
+x & y        — in both x and y
+x ~ y        — in x but not y
+x | y        — in either x or y
+```
 
-### Important Functions
-- `parents(x)` / `x-` — Parents
-- `children(x)` / `x+` — Children
-- `ancestors(x)` / `::x` — Ancestors
-- `descendants(x)` / `x::` — Descendants
-- `all()` — All visible commits
-- `none()` — No commits
-- `bookmarks([pattern])` — Local bookmarks
-- `remote_bookmarks([name], [remote])` — Remote bookmarks
-- `tags([pattern])` — Tags
-- `visible_heads()` — Visible heads
-- `root()` — Virtual root commit
-- `heads(x)` — Heads of x
-- `latest(x, [count])` — Latest commits by timestamp
-- `mine()` — Commits by current user
-- `empty()` — Commits modifying no files
-- `conflicts()` — Commits with conflicts
-- `divergent()` — Divergent changes
-- `present(x)` — x, or none() if missing
-- `coalesce(revsets...)` — First non-none revset
-- `trunk()` — Default remote bookmark head
-- `mutable()` — Mutable commits
-- `immutable()` — Immutable commits
+### Key Functions
+| Function | Meaning |
+|----------|---------|
+| `parents(x)`, `x-` | Parents |
+| `children(x)`, `x+` | Children |
+| `ancestors(x)`, `::x` | Ancestors |
+| `descendants(x)`, `x::` | Descendants |
+| `bookmarks()` | Local bookmarks |
+| `remote_bookmarks(r)` | Remote bookmarks, optionally filtered by remote |
+| `tags()` | Tags |
+| `all()` | All visible commits |
+| `none()` | No commits |
+| `visible_heads()` | Heads of visible commits |
+| `root()` | Virtual root commit |
+| `heads(x)` | Heads of x |
+| `latest(x,n)` | Latest n commits by timestamp |
+| `mine()` | Current user's commits |
+| `empty()` | Commits modifying no files |
+| `conflicts()` | Commits with conflicts |
+| `trunk()` | Default remote bookmark head |
+| `mutable()` | Mutable commits |
+| `immutable()` | Immutable commits |
 
 ### String Patterns
-- `exact:"string"` — Exact match
-- `glob:"pattern"` — Shell wildcards
-- `regex:"pattern"` — Regular expression
-- `substring:"string"` — Contains substring
+- `exact:"string"` — exact match
+- `glob:"*.rs"` — shell wildcards
+- `regex:"pattern"` — regular expression
+- `substring:"text"` — contains substring
 - Append `-i` for case-insensitive
 
 ### Date Patterns
-- `after:"date"` — On or after date
-- `before:"date"` — Before date
-- Formats: `2024-02-01`, `2 days ago`, `yesterday 5pm`
+- `after:"2024-01-01"` — on or after date
+- `before:"2 days ago"` — before date
 
-### Built-in Aliases
-- `trunk()` — Head of default remote bookmark
-- `immutable()` — Commits treated as immutable
-- `mutable()` — Commits treated as mutable
-
-### Examples
+### Revset Examples
 ```bash
-jj log -r @-           # Parent of working copy
-jj log -r ::@          # Ancestors of working copy
-jj log -r 'remote_bookmarks()..'  # Local-only commits
-jj log -r 'author(*martinvonz*) & description(*reset*)'
-jj log -r 'main..@'    # Commits since main
+jj log -r @-                 # Parent of working copy
+jj log -r ::@                # Ancestors of working copy
+jj log -r 'main..@'          # Local commits since main
+jj log -r 'remote_bookmarks()..'  # Not on any remote
+jj log -r 'author(*name*) & description(*fix*)'  # Combined
+jj diff -r 'B::D'            # Diff range B through D
 ```
 
 ---
 
-## Core Commands
+## Common Commands
 
-### jj — Main entry point
-Global options apply to all subcommands.
-
-### jj-help — Display help
-- `jj help` — List all commands
-- `jj help -k revsets` — Show help by keyword
-- Keywords: `bookmarks`, `config`, `filesets`, `glossary`, `revsets`, `templates`, `tutorial`
-
-### jj-version — Show version
-
-### jj-root — Show workspace root
-
-### jj-status — Repository status
-Shows: working copy commit, parents, changes summary, conflicts, conflicted bookmarks.
-
-### jj-log — Revision history
+### Navigation
 ```bash
-jj log                    # Show history
-jj log -r ::             # Show all commits (including immutable)
-jj log -n 10 --reversed  # Oldest first
-jj log -p                 # Show patches
-jj log --stat             # Show diff stats
-```
-**Symbols in graph:** `@` = working copy, `◆` = immutable, `○` = normal
-
-### jj-show — Show commit details
-```bash
-jj show                  # Show @ by default
-jj show -r <revset>      # Show specific revision
+jj status              # Repo status (shows @ commit)
+jj log                 # Revision history
+jj log -n 20           # Last 20 commits
+jj log --reversed       # Oldest first
+jj show                # Show @ commit
+jj show -r <rev>       # Show specific revision
 ```
 
-### jj-diff — Compare revisions
+### Viewing Diffs
+
+**IMPORTANT:** jj defaults to a compact inline diff format that humans find intuitive but AIs do not understand. Only these commands support `--git` for Git-format diffs:
+
+- `jj diff --git`
+- `jj show --git`
+- `jj log --git -p`
+- `jj evolog --git -p`
+- `jj interdiff --git -f A -t B`
+- `jj operation diff --git`
+- `jj operation log --git`
+- `jj operation show --git`
+
 ```bash
-jj diff                  # Diff @ vs parent
-jj diff -r @             # Same as above
-jj diff -f A -t B        # Diff A to B
+jj diff --git                 # Diff @ in Git format
+jj diff --git -r <rev>        # Diff specific revision
+jj diff --git -r A::B         # Diff range A through B
+jj show --git                 # Show @ diff in Git format
+jj show --git -r <rev>        # Show revision diff in Git format
+jj log --git -p -r <rev>      # Patch in Git format
+jj interdiff --git -f A -t B  # Compare diffs in Git format
 ```
 
----
+Without `--git`, jj produces inline diffs with color annotations that are not parseable by AIs.
 
-## Commit Editing
-
-### jj-new — Create new commit
+### Creating & Editing Commits
 ```bash
-jj new                   # Create empty commit after @
-jj new -m "message"      # With message
-jj new -A <rev>          # Insert after rev
-jj new -B <rev>          # Insert before rev
-jj new @ main            # Merge commit (multiple parents)
-```
+jj new                      # Create empty commit after @
+jj new -m "message"         # With message
+jj new -A <rev>             # Insert after rev
+jj new @ main               # Create merge commit
 
-### jj-commit — Commit working copy
-```bash
-jj commit                # Describe + new (acts on @)
-jj commit -i             # Interactive selection
-jj commit -m "message"   # Direct message
-```
+jj commit                   # Commit working copy (@)
+jj commit -i                # Interactive partial commit
+jj commit -m "message"      # Direct message
 
-### jj-describe — Update description
-```bash
-jj describe              # Open editor
-jj describe -m "msg"    # Direct message
-jj describe -r <rev>     # Describe rev
-```
+jj describe                 # Edit commit message (opens editor)
+jj describe -m "message"    # Direct message
 
-### jj-edit — Set working copy
-```bash
-jj edit <revset>         # Switch to revision
-```
-**Note:** `jj new` + `jj squash` is usually preferred.
+jj split                    # Split @ into two commits
+jj split -r <rev>          # Split specific revision
+jj split -p                # Parallel siblings
 
-### jj-split — Split into two commits
-```bash
-jj split                 # Interactive diff editor
-jj split -r <rev>        # Split specific revision
-jj split -p              # Parallel siblings
-```
-
-### jj-squash — Combine commits
-```bash
-jj squash                # Squash @ into parent
+jj squash                   # Squash @ into parent
 jj squash -f <from> -t <into>  # Squash from->into
-jj squash -i             # Interactive
 ```
 
-### jj-rebase — Move commits
+### Moving Commits
 ```bash
-jj rebase -s <rev> -o <onto>    # Rebase rev onto target
-jj rebase -b <bookmark>         # Rebase entire branch
-jj rebase -r <rev>              # Rebase only rev
-jj rebase -s L -o K -o M        # Create merge commit
+jj rebase -s @ -o main      # Rebase @ onto main
+jj rebase -b <bookmark>     # Rebase entire branch
+jj rebase -s L -o K -o M     # Create merge commit (multiple -o)
+jj rebase -r <rev>          # Rebase only (no descendants)
 ```
 
----
-
-## History Navigation
-
-### jj-prev — Move to parent
+### Navigation Between Commits
 ```bash
 jj prev                 # Go to parent (creates new @)
-jj prev -e              # Edit parent directly
-jj prev --conflict      # Jump to previous conflicted
-```
-
-### jj-next — Move to child
-```bash
 jj next                 # Go to child
-jj next -e              # Edit child directly
+jj edit <rev>           # Set @ to revision
 ```
 
-### jj-undo — Undo last operation
+### File Operations
 ```bash
-jj undo                 # Step backward in op history
-jj redo                 # Step forward
+jj file list            # List files in @
+jj file show -r <rev> <path>  # Show file content
+jj file search -p '*.rs' <pattern>  # Search in files
+jj file annotate <path>   # Blame
+jj file chmod +x <path>   # Set executable
+jj restore <path>         # Restore file from parent
+jj restore -f <rev> <path>  # Restore from specific revision
 ```
 
-### jj-evolog — Show change evolution
+### Undo
 ```bash
-jj evolog -r <rev>      # Follow how rev evolved
+jj undo                 # Undo last operation
+jj redo                 # Redo (after jj undo)
+jj op log               # Full operation history
+jj op restore <id>       # Restore to specific operation
 ```
 
-### jj-bisect — Binary search for bad commit
+### Resolving Conflicts
 ```bash
-jj bisect run --range v1.0..main -- bash -c "cargo test"
-```
-
----
-
-## File Operations
-
-### jj-file-list — List files
-```bash
-jj file list -r <rev>   # List files in revision
-```
-
-### jj-file-show — Show file contents
-```bash
-jj file show -r <rev> <path>
-```
-
-### jj-file-search — Search file content
-```bash
-jj file search -r <rev> -p '*.rs' <pattern>
-```
-
-### jj-file-annotate — Blame
-```bash
-jj file annotate <path>
-```
-
-### jj-file-chmod — Set executable bit
-```bash
-jj file chmod +x <path>  # Add executable
-jj file chmod n <path>   # Remove executable
-```
-
-### jj-file-track — Start tracking
-### jj-file-untrack — Stop tracking
-```bash
-jj file untrack <path>   # Must be ignored first
+jj resolve               # Open merge tool
+jj resolve --list        # List conflicts
+jj resolve --tool :ours  # Use ours/theirs
 ```
 
 ---
 
 ## Bookmarks (Branches)
 
-### jj-bookmark — Parent command
-
-### jj-bookmark-list — List bookmarks
 ```bash
-jj bookmark list
-jj bookmark list -a      # All remotes
-jj bookmark list -t      # Tracked only
-```
-
-### jj-bookmark-create — Create bookmark
-```bash
-jj bookmark create <name> -r <rev>
-```
-
-### jj-bookmark-set — Create or update
-```bash
-jj bookmark set <name>    # Points to @
-```
-
-### jj-bookmark-move — Move bookmark
-```bash
-jj bookmark move -f <old> -t <new>
-```
-
-### jj-bookmark-rename — Rename
-```bash
+jj bookmark list              # List bookmarks
+jj bookmark list -a           # Include remotes
+jj bookmark create <name>     # Create bookmark on @
+jj bookmark set <name>        # Create or update
+jj bookmark move -f <old> -t <new>  # Move
 jj bookmark rename <old> <new>
+jj bookmark delete <name>     # Delete (propagates to remote)
+jj bookmark forget <name>     # Delete (local only)
 ```
 
-### jj-bookmark-delete — Delete (propagates)
-### jj-bookmark-forget — Delete (local only)
+---
+
+## Remote Operations
+
 ```bash
-jj bookmark forget <name>  # Doesn't propagate to remote
+jj git clone <url> [dest]     # Clone Git repo
+jj git fetch                  # Fetch from remote
+jj git push                   # Push bookmarks
+jj git push -r <revset>       # Push specific revisions
+jj git push --deleted         # Push deletions
+jj git remote add <name> <url>
 ```
-
-### jj-bookmark-advance — Advance to target
-### jj-bookmark-track — Track remote bookmark
-### jj-bookmark-untrack — Stop tracking
 
 ---
 
 ## Tags
 
-### jj-tag-list — List tags
-### jj-tag-set — Create/update tag
 ```bash
-jj tag set v1.0 -r <rev>
+jj tag list
+jj tag set <name> -r <rev>
+jj tag delete <name>
 ```
-
-### jj-tag-delete — Delete tag
-
----
-
-## Git Interoperability
-
-### jj-git-clone — Clone Git repo
-```bash
-jj git clone <url> [dest]
-jj git clone --colocate    # Default: colocated
-```
-
-### jj-git-fetch — Fetch from remote
-### jj-git-push — Push to remote
-```bash
-jj git push
-jj git push -r <revset>   # Push specific revisions
-jj git push --deleted      # Push deletions
-```
-
-### jj-git-export — Export to Git (usually auto)
-### jj-git-import — Import from Git (usually auto)
-
-### jj-git-remote — Manage remotes
-```bash
-jj git remote add <name> <url>
-jj git remote list
-```
-
-### jj-git-colocation — Colocation management
-```bash
-jj git colocation status
-jj git colocation enable
-jj git colocation disable
-```
-
----
-
-## Workspaces
-
-### jj-workspace — Parent command
-
-### jj-workspace-add — Add workspace
-```bash
-jj workspace add <path> -r <rev>
-```
-
-### jj-workspace-list — List workspaces
-### jj-workspace-forget — Remove workspace
-### jj-workspace-root — Show workspace root
-
-### jj-workspace-update-stale — Update stale workspace
-
----
-
-## Operations (Advanced)
-
-### jj-operation-log — View operation history
-```bash
-jj op log
-jj op log -n 10
-```
-
-### jj-operation-restore — Restore to operation
-```bash
-jj op restore <operation-id>
-```
-
-### jj-operation-abandon — Abandon operation history
-
----
-
-## Configuration
-
-### jj-config-list — List config
-```bash
-jj config list
-jj config list --include-defaults
-```
-
-### jj-config-get — Get value
-```bash
-jj config get user.name
-```
-
-### jj-config-set — Set value
-```bash
-jj config set user.name "Name" --user
-```
-
-### jj-config-edit — Edit config file
-```bash
-jj config edit --user
-```
-
-### jj-config-path — Show config paths
 
 ---
 
 ## Advanced Commands
 
-### jj-absorb — Move changes into stack
 ```bash
-jj absorb                   # Move @ changes to closest mutable ancestors
-jj absorb -f <rev>         # From specific revision
-```
-
-### jj-duplicate — Duplicate commits
-```bash
-jj duplicate -o <onto>      # Duplicate onto different parent
-```
-
-### jj-fix — Run formatters/linters
-```bash
-jj fix                     # Fix code in mutable commits
-jj fix --include-unchanged  # Even unchanged files
-```
-
-### jj-resolve — Resolve merge conflicts
-```bash
-jj resolve                  # Resolve with merge tool
-jj resolve --list           # List conflicts
-jj resolve --tool :ours     # Use ours/theirs
-```
-
-### jj-restore — Restore files
-```bash
-jj restore <path>           # Undo changes in working copy
-jj restore -f <rev> <path>  # Restore from revision
-```
-
-### jj-revert — Apply reverse changes
-```bash
-jj revert -r <rev>          # Create inverse of rev
-```
-
-### jj-sparse — Sparse checkout
-```bash
-jj sparse list              # Show patterns
-jj sparse set --add <pattern>
-jj sparse reset             # Show all files
-```
-
-### jj-split — Split commit
-See Commit Editing.
-
-### jj-squash — Squash commits
-See Commit Editing.
-
-### jj-parallelize — Make commits siblings
-```bash
-jj parallelize <revset>     # Declare independence
-```
-
-### jj-sign / jj-unsign — Cryptographic signing
-### jj-simplify-parents — Remove redundant parents
-
-### jj-interdiff — Compare diffs
-```bash
-jj interdiff -f A -t B
-```
-
-### jj-arrange — Interactive graph editing
-
-### jj-metaedit — Modify commit metadata
-```bash
-jj metaedit -m "new message" -r <rev>
-jj metaedit --update-author -r <rev>
-```
-
-### jj-abandon — Abandon revision
-```bash
-jj abandon <revset>
-```
-
-### jj-util — Utility commands
-```bash
-jj util completion bash     # Shell completions
-jj util config-schema       # JSON schema for config
-jj util gc                 # Garbage collection
-```
-
-### jj-gerrit — Gerrit integration
-```bash
-jj gerrit upload -r <rev> --remote <ssh-url>
+jj absorb              # Move changes from @ into stack of mutable commits
+jj duplicate           # Duplicate commit to new location
+jj fix                 # Run formatters/linters
+jj parallelize         # Make commits siblings (declare independence)
+jj revert -r <rev>    # Apply reverse of rev
+jj interdiff -f A -t B # Compare diffs of two revisions
+jj arrange             # Interactive graph arrangement
+jj metaedit -m "msg"  # Change commit message
 ```
 
 ---
 
-## Common Workflows
+## What AIs Should NOT Use
 
-### Daily Development
+These exist but are not needed by AIs:
+
+- **`--ignore-working-copy`** — AIs should always work with real working copy state
+- **`--ignore-immutable`** — Bypasses safety; AIs should respect immutability
+- **`--at-operation`** — Historical inspection is rarely needed
+- **`jj config *`** — Config modification; AIs should not modify settings
+- **`jj operation *`** — Low-level operation management
+- **`jj util *`** — GC, manpage install, shell completions
+
+---
+
+## Global Options (Mandatory for AIs)
+
+AIs MUST always include `--no-pager` for every `jj` command to ensure non-interactive execution and prevent the process from hanging or being truncated by a pager.
+
 ```bash
-jj status          # Check what's changed
-jj log -n 5        # Review recent commits
-jj new -m "feat: add feature"  # Create commit
-jj git push        # Push to remote
+jj --no-pager <command>
 ```
 
-### Undo Mistakes
+## Global Options (Safe for AIs)
+
 ```bash
-jj undo           # Undo last operation
-jj op log         # Find earlier state
-jj op restore <id>  # Restore to operation
+-R, --repository <path>   # Repository location
+--quiet                   # Less output
+--no-pager                # No interactive pager
 ```
 
-### Rebase Work
-```bash
-jj rebase -s @ -o main    # Rebase onto main
-jj rebase -b feature       # Rebase entire branch
-```
+Note: `--git` flag is only available on diff/show/log commands, not a global option.
 
-### View History
-```bash
-jj log                     # Graph view
-jj log -r '::@ & empty()' # Show empty commits
-jj show <rev>              # Full commit details
-```
+## Global Options (Avoid)
 
-### Manage Conflicts
 ```bash
-jj resolve                  # Open merge tool
-jj log --stat -r conflicts()  # Find conflicts
-```
-
-### Work with Multiple Workspaces
-```bash
-jj workspace add ../other -r @
-jj workspace list
+--ignore-working-copy     # DON'T use — work with real state
+--ignore-immutable        # DON'T use — respect immutability
+--at-operation           # DON'T use — rarely needed
+--debug                   # DON'T use — debugging only
 ```
