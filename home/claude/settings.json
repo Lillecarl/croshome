@@ -2,7 +2,7 @@
   "env": {
     "API_TIMEOUT_MS": "3000000"
   },
-  "model": "minimax",
+  "model": "haiku",
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true
@@ -13,5 +13,9 @@
     "grep": "*",
     "webFetch": "*",
     "webSearch": "*"
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "/home/lillecarl/.claude/statusline.sh"
   }
 }

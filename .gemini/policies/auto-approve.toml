@@ -1,0 +1,20 @@
+# Auto-approve read-only jj commands (prefix optional)
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "^(direnv exec \\. )?jj (--no-pager )?(diff|status|st|log|show|show --git|diff --git).*"
+decision = "allow"
+priority = 100
+
+# Auto-approve grep (prefix optional)
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "^(direnv exec \\. )?grep .*"
+decision = "allow"
+priority = 100
+
+# Auto-approve ripgrep (rg) (prefix optional)
+[[rule]]
+toolName = "run_shell_command"
+commandRegex = "^(direnv exec \\. )?rg .*"
+decision = "allow"
+priority = 100

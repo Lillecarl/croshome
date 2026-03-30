@@ -10,7 +10,7 @@ in
       enable = true;
       shellInit = # fish
         ''
-          fish_config theme choose "${themeName}" --color-theme=dark
+          # fish_config theme choose "${themeName}" --color-theme=dark
         '';
     };
     xdg.configFile."fish/functions".source =
@@ -25,6 +25,6 @@ in
       enable = true;
       enableFishIntegration = true;
     };
-    xdg.configFile."fish/themes/${themeName}.theme".source = "${sources.fish}/${themeName}.theme";
+    # xdg.configFile."fish/themes/${themeName}.theme".source = "${sources.fish}/${themeName}.theme";
   };
 }

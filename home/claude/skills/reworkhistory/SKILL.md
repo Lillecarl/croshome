@@ -23,35 +23,44 @@ When the user invokes this skill, they may specify a revset. Common patterns:
 
 The skill receives the revset as the first argument.
 
-## Core Workflow
+## Core Workflow (Serial)
 
-### Phase 1: Analyze (Parallel)
+**Process each commit serially, oldest first.** After each operation, verify state before proceeding to the next.
 
-1. Run `jj log -r '<revset>' --no-pager` to get all target commits with their full messages and revids.
+1. Run `jj log -r '$revset' --no-pager --template builtin_log_detailed` to list all target commits with their full messages and revids.
 
-2. Spawn **one subagent per commit**, all in parallel. Pass to each subagent:
-   - The full `jj log` output (for adjacent commit context)
-   - The commit's revid and current message
-   - **Never use pipes** to filter command output
+2. For each commit (oldest first), spawn a **dedicated subagent pair** with full context for that commit:
+   - **Decision agent**: Inspect this specific commit, decide split/squash/keep
+   - **Execution agent**: Run jj-hunk commands for this specific commit only
 
-   Each subagent must:
-   - Run `jj show --summary -r $rev` to see file-level changes
-   - Run `jj-hunk list --rev $rev` to see the commit's hunk structure
-   - Review adjacent commits for additional context
-   - Determine: split, squash, or leave as-is
-   - If split: identify which hunks belong to which concern
-   - If squash: confirm it belongs with the parent
-   - Return a structured recommendation with reasoning
+3. After each commit:
+   - Run `jj log -r '$revset' --no-pager --template builtin_log_detailed` to confirm state
+   - Proceed to next commit only after verifying success
 
-3. Collect all recommendations back in the main agent.
+### Decision Agent (per commit)
 
-### Phase 2: Execute (Serial)
+Pass to the subagent:
+- Full `jj log` output (for adjacent commit context)
+- This commit's revid and current message
+- The revsets of adjacent commits
 
-4. Main agent reviews all recommendations and decides the final execution order (oldest first).
+The agent must run:
+- `jj diff --git --revisions $rev` to see what changed
+- `jj show --summary -r $rev` for file-level view
+- `jj log -r $rev-1..$rev --no-pager` for parent diff context
 
-5. **Execute serially, oldest to newest.** After each operation:
-   - Re-run `jj log -r '<revset>' --no-pager` to confirm state
-   - Proceed to the next commit only after verifying the previous operation succeeded
+Return a structured decision:
+- **keep**: commit is clean, no changes needed
+- **squash**: belongs with parent, reason why
+- **split**: which files/hunks go with which concern, suggested jj-hunk commands
+
+### Execution Agent (per commit)
+
+Pass to the subagent:
+- The decision from the decision agent
+- The full jj log context
+
+The agent runs the jj-hunk commands for this commit and confirms execution.
 
 ## Decision Framework
 
@@ -68,39 +77,22 @@ The skill receives the revset as the first argument.
 - Small fixes/tweaks that belong with the main change
 - Documentation that supports the previous commit
 
-## Examples
+## jj-hunk Commands
 
-### Split Mixed Changes
+### Split a Commit
 
-A commit touches schema, routes, and utils:
+Keep only specific files, reset the rest to working copy:
 
 ```bash
-# 1. Inspect
-jj-hunk list
-
-# 2. Extract infrastructure first
 jj-hunk split '{
   "files": {
     "src/db/schema.ts": {"action": "keep"}
   },
   "default": "reset"
 }' "feat: add database schema"
-
-# 3. Remaining changes become subsequent commits
-jj-hunk split '{
-  "files": {
-    "src/api/routes.ts": {"action": "keep"}
-  },
-  "default": "reset"
-}' "feat: add users endpoint"
-
-# 4. Final piece
-jj describe -m "refactor: clean up utils"
 ```
 
 ### Extract Specific Hunks
-
-A file has refactoring (hunks 0, 2) and new feature (hunk 1):
 
 ```bash
 jj-hunk split '{
@@ -109,46 +101,22 @@ jj-hunk split '{
   },
   "default": "reset"
 }' "refactor: clean up utils"
-
-# Hunk 1 remains in working copy
-jj describe -m "feat: add helper function"
-```
-
-### Keep Everything Except One File
-
-```bash
-jj-hunk split '{
-  "files": {
-    "src/wip.rs": {"action": "reset"}
-  },
-  "default": "keep"
-}' "feat: complete implementation"
 ```
 
 ### Squash into Parent
 
-A small fix commit that belongs with its parent:
-
 ```bash
-jj-hunk list --rev @
-
-# Squash everything into parent
 jj-hunk squash '{
   "files": {
     ".": {"action": "keep"}
   }
 }'
-
-# Then fix the parent message
-jj describe -m "feat: implement feature with correct behavior"
 ```
 
 ## Agent Guidelines
 
-- Use `jj log -r '<revset>' --no-pager` to list target commits (default to `mutable()` if no revset given)
-- Never use pipes to filter command output — work with full output directly
-- Consider adjacent commits when deciding splits — related changes may belong together
-- Prefer explicit hunk indices or stable ids when building specs
-- Use `"default": "reset"` for safer explicit inclusion
+- Use `jj log -r '<revset>' --no-pager --template builtin_log_detailed` to list target commits
+- Process oldest commits first — later commits may depend on earlier ones
+- Never use pipes to filter command output
 - After splitting, use `jj describe` to refine commit messages
 - Report what was split/squashed and why each decision was made

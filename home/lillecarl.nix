@@ -27,7 +27,28 @@
     home.sessionPath = [
       "${config.home.homeDirectory}/.local/bin"
     ];
+    lib.packages.gemini-cli = (
+      pkgs.gemini-cli.overrideAttrs (
+        finalAttrs: previousAttrs: {
+          version = "0.36.0";
+          src = pkgs.fetchFromGitHub {
+            owner = "google-gemini";
+            repo = "gemini-cli";
+            tag = "v${finalAttrs.version}";
+            hash = "sha256-eSGznx64xN/2/TPkLTx57Ar56FogYSzUkINBduhMn/8=";
+          };
+          npmDepsHash = "sha256-ztpKe7kgQAgfCBiIBlzPDa5muOI+9kESwrzBLqwz3V0=";
+          npmDeps = pkgs.fetchNpmDeps {
+            inherit (finalAttrs) src;
+            hash = finalAttrs.npmDepsHash;
+          };
+        }
+      )
+    );
     home.packages = with pkgs; [
+      config.lib.packages.gemini-cli
+      atuin
+      bat
       just
       jj-hunk
       claude-code

@@ -72,6 +72,22 @@ Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
 
 ---
 
+## Best Practices for AI Agents
+
+### Use `jj commit` to Finish a Task
+AIs should prefer `jj commit -m "message"` over `jj describe`. 
+- `jj commit` creates a new revision ON TOP of the current one and moves the `@` (working copy) to a new empty commit. This prevents "task bleed" where new changes accidentally accumulate in the same revision.
+- `jj describe` only labels the current revision. If used, the AI must remember to call `jj new` manually before starting the next task.
+
+### Always Use `--no-pager`
+AIs MUST always include `--no-pager` for every `jj` command to ensure non-interactive execution and prevent the process from hanging or being truncated by a pager.
+
+```bash
+jj --no-pager <command>
+```
+
+---
+
 ## Critical Revset Language
 
 **Revsets** select commits. Most jj commands accept a revset.
@@ -152,12 +168,12 @@ jj diff -r 'B::D'            # Diff range B through D
 
 ### Navigation
 ```bash
-jj status              # Repo status (shows @ commit)
-jj log                 # Revision history
-jj log -n 20           # Last 20 commits
-jj log --reversed       # Oldest first
-jj show                # Show @ commit
-jj show -r <rev>       # Show specific revision
+jj --no-pager status              # Repo status (shows @ commit)
+jj --no-pager log                 # Revision history
+jj --no-pager log -n 20           # Last 20 commits
+jj --no-pager log --reversed       # Oldest first
+jj --no-pager show                # Show @ commit
+jj --no-pager show -r <rev>       # Show specific revision
 ```
 
 ### Viewing Diffs
@@ -174,78 +190,78 @@ jj show -r <rev>       # Show specific revision
 - `jj operation show --git`
 
 ```bash
-jj diff --git                 # Diff @ in Git format
-jj diff --git -r <rev>        # Diff specific revision
-jj diff --git -r A::B         # Diff range A through B
-jj show --git                 # Show @ diff in Git format
-jj show --git -r <rev>        # Show revision diff in Git format
-jj log --git -p -r <rev>      # Patch in Git format
-jj interdiff --git -f A -t B  # Compare diffs in Git format
+jj --no-pager diff --git                 # Diff @ in Git format
+jj --no-pager diff --git -r <rev>        # Diff specific revision
+jj --no-pager diff --git -r A::B         # Diff range A through B
+jj --no-pager show --git                 # Show @ diff in Git format
+jj --no-pager show --git -r <rev>        # Show revision diff in Git format
+jj --no-pager log --git -p -r <rev>      # Patch in Git format
+jj --no-pager interdiff --git -f A -t B  # Compare diffs in Git format
 ```
 
 Without `--git`, jj produces inline diffs with color annotations that are not parseable by AIs.
 
 ### Creating & Editing Commits
 ```bash
-jj new                      # Create empty commit after @
-jj new -m "message"         # With message
-jj new -A <rev>             # Insert after rev
-jj new @ main               # Create merge commit
+jj --no-pager new                      # Create empty commit after @
+jj --no-pager new -m "message"         # With message
+jj --no-pager new -A <rev>             # Insert after rev
+jj --no-pager new @ main               # Create merge commit
 
-jj commit                   # Commit working copy (@)
-jj commit -i                # Interactive partial commit
-jj commit -m "message"      # Direct message
+jj --no-pager commit                   # Commit working copy (@)
+jj --no-pager commit -i                # Interactive partial commit
+jj --no-pager commit -m "message"      # Direct message
 
-jj describe                 # Edit commit message (opens editor)
-jj describe -m "message"    # Direct message
+jj --no-pager describe                 # Edit commit message (opens editor)
+jj --no-pager describe -m "message"    # Direct message
 
-jj split                    # Split @ into two commits
-jj split -r <rev>          # Split specific revision
-jj split -p                # Parallel siblings
+jj --no-pager split                    # Split @ into two commits
+jj --no-pager split -r <rev>          # Split specific revision
+jj --no-pager split -p                # Parallel siblings
 
-jj squash                   # Squash @ into parent
-jj squash -f <from> -t <into>  # Squash from->into
+jj --no-pager squash                   # Squash @ into parent
+jj --no-pager squash -f <from> -t <into>  # Squash from->into
 ```
 
 ### Moving Commits
 ```bash
-jj rebase -s @ -o main      # Rebase @ onto main
-jj rebase -b <bookmark>     # Rebase entire branch
-jj rebase -s L -o K -o M     # Create merge commit (multiple -o)
-jj rebase -r <rev>          # Rebase only (no descendants)
+jj --no-pager rebase -s @ -o main      # Rebase @ onto main
+jj --no-pager rebase -b <bookmark>     # Rebase entire branch
+jj --no-pager rebase -s L -o K -o M     # Create merge commit (multiple -o)
+jj --no-pager rebase -r <rev>          # Rebase only (no descendants)
 ```
 
 ### Navigation Between Commits
 ```bash
-jj prev                 # Go to parent (creates new @)
-jj next                 # Go to child
-jj edit <rev>           # Set @ to revision
+jj --no-pager prev                 # Go to parent (creates new @)
+jj --no-pager next                 # Go to child
+jj --no-pager edit <rev>           # Set @ to revision
 ```
 
 ### File Operations
 ```bash
-jj file list            # List files in @
-jj file show -r <rev> <path>  # Show file content
-jj file search -p '*.rs' <pattern>  # Search in files
-jj file annotate <path>   # Blame
-jj file chmod +x <path>   # Set executable
-jj restore <path>         # Restore file from parent
-jj restore -f <rev> <path>  # Restore from specific revision
+jj --no-pager file list            # List files in @
+jj --no-pager file show -r <rev> <path>  # Show file content
+jj --no-pager file search -p '*.rs' <pattern>  # Search in files
+jj --no-pager file annotate <path>   # Blame
+jj --no-pager file chmod +x <path>   # Set executable
+jj --no-pager restore <path>         # Restore file from parent
+jj --no-pager restore -f <rev> <path>  # Restore from specific revision
 ```
 
 ### Undo
 ```bash
-jj undo                 # Undo last operation
-jj redo                 # Redo (after jj undo)
-jj op log               # Full operation history
-jj op restore <id>       # Restore to specific operation
+jj --no-pager undo                 # Undo last operation
+jj --no-pager redo                 # Redo (after jj undo)
+jj --no-pager op log               # Full operation history
+jj --no-pager op restore <id>       # Restore to specific operation
 ```
 
 ### Resolving Conflicts
 ```bash
-jj resolve               # Open merge tool
-jj resolve --list        # List conflicts
-jj resolve --tool :ours  # Use ours/theirs
+jj --no-pager resolve               # Open merge tool
+jj --no-pager resolve --list        # List conflicts
+jj --no-pager resolve --tool :ours  # Use ours/theirs
 ```
 
 ---
@@ -253,14 +269,14 @@ jj resolve --tool :ours  # Use ours/theirs
 ## Bookmarks (Branches)
 
 ```bash
-jj bookmark list              # List bookmarks
-jj bookmark list -a           # Include remotes
-jj bookmark create <name>     # Create bookmark on @
-jj bookmark set <name>        # Create or update
-jj bookmark move -f <old> -t <new>  # Move
-jj bookmark rename <old> <new>
-jj bookmark delete <name>     # Delete (propagates to remote)
-jj bookmark forget <name>     # Delete (local only)
+jj --no-pager bookmark list              # List bookmarks
+jj --no-pager bookmark list -a           # Include remotes
+jj --no-pager bookmark create <name>     # Create bookmark on @
+jj --no-pager bookmark set <name>        # Create or update
+jj --no-pager bookmark move -f <old> -t <new>  # Move
+jj --no-pager bookmark rename <old> <new>
+jj --no-pager bookmark delete <name>     # Delete (propagates to remote)
+jj --no-pager bookmark forget <name>     # Delete (local only)
 ```
 
 ---
@@ -268,12 +284,12 @@ jj bookmark forget <name>     # Delete (local only)
 ## Remote Operations
 
 ```bash
-jj git clone <url> [dest]     # Clone Git repo
-jj git fetch                  # Fetch from remote
-jj git push                   # Push bookmarks
-jj git push -r <revset>       # Push specific revisions
-jj git push --deleted         # Push deletions
-jj git remote add <name> <url>
+jj --no-pager git clone <url> [dest]     # Clone Git repo
+jj --no-pager git fetch                  # Fetch from remote
+jj --no-pager git push                   # Push bookmarks
+jj --no-pager git push -r <revset>       # Push specific revisions
+jj --no-pager git push --deleted         # Push deletions
+jj --no-pager git remote add <name> <url>
 ```
 
 ---
@@ -281,9 +297,9 @@ jj git remote add <name> <url>
 ## Tags
 
 ```bash
-jj tag list
-jj tag set <name> -r <rev>
-jj tag delete <name>
+jj --no-pager tag list
+jj --no-pager tag set <name> -r <rev>
+jj --no-pager tag delete <name>
 ```
 
 ---
@@ -291,14 +307,14 @@ jj tag delete <name>
 ## Advanced Commands
 
 ```bash
-jj absorb              # Move changes from @ into stack of mutable commits
-jj duplicate           # Duplicate commit to new location
-jj fix                 # Run formatters/linters
-jj parallelize         # Make commits siblings (declare independence)
-jj revert -r <rev>    # Apply reverse of rev
-jj interdiff -f A -t B # Compare diffs of two revisions
-jj arrange             # Interactive graph arrangement
-jj metaedit -m "msg"  # Change commit message
+jj --no-pager absorb              # Move changes from @ into stack of mutable commits
+jj --no-pager duplicate           # Duplicate commit to new location
+jj --no-pager fix                 # Run formatters/linters
+jj --no-pager parallelize         # Make commits siblings (declare independence)
+jj --no-pager revert -r <rev>    # Apply reverse of rev
+jj --no-pager interdiff -f A -t B # Compare diffs of two revisions
+jj --no-pager arrange             # Interactive graph arrangement
+jj --no-pager metaedit -m "msg"  # Change commit message
 ```
 
 ---
@@ -315,14 +331,6 @@ These exist but are not needed by AIs:
 - **`jj util *`** — GC, manpage install, shell completions
 
 ---
-
-## Global Options (Mandatory for AIs)
-
-AIs MUST always include `--no-pager` for every `jj` command to ensure non-interactive execution and prevent the process from hanging or being truncated by a pager.
-
-```bash
-jj --no-pager <command>
-```
 
 ## Global Options (Safe for AIs)
 
