@@ -47,11 +47,11 @@
       viddy
       waypipe
       wl-clipboard
-      # Python LSP and plugins
-      python3Packages.python-lsp-server
-      python3Packages.pylsp-mypy
-      python3Packages.python-lsp-ruff
-      python3Packages.pylsp-rope
+      # # Python LSP and plugins
+      # python3Packages.python-lsp-server
+      # python3Packages.pylsp-mypy
+      # python3Packages.python-lsp-ruff
+      # python3Packages.pylsp-rope
     ];
     programs.kubeswitch = {
       enable = true;
@@ -168,6 +168,8 @@
     home.file.".claude/settings.json".source =
       config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/settings.json";
     home.file.".claude/skills".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
+    home.file.".gemini/skills".source =
       config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
 
     programs.helix = {
