@@ -1,5 +1,6 @@
 {
   pkgs,
+  lib,
   modulesPath,
   inputs,
   ...
@@ -37,6 +38,13 @@
     ];
     networking.hostName = "hetztop";
     environment.etc.nixpkgs.source = inputs.nixpkgs.outPath;
+    # environment.etc."profile.d/claude.sh".text = ''
+    programs.bash.shellInit = lib.mkBefore ''
+      if [ -n "$CLAUDECODE" ]; then
+        eval "$(DIRENV_LOG_FORMAT= ${lib.getExe pkgs.direnv} hook bash)"
+        unset HTTPS_PROXY
+      fi
+    '';
     nix = {
       settings = {
         trusted-users = [ "lillecarl" ];
