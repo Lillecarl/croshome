@@ -55,13 +55,18 @@
         }
       )
     );
+
+    lib.packages.opencode = pkgs.opencode;
     home.packages = with pkgs; [
+      # AI
       config.lib.packages.gemini-cli
+      opencode
+      # The rest
+      ncdu
       atuin
       bat
       just
       jj-hunk
-      claude-code
       fish-lsp
       fzf
       gitui
