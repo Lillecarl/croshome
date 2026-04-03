@@ -1,0 +1,64 @@
+diff --git a/packages/core/src/prompts/snippets.legacy.ts b/packages/core/src/prompts/snippets.legacy.ts
+index 0367596c6..a61ce45bb 100644
+--- a/packages/core/src/prompts/snippets.legacy.ts
++++ b/packages/core/src/prompts/snippets.legacy.ts
+@@ -332,9 +332,9 @@ You are running outside of a sandbox container, directly on the user's system. F
+ export function renderInteractiveYoloMode(enabled?: boolean): string {
+   if (!enabled) return '';
+   return `
+-# Autonomous Mode (YOLO)
++# Self-Driving Mode
+ 
+-You are operating in **autonomous mode**. The user has requested minimal interruption.
++You are operating in **self-driving mode**. The user has requested minimal interruption.
+ 
+ **Only use the \`${ASK_USER_TOOL_NAME}\` tool if:**
+ - A wrong decision would cause significant re-work
+@@ -342,9 +342,12 @@ You are operating in **autonomous mode**. The user has requested minimal interru
+ - The user explicitly asks you to confirm or ask questions
+ 
+ **Otherwise, work autonomously:**
+-- Make reasonable decisions based on context and existing code patterns
+-- Follow established project conventions
+-- If multiple valid approaches exist, choose the most robust option
++- Proceed independently when you are confident in the direction and the chosen approach.
++- Perform exhaustive research and analysis to resolve ambiguities on your own before seeking guidance. Only use the \`${ASK_USER_TOOL_NAME}\` tool if the ambiguity persists after thorough investigation.
++- When using \`${ASK_USER_TOOL_NAME}\`, provide a comprehensive summary of your research, the specific points of ambiguity, and your best-proposed alternatives with their trade-offs to help the user make an informed decision.
++- Make reasonable decisions based on context and existing code patterns, but prioritize correctness over speed.
++- Follow established project conventions.
++- If multiple valid approaches exist, choose the most robust option.
+ `.trim();
+ }
+ 
+diff --git a/packages/core/src/prompts/snippets.ts b/packages/core/src/prompts/snippets.ts
+index d7e95a1f4..7604d2fd5 100644
+--- a/packages/core/src/prompts/snippets.ts
++++ b/packages/core/src/prompts/snippets.ts
+@@ -445,9 +445,9 @@ export function renderSandbox(options?: SandboxOptions): string {
+ export function renderInteractiveYoloMode(enabled?: boolean): string {
+   if (!enabled) return '';
+   return `
+-# Autonomous Mode (YOLO)
++# Self-Driving Mode
+ 
+-You are operating in **autonomous mode**. The user has requested minimal interruption.
++You are operating in **self-driving mode**. The user has requested minimal interruption.
+ 
+ **Only use the \`${ASK_USER_TOOL_NAME}\` tool if:**
+ - A wrong decision would cause significant re-work
+@@ -455,9 +455,12 @@ You are operating in **autonomous mode**. The user has requested minimal interru
+ - The user explicitly asks you to confirm or ask questions
+ 
+ **Otherwise, work autonomously:**
+-- Make reasonable decisions based on context and existing code patterns
+-- Follow established project conventions
+-- If multiple valid approaches exist, choose the most robust option
++- Proceed independently when you are confident in the direction and the chosen approach.
++- Perform exhaustive research and analysis to resolve ambiguities on your own before seeking guidance. Only use the \`${ASK_USER_TOOL_NAME}\` tool if the ambiguity persists after thorough investigation.
++- When using \`${ASK_USER_TOOL_NAME}\`, provide a comprehensive summary of your research, the specific points of ambiguity, and your best-proposed alternatives with their trade-offs to help the user make an informed decision.
++- Make reasonable decisions based on context and existing code patterns, but prioritize correctness over speed.
++- Follow established project conventions.
++- If multiple valid approaches exist, choose the most robust option.
+ `.trim();
+ }
+ 

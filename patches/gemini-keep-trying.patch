@@ -1,0 +1,24 @@
+diff --git a/packages/cli/src/ui/components/ProQuotaDialog.tsx b/packages/cli/src/ui/components/ProQuotaDialog.tsx
+index e9e869edb..bb82c803d 100644
+--- a/packages/cli/src/ui/components/ProQuotaDialog.tsx
++++ b/packages/cli/src/ui/components/ProQuotaDialog.tsx
+@@ -4,7 +4,7 @@
+  * SPDX-License-Identifier: Apache-2.0
+  */
+ 
+-import type React from 'react';
++import React, { useEffect } from 'react';
+ import { Box, Text } from 'ink';
+ import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
+ import { theme } from '../semantic-colors.js';
+@@ -34,6 +34,10 @@ export function ProQuotaDialog({
+   tierName,
+   onChoice,
+ }: ProQuotaDialogProps): React.JSX.Element {
++  useEffect(() => {
++    onChoice('retry_once');
++  }, [onChoice]);
++
+   let items;
+   // Do not provide a fallback option if failed model and fallbackmodel are same.
+   if (failedModel === fallbackModel) {

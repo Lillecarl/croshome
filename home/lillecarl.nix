@@ -30,18 +30,22 @@
     lib.packages.gemini-cli = (
       pkgs.gemini-cli.overrideAttrs (
         finalAttrs: previousAttrs: {
-          version = "0.36.0";
+          version = "0.37.2";
           src = pkgs.fetchFromGitHub {
             owner = "google-gemini";
             repo = "gemini-cli";
             tag = "v${finalAttrs.version}";
-            hash = "sha256-eSGznx64xN/2/TPkLTx57Ar56FogYSzUkINBduhMn/8=";
+            hash = "sha256-jmVYARto5NoqX1DbT+jYQOTzMkeSi0Z7A5oKDN5fCnY=";
           };
-          npmDepsHash = "sha256-ztpKe7kgQAgfCBiIBlzPDa5muOI+9kESwrzBLqwz3V0=";
+          npmDepsHash = "sha256-Hxxi2eKDLXucZLhUswcQ3kVEKoRNbs81m6IFr+CYxzs=";
           npmDeps = pkgs.fetchNpmDeps {
             inherit (finalAttrs) src;
             hash = finalAttrs.npmDepsHash;
           };
+          patches = previousAttrs.patches or [ ] ++ [
+            ../patches/gemini-keep-trying.patch
+            ../patches/gemini-less-yolo.patch
+          ];
         }
       )
     );
