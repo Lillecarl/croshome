@@ -27,6 +27,7 @@ Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
 | `git checkout -- <path>` | `jj restore <path>` | Restore file from parent/other revision |
 | `git commit` | `jj commit` (alias: `jj ci`) | Creates commit ON TOP of @ — does NOT move bookmarks |
 | `git commit --amend` | `jj describe` (alias: `jj desc`) | Updates message; does NOT change content like Git amend |
+| `git reset --hard HEAD` | `jj abandon` | Discards the current commit/revision |
 | `git reset <rev>` | `jj new <rev>` | jj new places you ON the commit (creates working-copy there) |
 | `git checkout -b <name>` | `jj bookmark create <name>` | Creates bookmark pointing to @ |
 | `git branch -d <name>` | `jj bookmark forget <name>` | Local-only deletion; use `jj bookmark delete` to propagate |
@@ -78,6 +79,15 @@ Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
 AIs should prefer `jj commit -m "message"` over `jj describe`. 
 - `jj commit` creates a new revision ON TOP of the current one and moves the `@` (working copy) to a new empty commit. This prevents "task bleed" where new changes accidentally accumulate in the same revision.
 - `jj describe` only labels the current revision. If used, the AI must remember to call `jj new` manually before starting the next task.
+
+### Squashing into Previous Commits
+If the current changes logically belong in the previous commit (e.g., a small fix or refinement), use `jj squash --use-destination-message` to absorb them:
+
+```bash
+jj --no-pager squash --use-destination-message
+```
+
+This squashes `@` into its parent, keeping the parent's commit message. This is cleaner than creating a tiny one-line commit for a trivial change.
 
 ### Always Use `--no-pager`
 AIs MUST always include `--no-pager` for every `jj` command to ensure non-interactive execution and prevent the process from hanging or being truncated by a pager.
@@ -202,6 +212,9 @@ jj --no-pager interdiff --git -f A -t B  # Compare diffs in Git format
 Without `--git`, jj produces inline diffs with color annotations that are not parseable by AIs.
 
 ### Creating & Editing Commits
+
+**IMPORTANT:** `--revision` (`-r`) ALWAYS defaults to `@` for all commands. You almost never need to specify `-r @`.
+
 ```bash
 jj --no-pager new                      # Create empty commit after @
 jj --no-pager new -m "message"         # With message
@@ -221,6 +234,19 @@ jj --no-pager split -p                # Parallel siblings
 
 jj --no-pager squash                   # Squash @ into parent
 jj --no-pager squash -f <from> -t <into>  # Squash from->into
+```
+
+**IMPORTANT:** `jj squash` opens an editor by default. AIs MUST always use either `-m "message"` or `--use-destination-message` (to keep the parent's message) to avoid interactive prompts:
+
+```bash
+jj --no-pager squash -m "fix: typo"
+jj --no-pager squash --use-destination-message
+```
+
+For squashing into a non-parent revision, use `--destination`:
+
+```bash
+jj --no-pager squash --destination <rev>
 ```
 
 ### Moving Commits
