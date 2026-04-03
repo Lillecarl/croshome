@@ -1,4 +1,6 @@
 final: prev: {
+  toad = final.python314.pkgs.callPackage ./toad.nix { };
+
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
   foot = prev.foot.overrideAttrs (pattrs: {
