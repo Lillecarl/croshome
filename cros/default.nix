@@ -118,6 +118,7 @@
         gitui
         lazygit
         claude-code
+        claude-agent-acp
         fish-lsp
         kubectl
         kubectx
