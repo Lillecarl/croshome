@@ -27,6 +27,12 @@
     home.sessionPath = [
       "${config.home.homeDirectory}/.local/bin"
     ];
+    programs.ssh = {
+      enable = true;
+      matchBlocks."*" = {
+        extraOptions.WarnWeakCrypto = "no";
+      };
+    };
     lib.packages.gemini-cli = (
       pkgs.gemini-cli.overrideAttrs (
         finalAttrs: previousAttrs: {
