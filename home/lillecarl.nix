@@ -29,37 +29,71 @@
     ];
     programs.ssh = {
       enable = true;
+      enableDefaultConfig = false;
       matchBlocks."*" = {
         extraOptions.WarnWeakCrypto = "no";
       };
     };
-    lib.packages.gemini-cli = (
-      pkgs.gemini-cli.overrideAttrs (
-        finalAttrs: previousAttrs: {
-          version = "0.37.2";
-          src = pkgs.fetchFromGitHub {
-            owner = "google-gemini";
-            repo = "gemini-cli";
-            tag = "v${finalAttrs.version}";
-            hash = "sha256-jmVYARto5NoqX1DbT+jYQOTzMkeSi0Z7A5oKDN5fCnY=";
-          };
-          npmDepsHash = "sha256-Hxxi2eKDLXucZLhUswcQ3kVEKoRNbs81m6IFr+CYxzs=";
-          npmDeps = pkgs.fetchNpmDeps {
-            inherit (finalAttrs) src;
-            hash = finalAttrs.npmDepsHash;
-          };
-          patches = previousAttrs.patches or [ ] ++ [
-            ../patches/gemini-keep-trying.patch
-            ../patches/gemini-less-yolo.patch
-          ];
-        }
-      )
-    );
+    lib.packages = {
+      gemini-cli = (
+        pkgs.gemini-cli.overrideAttrs (
+          finalAttrs: previousAttrs: {
+            version = "0.37.2";
+            src = pkgs.fetchFromGitHub {
+              owner = "google-gemini";
+              repo = "gemini-cli";
+              tag = "v${finalAttrs.version}";
+              hash = "sha256-jmVYARto5NoqX1DbT+jYQOTzMkeSi0Z7A5oKDN5fCnY=";
+            };
+            npmDepsHash = "sha256-Hxxi2eKDLXucZLhUswcQ3kVEKoRNbs81m6IFr+CYxzs=";
+            npmDeps = pkgs.fetchNpmDeps {
+              inherit (finalAttrs) src;
+              hash = finalAttrs.npmDepsHash;
+            };
+            patches = previousAttrs.patches or [ ] ++ [
+              ../patches/gemini-keep-trying.patch
+              ../patches/gemini-less-yolo.patch
+            ];
+          }
+        )
+      );
+      morphmcp = pkgs.buildNpmPackage rec {
+        pname = "morphmcp";
+        version = "0.8.165";
+
+        src = pkgs.fetchurl {
+          url = "https://registry.npmjs.org/@morphllm/${pname}/-/${pname}-${version}.tgz";
+          hash = "sha256-njk7w+UG0b5icdgmYZQP2YImMFSkTgT34/3CLOsEO9o=";
+        };
+
+        sourceRoot = "package";
+
+        postPatch = ''
+          cp ${./morphmcp-package-lock.json} package-lock.json
+        '';
+
+        npmDepsHash = "sha256-NNNsDFaJDP0aC7LjqiJ4X0A/W8/4RvKyEDStnL5ROio=";
+
+        makeCacheWritable = true;
+        npm_config_ignore_scripts = "true";
+
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+
+        postInstall = ''
+          # Symlink ripgrep binary for @vscode/ripgrep
+          mkdir -p $out/lib/node_modules/@morphllm/morphmcp/node_modules/@vscode/ripgrep/bin
+          ln -s ${lib.getExe pkgs.ripgrep} $out/lib/node_modules/@morphllm/morphmcp/node_modules/@vscode/ripgrep/bin/rg
+        '';
+
+        dontBuild = true;
+      };
+    };
 
     lib.packages.opencode = pkgs.opencode;
     home.packages = with pkgs; [
       # AI
       config.lib.packages.gemini-cli
+      config.lib.packages.morphmcp
       opencode
       # The rest
       ncdu

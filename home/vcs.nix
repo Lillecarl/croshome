@@ -7,6 +7,11 @@
         user.name = "lillecarl";
         user.email = "git@lillecarl.com";
         git.private-commits = "description(glob:'private:*')";
+        ui.pager = [
+          "sh"
+          "-c"
+          "exec \${PAGER:-less -FRX}"
+        ];
       };
     };
     programs.jjui = {
