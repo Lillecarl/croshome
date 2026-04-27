@@ -1,11 +1,11 @@
 { pkgs ? import <nixpkgs> { } }:
 let
-  version = "0.3.2";
+  version = "0.3.3";
   src = pkgs.fetchFromGitHub {
     owner = "laulauland";
     repo = "jj-hunk";
     tag = "v${version}";
-    hash = "sha256-IX0BKVNtkMH4nV4togp1cfjXR3Xv8n52k//G3VDedWg=";
+    hash = "sha256-B1TMgUFd41fy0+snvkshyAXwwHaD3Fgvdp8E6NWL9AM=";
   };
 in
 pkgs.rustPlatform.buildRustPackage {

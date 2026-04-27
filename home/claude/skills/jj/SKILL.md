@@ -19,7 +19,7 @@ Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
 | Git Command | jj Command | Key Difference |
 |-------------|------------|----------------|
 | `git status` | `jj status` (alias: `jj st`) | Shows @ commit with its changes inline |
-| `git log` | `jj log` | Graph view; use `-r ::` to see immutable commits |
+| `git log` | `jj log -T builtin_log_compact_full_description --stat --limit 25 -r '<revset>'` | Preferred template; always include `--limit` |
 | `git show` | `jj show` | Shows description + diff for a commit |
 | `git diff` | `jj diff` | Defaults to `jj diff -r @` (working copy vs parent) |
 | `git add` | `jj file track` | Auto-tracks new files; no staging needed |
@@ -179,11 +179,29 @@ jj diff -r 'B::D'            # Diff range B through D
 ### Navigation
 ```bash
 jj --no-pager status              # Repo status (shows @ commit)
-jj --no-pager log                 # Revision history
-jj --no-pager log -n 20           # Last 20 commits
-jj --no-pager log --reversed       # Oldest first
 jj --no-pager show                # Show @ commit
 jj --no-pager show -r <rev>       # Show specific revision
+```
+
+### Viewing History (jj log)
+
+**Preferred invocation** — use this for all `jj log` calls:
+
+```bash
+jj --no-pager log --limit 25 --revisions '<revset>' --template builtin_log_compact_full_description --stat
+```
+
+- `--limit 25` caps output (raise only if needed)
+- `--revisions '<revset>'` scopes the query (e.g. `'trunk()..@'`, `'@-'`, `'::@'`)
+- `--template builtin_log_compact_full_description` — change ID + hash + date on one line, then full commit message body, then file stats
+- `--stat` — shows which files changed and how many lines
+
+**Shorthand examples:**
+```bash
+jj --no-pager log --limit 25 --revisions 'trunk()..@' -T builtin_log_compact_full_description --stat
+jj --no-pager log --limit 25 -r '@-' -T builtin_log_compact_full_description --stat
+jj --no-pager log --limit 1 -r '<rev>' -T builtin_log_compact_full_description --stat
+jj --no-pager log --reversed --limit 25 -r 'trunk()..@' -T builtin_log_compact_full_description --stat
 ```
 
 ### Viewing Diffs
@@ -342,6 +360,49 @@ jj --no-pager interdiff -f A -t B # Compare diffs of two revisions
 jj --no-pager arrange             # Interactive graph arrangement
 jj --no-pager metaedit -m "msg"  # Change commit message
 ```
+
+---
+
+## Programmatic Hunk Selection with jj-hunk
+
+AI agents often need to commit only part of their changes (specific files, specific hunks, or even specific lines). Use the **jj-hunk** skill for this — it provides programmatic, non-interactive hunk selection.
+
+### When to Use jj-hunk Instead of jj
+
+| Scenario | Don't Use | Use Instead |
+|----------|-----------|-------------|
+| Partial commit (only some hunks) | `jj commit -i` | `jj-hunk commit '<spec>' "message"` |
+| Split commit into multiple | `jj split -i` | `jj-hunk split '<spec>' "message"` |
+| Squash only some hunks | `jj squash -i` | `jj-hunk squash '<spec>'` |
+| Restore only part of a file | `jj restore <path>` | `jj-hunk split` with per-hunk spec |
+
+### Quick Reference
+
+```bash
+# 1. List all hunks (always start here)
+jj-hunk list
+
+# 2. Commit only specific files
+jj-hunk commit '{"files": {"src/foo.rs": {"action": "keep"}}, "default": "reset"}' "message"
+
+# 3. Commit specific hunks within a file
+jj-hunk commit '{"files": {"src/foo.rs": {"hunks": [0, 2]}}, "default": "reset"}' "message"
+
+# 4. Split: selected hunks → first commit, rest → second
+jj-hunk split '{"files": {"src/foo.rs": {"hunks": [0]}}, "default": "reset"}' "first commit"
+
+# 5. Squash only specific hunks into parent
+jj-hunk squash '{"files": {"src/foo.rs": {"action": "keep"}}, "default": "reset"}'
+```
+
+### Key Concepts
+
+- **List first**: Always run `jj-hunk list` to see hunk indices and IDs before building a spec
+- **Spec format**: JSON with `{"files": {<path>: <selection>}, "default": "reset"|"keep"}`
+- **Selection types**: `{"action": "keep"}` (all hunks), `{"action": "reset"}` (no hunks), `{"hunks": [0, 2]}` (specific hunks by index), `{"ids": ["hunk-..."]}` (by stable ID)
+- **Default action**: `"default": "reset"` is safer (explicit inclusion), `"default": "keep"` is convenient for excluding specific files
+
+Load the **jj-hunk** skill for full documentation including spec format, all commands, and workflow examples.
 
 ---
 

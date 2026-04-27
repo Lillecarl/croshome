@@ -38,15 +38,16 @@
       gemini-cli = (
         pkgs.gemini-cli.overrideAttrs (
           finalAttrs: previousAttrs: {
-            version = "0.37.2";
+            version = "0.38.2";
             src = pkgs.fetchFromGitHub {
               owner = "google-gemini";
               repo = "gemini-cli";
               tag = "v${finalAttrs.version}";
-              hash = "sha256-jmVYARto5NoqX1DbT+jYQOTzMkeSi0Z7A5oKDN5fCnY=";
+              hash = "sha256-DPJMpm+hOQQxG87/NyrCrlomeR4AD1WNfNoIsdaakaE=";
             };
-            npmDepsHash = "sha256-Hxxi2eKDLXucZLhUswcQ3kVEKoRNbs81m6IFr+CYxzs=";
+            npmDepsHash = "sha256-6UnLSmKdnXwEXgGcyRTibDkEqvlRr75e3fRld0v6T2s=";
             npmDeps = pkgs.fetchNpmDeps {
+              # __contentAddressed = true;
               inherit (finalAttrs) src;
               hash = finalAttrs.npmDepsHash;
             };
@@ -87,14 +88,31 @@
 
         dontBuild = true;
       };
+      opencode =
+        let
+          flake = (import inputs.flake-compatish) {
+            source = /home/lillecarl/Code/opencode;
+            overrides = {
+              nixpkgs = inputs.nixpkgs;
+            };
+          };
+        in
+        flake.impure.packages.default;
     };
 
-    lib.packages.opencode = pkgs.opencode;
     home.packages = with pkgs; [
       # AI
       config.lib.packages.gemini-cli
       config.lib.packages.morphmcp
-      opencode
+      # config.lib.packages.opencode
+      # opencode
+      pi-coding-agent
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      playwright-mcp
+      mcp-nixos
+      mcp-gateway
+      context7-mcp
       # The rest
       ncdu
       atuin
@@ -132,19 +150,19 @@
     programs.kubecolor.enable = true;
 
     programs.xonsh = {
-      enable = true;
+      enable = false;
       package = pkgs.xonsh.override {
         python3 = pkgs.python3.override {
           packageOverrides = self: pypkgs: {
             xonsh =
               let
-                version = "0.22.8";
+                version = "0.23.2";
               in
               pypkgs.xonsh.overrideAttrs {
                 inherit version;
                 doCheck = false;
                 doInstallCheck = false;
-                src = builtins.fetchTree {
+                src = fetchTree {
                   type = "github";
                   owner = "xonsh";
                   repo = "xonsh";

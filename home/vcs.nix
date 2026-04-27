@@ -12,6 +12,14 @@
           "-c"
           "exec \${PAGER:-less -FRX}"
         ];
+        merge-tools.jj-hunk = {
+          program = "jj-hunk";
+          edit-args = [
+            "select"
+            "$left"
+            "$right"
+          ];
+        };
       };
     };
     programs.jjui = {

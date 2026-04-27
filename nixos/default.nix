@@ -14,6 +14,7 @@
     ./disko.nix
     ./installscript.nix
     ./podman.nix
+    ./ollama.nix
   ];
   config = {
     boot.loader.grub.enable = true;
@@ -31,6 +32,7 @@
       }
       .${pkgs.stdenv.hostPlatform.system}
     ];
+    time.timeZone = "Europe/Stockholm";
     # Terminfo packages for terminals we're using
     environment.systemPackages = with pkgs.pkgsBuildBuild; [
       foot.terminfo
@@ -52,6 +54,9 @@
           "nix-command"
           "flakes"
           "read-only-local-store"
+          "ca-derivations"
+          "dynamic-derivations"
+          "recursive-nix"
         ];
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
@@ -62,7 +67,7 @@
         ];
         sandbox = "relaxed";
       };
-      package = pkgs.lixPackageSets.latest.lix;
+      # package = pkgs.lixPackageSets.latest.lix;
       nixPath = [
         "nixpkgs=/etc/nixpkgs"
       ];

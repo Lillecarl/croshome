@@ -98,8 +98,11 @@
         "nix-command"
         "flakes"
         "read-only-local-store"
+        "ca-derivations"
+        "dynamic-derivations"
+        "recursive-nix"
       ];
-      package = pkgs.lixPackageSets.latest.lix;
+      # package = pkgs.lixPackageSets.latest.lix;
       nixPath = [
         "nixpkgs=${inputs.nixpkgs.outPath}"
       ];

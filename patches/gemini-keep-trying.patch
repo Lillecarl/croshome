@@ -11,12 +11,13 @@ index e9e869edb..bb82c803d 100644
  import { Box, Text } from 'ink';
  import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
  import { theme } from '../semantic-colors.js';
-@@ -34,6 +34,10 @@ export function ProQuotaDialog({
+@@ -34,6 +34,11 @@ export function ProQuotaDialog({
    tierName,
    onChoice,
  }: ProQuotaDialogProps): React.JSX.Element {
 +  useEffect(() => {
-+    onChoice('retry_once');
++    const timer = setTimeout(() => onChoice('retry_once'), 10000);
++    return () => clearTimeout(timer);
 +  }, [onChoice]);
 +
    let items;
