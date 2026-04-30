@@ -98,6 +98,11 @@
           };
         in
         flake.impure.packages.default;
+      omp = pkgs.callPackage (inputs.oh-my-pi + "/nix/omp/package.nix") {
+        craneLib = inputs.crane.mkLib pkgs;
+        bun2nix = (pkgs.extend inputs.bun2nix.overlays.default).bun2nix;
+        src = builtins.path { path = inputs.oh-my-pi.outPath; name = "omp-source"; };
+      };
     };
 
     home.packages = with pkgs; [
@@ -108,13 +113,15 @@
       # opencode
       pi-coding-agent
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      # inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      config.lib.packages.omp
       playwright-mcp
       mcp-nixos
       mcp-gateway
       context7-mcp
       # The rest
       ncdu
+      sd
       atuin
       bat
       just

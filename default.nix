@@ -5,12 +5,14 @@ let
         lockFile = builtins.readFile ./flake.lock;
         lockAttrs = builtins.fromJSON lockFile;
         fcLockInfo = lockAttrs.nodes.flake-compatish.locked;
-        flake-compatish = import (builtins.fetchTree fcLockInfo);
+        flake-compatish = import (fetchTree fcLockInfo);
       in
       flake-compatish {
         source = ./.;
         overrides = {
           self = ./.;
+          llm-agents = /home/lillecarl/Code/llm-agents.nix;
+          oh-my-pi = /home/lillecarl/Code/oh-my-pi;
         };
       }
     ).inputs;
