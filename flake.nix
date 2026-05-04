@@ -27,10 +27,7 @@
       url = "github:nix-community/bun2nix/staging-2.1.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    oh-my-pi = {
-      url = "github:can1357/oh-my-pi";
-      flake = false;
-    };
+    oh-my-pi.url = "github:can1357/oh-my-pi";
   };
   outputs =
     inputs:

@@ -98,18 +98,28 @@
           };
         in
         flake.impure.packages.default;
-      omp = pkgs.callPackage (inputs.oh-my-pi + "/nix/omp/package.nix") {
-        craneLib = inputs.crane.mkLib pkgs;
-        bun2nix = (pkgs.extend inputs.bun2nix.overlays.default).bun2nix;
-        src = builtins.path { path = inputs.oh-my-pi.outPath; name = "omp-source"; };
-      };
+      omp =
+        let
+          craneLib = inputs.crane.mkLib pkgs;
+          bun2nix = inputs.bun2nix.packages.${pkgs.stdenv.hostPlatform.system}.default;
+          ompSrc = builtins.path {
+            path = inputs.oh-my-pi.outPath;
+            name = "omp-source";
+          };
+          natives = pkgs.callPackage (inputs.oh-my-pi + "/nix/omp/rust-natives.nix") {
+            inherit craneLib;
+            src = ompSrc;
+          };
+        in
+        pkgs.callPackage (inputs.oh-my-pi + "/nix/omp/package.nix") {
+          inherit bun2nix;
+          src = ompSrc;
+          inherit natives;
+        };
     };
 
     home.packages = with pkgs; [
-      # AI
       config.lib.packages.gemini-cli
-      config.lib.packages.morphmcp
-      # config.lib.packages.opencode
       # opencode
       pi-coding-agent
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
