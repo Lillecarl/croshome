@@ -90,14 +90,21 @@
       };
       opencode =
         let
-          flake = (import inputs.flake-compatish) {
-            source = /home/lillecarl/Code/opencode;
-            overrides = {
-              nixpkgs = inputs.nixpkgs;
-            };
-          };
+          latestRelease = builtins.fromJSON (builtins.readFile (builtins.fetchurl {
+            url = "https://api.github.com/repos/anomalyco/opencode/releases/latest";
+            name = "opencode-latest-release.json";
+          }));
+          tag = latestRelease.tag_name;
+          version = lib.strings.removePrefix "v" tag;
+          arch = if pkgs.stdenv.hostPlatform.isx86_64 then "x64" else "arm64";
         in
-        flake.impure.packages.default;
+        inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode.overrideAttrs (final: prev: {
+          inherit version;
+          src = builtins.fetchurl {
+            url = "https://github.com/anomalyco/opencode/releases/download/${tag}/opencode-linux-${arch}.tar.gz";
+            name = "opencode-${tag}.tar.gz";
+          };
+        });
       omp =
         let
           craneLib = inputs.crane.mkLib pkgs;
@@ -122,9 +129,9 @@
       config.lib.packages.gemini-cli
       # opencode
       pi-coding-agent
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode
-      # inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
-      config.lib.packages.omp
+      config.lib.packages.opencode
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      # config.lib.packages.omp
       playwright-mcp
       mcp-nixos
       mcp-gateway
