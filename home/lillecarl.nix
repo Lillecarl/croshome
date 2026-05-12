@@ -262,16 +262,11 @@
       baseIndex = 1;
       keyMode = "vi";
       clock24 = true;
+      terminal = "tmux-256color";
+      tmuxp.enable = true;
       extraConfig = # tmux
         ''
           source-file ~/.config/tmux/linked.conf
-
-          # Use the modern terminfo for tmux
-          set -g default-terminal "tmux-256color"
-
-          # Tell tmux that 'foot' supports RGB (True Color)
-          # The leading comma is important
-          set-option -sa terminal-features ',foot:RGB'
         '';
     };
     xdg.configFile."tmux/linked.conf".source =

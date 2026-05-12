@@ -15,6 +15,7 @@
     ./installscript.nix
     ./podman.nix
     ./ollama.nix
+    ./ttyd.nix
   ];
   config = {
     boot.loader.grub.enable = true;
@@ -36,9 +37,9 @@
     # Terminfo packages for terminals we're using
     environment.systemPackages = with pkgs.pkgsBuildBuild; [
       foot.terminfo
-      tmux.terminfo
     ];
     networking.hostName = "hetztop";
+    networking.firewall.allowedTCPPorts = [ 4321 8080 ];
     environment.etc.nixpkgs.source = inputs.nixpkgs.outPath;
     # environment.etc."profile.d/claude.sh".text = ''
     programs.bash.shellInit = lib.mkBefore ''
