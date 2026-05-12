@@ -38,14 +38,14 @@
       gemini-cli = (
         pkgs.gemini-cli.overrideAttrs (
           finalAttrs: previousAttrs: {
-            version = "0.39.1";
+            version = "0.41.1";
             src = pkgs.fetchFromGitHub {
               owner = "google-gemini";
               repo = "gemini-cli";
               tag = "v${finalAttrs.version}";
-              hash = "sha256-O0TBrT3WDCBZ3ZyFyJPBBtPfnDzdFQ7b8pOJOD7bj2g=";
+              hash = "sha256-8T13ROsE6NVR120NbFThADjSYy1PApAXqdHzclSA2yc=";
             };
-            npmDepsHash = "sha256-y0LafX1+ukW8HRYBqQ3QfZGHo1cVk00bNygdwsBR/7g=";
+            npmDepsHash = "sha256-YHo3mAG9UlEg8J5SCzCu2YhKdlz7lFPon5SweKWQ8rk=";
             npmDeps = pkgs.fetchNpmDeps {
               # __contentAddressed = true;
               inherit (finalAttrs) src;
