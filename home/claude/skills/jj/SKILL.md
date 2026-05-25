@@ -20,23 +20,23 @@ Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
 | Git Command | jj Command | Key Difference |
 |-------------|------------|----------------|
 | `git status` | `jj status` (alias: `jj st`) | Shows @ commit with its changes inline |
-| `git log` | `jj log -T builtin_log_compact_full_description --stat --limit 25 -r '<revset>'` | Preferred template; always include `--limit` |
+| `git log` | `jj log --template builtin_log_compact_full_description --stat --limit 25 --revisions '<revset>'` | Preferred template; always include `--limit` |
 | `git show` | `jj show` | Shows description + diff for a commit |
-| `git diff` | `jj diff` | Defaults to `jj diff -r @` (working copy vs parent) |
+| `git diff` | `jj diff` | Defaults to `jj diff --revisions @` (working copy vs parent) |
 | `git add` | `jj file track` | Auto-tracks new files; no staging needed |
-| `git add -p` | `jj commit -i` | Interactive staging for partial commits |
+| `git add -p` | `jj commit --interactive` | Interactive staging for partial commits |
 | `git checkout -- <path>` | `jj restore <path>` | Restore file from parent/other revision |
 | `git commit` | `jj commit` (alias: `jj ci`) | Creates commit ON TOP of @ — does NOT move bookmarks |
 | `git commit --amend` | `jj describe` (alias: `jj desc`) | Updates message; does NOT change content like Git amend |
 | `git reset --hard HEAD` | `jj abandon` | Discards the current commit/revision |
-| `git reset <rev>` | `jj new <rev>` | jj new places you ON the commit (creates working-copy there) |
+| `git reset <rev>` | `jj new --allow-backwards <rev>` | jj new places you ON the commit (creates working-copy there) |
 | `git checkout -b <name>` | `jj bookmark create <name>` | Creates bookmark pointing to @ |
 | `git branch -d <name>` | `jj bookmark forget <name>` | Local-only deletion; use `jj bookmark delete` to propagate |
-| `git rebase` | `jj rebase` | More powerful: `-s` (source+descendants), `-b` (branch), `-r` (revisions only) |
+| `git rebase` | `jj rebase` | More powerful: `--source` (source+descendants), `--branch` (branch), `--revisions` (revisions only) |
 | `git merge` | `jj new <rev1> <rev2>` | Create merge by specifying multiple parents |
-| `git stash` | `jj squash @` | Squashes @ into parent as working-copy; or `jj squash -r @` |
+| `git stash` | `jj squash @` | Squashes @ into parent as working-copy; or `jj squash --revisions @` |
 | `git cherry-pick` | `jj duplicate` | Copies commit content to new location |
-| `git revert` | `jj revert -r <rev> -o <onto>` | Creates new commit with inverse changes |
+| `git revert` | `jj revert --revisions <rev> --destination <onto>` | Creates new commit with inverse changes |
 | `git push` | `jj git push` | Force-with-lease by default; remote derived from bookmarks |
 | `git fetch` | `jj git fetch` | |
 | `git clone` | `jj git clone` | |
@@ -48,8 +48,8 @@ Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
 | `git clean -fd` | `jj file untrack` + rm | Untrack then delete |
 | `git worktree add` | `jj workspace add` | Multiple working copies on same repo |
 | `git apply` | `jj --at-operation <op> <cmd>` | Inspect/operate at a past operation (use `--at-op` shorthand) |
-| `git log --all` | `jj log -r all()` | Show all visible commits |
-| `git log --follow <path>` | `jj log --follow -r '<revset>' -- <path>` | Follow file renames |
+| `git log --all` | `jj log --revisions all()` | Show all visible commits |
+| `git log --follow <path>` | `jj log --follow --revisions '<revset>' -- <path>` | Follow file renames |
 
 ---
 
@@ -61,7 +61,7 @@ jj has NO index/staging area. The working copy IS a commit (`@`). All changes ar
 ### Bookmarks ≠ Git Branches
 - Bookmarks DO NOT move when you create commits
 - Bookmarks combine local + remote tracking (no separate "origin/main")
-- `jj bookmark list` shows local; `jj bookmark list -a` shows all remotes
+- `jj bookmark list` shows local; `jj bookmark list --all` shows all remotes
 
 ### Abandoned ≠ Deleted
 When rebasing makes a commit empty, jj "abandons" it (keeps for recovery via `jj op log`).
@@ -76,14 +76,14 @@ Any operation can be undone via `jj undo`. Full history in `jj op log`.
 Like Git, rebasing creates new commits. Change IDs persist across rewrites.
 
 ### No Detached HEAD
-`@` always refers to your working copy. Use `jj new -A <rev>` to branch from an older commit safely.
+`@` always refers to your working copy. Use `jj new --allow-backwards <rev>` to branch from an older commit safely.
 
 ---
 
 ## Best Practices for AI Agents
 
 ### Use `jj commit` to Finish a Task
-AIs should prefer `jj commit -m "message"` over `jj describe`.
+AIs should prefer `jj commit` over `jj describe`.
 - `jj commit` creates a new revision ON TOP of the current one and moves the `@` (working copy) to a new empty commit. This prevents "task bleed" where new changes accidentally accumulate in the same revision.
 - `jj describe` only labels the current revision. If used, the AI must remember to call `jj new` manually before starting the next task.
 
@@ -100,14 +100,14 @@ This squashes `@` into its parent, keeping the parent's commit message. This is 
 Use `jj new` with two or more parent revisions:
 
 ```bash
-jj --no-pager new -m "Merge description" <rev1> <rev2>
+jj --no-pager new --message 'Merge description' <rev1> <rev2>
 ```
 
 ### Deciding How to Commit: `jj commit` vs `jj-hunk commit` vs `jj-hunk split`
 
 **Decision guide — check in order:**
 
-1. **Are all changes in your working copy logically one commit?** → Use `jj commit -m "message"`.
+1. **Are all changes in your working copy logically one commit?** → Use `jj commit`.
 2. **Are changes mixed (e.g., bugfix + refactor + feature)?** → Use `jj-hunk`. Start with `jj-hunk list | jq -c`, then:
    - **Do you want everything committed (just organized into separate commits)?** → Use `jj-hunk split` repeatedly. Each call creates two commits: selected hunks in one, the rest in another. Then `jj describe` each with a proper message.
    - **Do you want to commit only the "ready" parts and keep experimenting on the rest?** → Use `jj-hunk commit` for the ready hunks. The rest stays uncommitted in your working copy for further editing.
@@ -117,18 +117,18 @@ jj --no-pager new -m "Merge description" <rev1> <rev2>
 
 ```bash
 # Hack → commit everything as one working commit
-jj --no-pager commit -m "WIP: mixed changes"
+jj --no-pager commit --message 'WIP: mixed changes'
 
 # Inspect hunks
 jj-hunk list | jq -c
 
 # Extract first logical piece (e.g., bugfix)
 jj-hunk split '{"files": {"main.py": {"hunks": [0]}}, "default": "reset"}' "fix: handle null case"
-jj describe -m "fix: handle null case"
+jj describe --message 'fix: handle null case'
 
 # Extract second piece (e.g., refactoring)
 jj-hunk split '{"files": {"utils.py": {"action": "keep"}}, "default": "reset"}' "refactor: improve utils"
-jj describe -m "refactor: improve utils"
+jj describe --message 'refactor: improve utils'
 
 # Land remaining changes on an empty working copy
 jj new
@@ -143,15 +143,15 @@ AIs must NEVER manipulate commit history unless the user explicitly asks. The fo
 - **`jj edit <rev>` is FORBIDDEN** — it sets `@` to a past commit, making further changes rewrite history. AIs should never do this.
 - **No history rewriting without permission** — `jj rebase`, `jj split`, `jj parallelize`, `jj arrange`, `jj absorb`, `jj metaedit`, and `jj duplicate` all rewrite history. NEVER use them unless the user explicitly asks.
 - **Appending is safe** — `jj commit`, `jj new`, `jj describe`, `jj bookmark create` all append to history without modifying existing commits. These are always fine.
-- **Branching from older commits is safe** — `jj new -A <rev>` creates a new child of an older commit without modifying it. This is fine.
+- **Branching from older commits is safe** — `jj new --allow-backwards <rev>` creates a new child of an older commit without modifying it. This is fine.
 - **Fixup squashing is the ONLY exception** — `jj squash --use-destination-message` (squashing `@` into its parent for a trivial fixup) is allowed without asking. It only collapses the working copy into its immediate parent, which is equivalent to amending.
 - **When the user asks for a rewrite, confirm intent** — if a user says vague things like "rebase this" or "fix up that commit", verify the scope first.
 
 ```bash
 # SAFE — appending only
-jj --no-pager commit -m "message"
-jj --no-pager new -A <rev>        # Branch from older commit
-jj --no-pager describe -m "msg"   # Update @ description
+jj --no-pager commit --message 'message'
+jj --no-pager new --allow-backwards <rev>        # Branch from older commit
+jj --no-pager describe --message 'msg'   # Update @ description
 
 # SAFE — fixup squash (allowed without asking)
 jj --no-pager squash --use-destination-message
@@ -181,7 +181,7 @@ AIs should always work with real working copy state. Never use `--ignore-working
 
 ## Critical Revset Language
 
-**Revsets** select commits. Most jj commands accept a revset via the `-r` / `--revisions` flag.
+**Revsets** select commits. Most jj commands accept a revset via the `--revisions` flag.
 
 ### Symbols
 | Symbol | Meaning |
@@ -279,23 +279,23 @@ AIs should always work with real working copy state. Never use `--ignore-working
 
 ### Revset Examples
 ```bash
-jj log -r @-                    # Parent of working copy
-jj log -r ::@                  # All ancestors of working copy
-jj log -r @--::@               # Ancestors between parent and working copy
-jj log -r 'trunk()..@'        # Local commits not on trunk
-jj log -r 'remote_bookmarks()..'  # Not on any remote
-jj log -r 'tags()'            # Tagged commits
-jj log -r 'children(abc123)'  # Children of a commit
-jj log -r 'descendants(abc123)'  # All descendants
-jj log -r 'merges()'          # All merge commits
-jj log -r 'empty()'           # Commits with no file changes
-jj log -r 'mutable()'         # Mutable (rewritable) commits
-jj log -r 'mine()'            # My commits
-jj log -r 'author(*martinvonz*) & description(*reset*)'  # Combined filters
-jj log -r 'description("fix")'  # Commits with "fix" in message
-jj log -r 'latest(@, 5)'      # Latest 5 commits from a set
-jj diff -r 'A::B'             # Diff range A through B (A is ancestor)
-jj diff -r 'A..B'             # Diff range A..B (B is descendant, A excluded)
+jj log --revisions @-                    # Parent of working copy
+jj log --revisions ::@                  # All ancestors of working copy
+jj log --revisions @--::@               # Ancestors between parent and working copy
+jj log --revisions 'trunk()..@'        # Local commits not on trunk
+jj log --revisions 'remote_bookmarks()..'  # Not on any remote
+jj log --revisions 'tags()'            # Tagged commits
+jj log --revisions 'children(abc123)'  # Children of a commit
+jj log --revisions 'descendants(abc123)'  # All descendants
+jj log --revisions 'merges()'          # All merge commits
+jj log --revisions 'empty()'           # Commits with no file changes
+jj log --revisions 'mutable()'         # Mutable (rewritable) commits
+jj log --revisions 'mine()'            # My commits
+jj log --revisions 'author(*martinvonz*) & description(*reset*)'  # Combined filters
+jj log --revisions 'description("fix")'  # Commits with "fix" in message
+jj log --revisions 'latest(@, 5)'      # Latest 5 commits from a set
+jj diff --revisions 'A::B'             # Diff range A through B (A is ancestor)
+jj diff --revisions 'A..B'             # Diff range A..B (B is descendant, A excluded)
 ```
 
 ---
@@ -353,7 +353,7 @@ jj split 'src/main.rs'              # Split with main.rs in first commit
 ```bash
 jj --no-pager status                    # Repo status (shows @ commit with changes)
 jj --no-pager show                      # Show @ commit (description + diff)
-jj --no-pager show -r <rev>             # Show specific revision
+jj --no-pager show --revisions <rev>    # Show specific revision
 ```
 
 ### Viewing History (jj log)
@@ -365,16 +365,16 @@ jj --no-pager log --limit 25 --revisions '<revset>' --template builtin_log_compa
 ```
 
 - `--limit 25` caps output
-- `--revisions '<revset>'` or `-r '<revset>'` scopes the query
-- `--template ...` or `-T` sets output format
+- `--revisions '<revset>'` scopes the query
+- `--template ...` sets output format
 - `--stat` shows file change summary
 
-**Shorthand:**
+**Examples:**
 ```bash
-jj --no-pager log --limit 25 -r 'trunk()..@' -T builtin_log_compact_full_description --stat
-jj --no-pager log --limit 25 -r '@-' -T builtin_log_compact_full_description --stat
-jj --no-pager log --limit 1 -r '<rev>' -T builtin_log_compact_full_description --stat
-jj --no-pager log --reversed --limit 25 -r 'trunk()..@' -T builtin_log_compact_full_description --stat
+jj --no-pager log --limit 25 --revisions 'trunk()..@' --template builtin_log_compact_full_description --stat
+jj --no-pager log --limit 25 --revisions '@-' --template builtin_log_compact_full_description --stat
+jj --no-pager log --limit 1 --revisions '<rev>' --template builtin_log_compact_full_description --stat
+jj --no-pager log --reversed --limit 25 --revisions 'trunk()..@' --template builtin_log_compact_full_description --stat
 ```
 
 ### Viewing Diffs
@@ -386,14 +386,14 @@ jj --no-pager log --reversed --limit 25 -r 'trunk()..@' -T builtin_log_compact_f
 > Only these four commands support `--git`:
 
 ```bash
-jj --no-pager diff --git                 # Diff working copy vs parent
-jj --no-pager diff --git -r <rev>        # Diff specific revision
-jj --no-pager diff --git -r A::B         # Diff range A through B
-jj --no-pager diff --git -r A..B         # Diff ancestors of B excluding A's ancestors
-jj --no-pager show --git                 # Show @ diff in Git format
-jj --no-pager show --git -r <rev>        # Show revision diff in Git format
-jj --no-pager log --git -p -r <rev>      # Patch in Git format
-jj --no-pager interdiff --git -f A -t B  # Compare diffs of two revisions
+jj --no-pager diff --git                          # Diff working copy vs parent
+jj --no-pager diff --git --revisions <rev>        # Diff specific revision
+jj --no-pager diff --git --revisions A::B         # Diff range A through B
+jj --no-pager diff --git --revisions A..B         # Diff ancestors of B excluding A's ancestors
+jj --no-pager show --git                          # Show @ diff in Git format
+jj --no-pager show --git --revisions <rev>        # Show revision diff in Git format
+jj --no-pager log --git --patch --revisions <rev> # Patch in Git format
+jj --no-pager interdiff --git --from A --to B     # Compare diffs of two revisions
 ```
 
 ### Using Git for Read-Only Operations
@@ -432,22 +432,46 @@ git --no-pager log --oneline --grep="pattern"          # Search commit messages
 
 ### Creating & Editing Commits
 
-**IMPORTANT:** `-r` / `--revisions` defaults to `@` for all commands. You almost never need `-r @`.
+**IMPORTANT:** `--revisions` defaults to `@` for all commands. You almost never need `--revisions @`.
+
+**IMPORTANT:** Use **single quotes** (`'...'`) for `--message` values containing backticks (`\``), `$`, `"`, `!`, or `\`. Double quotes let bash interpret these as command substitution or escape sequences. For multi-line or complex messages, pipe through `--stdin` — this is the most reliable approach and avoids all shell quoting issues:
 
 ```bash
-jj --no-pager commit -m "message"                  # Commit working copy
-jj --no-pager commit -i                             # Interactive partial commit
-jj --no-pager describe -m "message"                 # Update @ commit message only
-jj --no-pager new -m "message"                      # Empty commit after @
-jj --no-pager new -A <rev> -m "message"             # Branch from a specific commit
-jj --no-pager new -m "msg" <rev1> <rev2>            # Merge two revisions
+# WRONG — backticks trigger command substitution in double quotes
+jj --no-pager commit --message "add `no_schedule` flag"
+
+# RIGHT — single quotes prevent all shell interpretation
+jj --no-pager commit --message 'add `no_schedule` flag'
+
+# BEST — heredoc with single-quoted delimiter (no interpretation at all)
+cat <<'EOF' | jj commit --stdin
+add `no_schedule` flag to Store
+
+Refactor `_create_builder_job` to accept overrides dict.
+Probe builders get `nixkube/probe: true` label.
+EOF
+
+# Also BEST — stdin from a file
+jj commit --stdin < /tmp/msg.txt
 ```
 
-**IMPORTANT:** `jj squash` opens an editor by default. AIs MUST use `-m "message"` or `--use-destination-message`:
+Basic one-liner examples:
+
+```bash
+jj --no-pager commit --message 'message'                   # Commit working copy
+jj --no-pager commit --interactive                         # Interactive partial commit
+jj --no-pager describe --message 'message'                 # Update @ commit message only
+jj --no-pager describe --revisions @- --message 'message'  # Update parent commit's message
+jj --no-pager new --message 'message'                      # Empty commit after @
+jj --no-pager new --allow-backwards <rev> --message 'msg'  # Branch from a specific commit
+jj --no-pager new --message 'msg' <rev1> <rev2>            # Merge two revisions
+```
+
+**IMPORTANT:** `jj squash` opens an editor by default. AIs MUST use `--message` or `--use-destination-message`:
 
 ```bash
 jj --no-pager squash --use-destination-message     # Squashes @ into parent, keeps parent message
-jj --no-pager squash -m "fix: typo"                # Squash with custom message
+jj --no-pager squash --message 'fix: typo'          # Squash with custom message
 ```
 
 For squashing into a non-parent revision: `jj --no-pager squash --destination <rev>`
@@ -457,10 +481,10 @@ Requires an interactive editor (not usable by AIs directly). Use programmatic hu
 
 ### Moving Commits
 ```bash
-jj --no-pager rebase -s @ -o main                  # Rebase @ onto main
-jj --no-pager rebase -b <bookmark>                  # Rebase entire branch
-jj --no-pager rebase -s L -o K -o M                # Create merge (multiple -o)
-jj --no-pager rebase -r <rev>                       # Rebase only this commit (no descendants)
+jj --no-pager rebase --source @ --destination main           # Rebase @ onto main
+jj --no-pager rebase --branch <bookmark>                     # Rebase entire branch
+jj --no-pager rebase --source L --destination K --destination M  # Create merge
+jj --no-pager rebase --revisions <rev>                       # Rebase only this commit (no descendants)
 ```
 
 ### Navigation Between Commits
@@ -468,19 +492,19 @@ jj --no-pager rebase -r <rev>                       # Rebase only this commit (n
 jj --no-pager prev                 # Go to parent (creates new @)
 jj --no-pager next                 # Go to child
 ```
-**NOTE:** `jj edit <rev>` exists but AIs must NOT use it — use `jj new -A <rev>` instead.
+**NOTE:** `jj edit <rev>` exists but AIs must NOT use it — use `jj new --allow-backwards <rev>` instead.
 
 ### File Operations
 ```bash
-jj --no-pager file list                                  # List files in @
-jj --no-pager file show -r <rev> <path>                  # Show file content at revision
-jj --no-pager file search --pattern <regex> [filesets]   # Search file contents
-jj --no-pager file annotate <path>                       # Blame (shows revision + author per line)
-jj --no-pager file chmod +x <path>                       # Set executable
-jj --no-pager file untrack <path>                        # Stop tracking
-jj --no-pager restore <path>                             # Restore from parent
-jj --no-pager restore -f <rev> <path>                    # Restore from specific revision
-jj --no-pager file list 'glob:"*.py"'                    # List files matching pattern (filesets)
+jj --no-pager file list                                              # List files in @
+jj --no-pager file show --revisions <rev> <path>                     # Show file content at revision
+jj --no-pager file search --pattern <regex> [filesets]              # Search file contents
+jj --no-pager file annotate <path>                                  # Blame (shows revision + author per line)
+jj --no-pager file chmod +x <path>                                  # Set executable
+jj --no-pager file untrack <path>                                   # Stop tracking
+jj --no-pager restore <path>                                        # Restore from parent
+jj --no-pager restore --from <rev> <path>                           # Restore from specific revision
+jj --no-pager file list 'glob:"*.py"'                               # List files matching pattern (filesets)
 ```
 
 ### Undo & Operations
@@ -494,26 +518,26 @@ jj --no-pager op restore <id>      # Restore to specific operation
 ### Tagging
 ```bash
 jj --no-pager tag list
-jj --no-pager tag set <name> -r <rev>
+jj --no-pager tag set <name> --revisions <rev>
 jj --no-pager tag delete <name>
 ```
 
 ### Bookmarks (Branches)
 ```bash
-jj --no-pager bookmark list              # Local bookmarks
-jj --no-pager bookmark list -a           # All (including remotes)
-jj --no-pager bookmark create <name>     # Create at @
-jj --no-pager bookmark set <name>        # Create or update
-jj --no-pager bookmark move -f <old> -t <new>  # Move bookmark
+jj --no-pager bookmark list                     # Local bookmarks
+jj --no-pager bookmark list --all               # All (including remotes)
+jj --no-pager bookmark create <name>            # Create at @
+jj --no-pager bookmark set <name>               # Create or update
+jj --no-pager bookmark move --from <old> --to <new>  # Move bookmark
 jj --no-pager bookmark rename <old> <new>
-jj --no-pager bookmark delete <name>     # Delete (propagates to remote)
-jj --no-pager bookmark forget <name>     # Delete (local only)
+jj --no-pager bookmark delete <name>            # Delete (propagates to remote)
+jj --no-pager bookmark forget <name>            # Delete (local only)
 ```
 
 ### Reverting
 ```bash
-jj --no-pager revert -r <rev> -o <onto>     # Apply reverse of <rev> on top of <onto>
-jj --no-pager revert -r <rev> --insert-after <ref>  # Insert reverse after <ref>
+jj --no-pager revert --revisions <rev> --destination <onto>        # Apply reverse of <rev> on top of <onto>
+jj --no-pager revert --revisions <rev> --insert-after <ref>        # Insert reverse after <ref>
 ```
 
 ### Resolving Conflicts
@@ -532,13 +556,13 @@ jj --no-pager workspace add --name <n> <path>  # With custom name
 
 ### Advanced Commands
 ```bash
-jj --no-pager absorb              # Auto-move changes from @ into stack of mutable commits
-jj --no-pager duplicate -r <rev>  # Duplicate commit to new location
-jj --no-pager fix                 # Run formatters/linters
-jj --no-pager parallelize         # Make commits siblings (declare independence)
-jj --no-pager arrange             # Interactive graph arrangement
-jj --no-pager metaedit -m "msg"  # Change commit message without changing content
-jj --no-pager abandon             # Discard a commit
+jj --no-pager absorb                    # Auto-move changes from @ into stack of mutable commits
+jj --no-pager duplicate --revisions <rev>  # Duplicate commit to new location
+jj --no-pager fix                       # Run formatters/linters
+jj --no-pager parallelize               # Make commits siblings (declare independence)
+jj --no-pager arrange                   # Interactive graph arrangement
+jj --no-pager metaedit --message 'msg'  # Change commit message without changing content
+jj --no-pager abandon                   # Discard a commit
 ```
 
 ---
@@ -661,7 +685,7 @@ These commands move your working copy perspective without modifying existing com
 
 - `jj prev` — Move working copy to parent. Safe. Does not edit commits.
 - `jj next` — Move working copy to child. Safe. Does not edit commits.
-- `jj new -A <rev>` — Branch from an older commit. Safe. Creates new commit on top.
+- `jj new --allow-backwards <rev>` — Branch from an older commit. Safe. Creates new commit on top.
 
 ### Forbidden Without Explicit User Request (Rewrites History)
 These commands modify existing commit history. Never use them unless the user explicitly asks:
