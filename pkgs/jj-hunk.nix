@@ -1,11 +1,13 @@
-{ pkgs ? import <nixpkgs> { } }:
+{
+  pkgs ? import <nixpkgs> { },
+}:
 let
-  version = "0.3.3";
+  version = "0.4.1";
   src = pkgs.fetchFromGitHub {
     owner = "laulauland";
     repo = "jj-hunk";
     tag = "v${version}";
-    hash = "sha256-B1TMgUFd41fy0+snvkshyAXwwHaD3Fgvdp8E6NWL9AM=";
+    hash = "sha256-lFuYTg6TW/Lsz4wwaaWFi37F2aGKpLwQgq40VTdDUKE=";
   };
 in
 pkgs.rustPlatform.buildRustPackage {
@@ -13,7 +15,10 @@ pkgs.rustPlatform.buildRustPackage {
   inherit version src;
   cargoLock.lockFile = "${src}/Cargo.lock";
 
-  nativeCheckInputs = with pkgs; [ jujutsu git ];
+  nativeCheckInputs = with pkgs; [
+    jujutsu
+    git
+  ];
 
   # Skip integration tests - they require jj-hunk in PATH when invoked as a tool
   # by jj's diff editor, which child processes don't inherit from preCheck PATH.
