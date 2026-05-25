@@ -130,7 +130,7 @@
       # opencode
       pi-coding-agent
       config.lib.packages.opencode
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      # inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
       # config.lib.packages.omp
       playwright-mcp
       mcp-nixos
@@ -153,6 +153,7 @@
       nerd-fonts.hack
       nixd
       nixfmt
+      sbomnix
       rclone
       sshuttle
       stern
