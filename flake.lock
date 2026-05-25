@@ -252,37 +252,6 @@
         "url": "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz"
       }
     },
-    "nixpkgs-lib": {
-      "locked": {
-        "lastModified": 1774748309,
-        "narHash": "sha256-+U7gF3qxzwD5TZuANzZPeJTZRHS29OFQgkQ2kiTJBIQ=",
-        "owner": "nix-community",
-        "repo": "nixpkgs.lib",
-        "rev": "333c4e0545a6da976206c74db8773a1645b5870a",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nix-community",
-        "repo": "nixpkgs.lib",
-        "type": "github"
-      }
-    },
-    "oh-my-pi": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1777567226,
-        "narHash": "sha256-J9fZVatVUMAI5LPWB1/UYOzPcoBCH/qY9B/057AjMxQ=",
-        "owner": "can1357",
-        "repo": "oh-my-pi",
-        "rev": "24fa1fa115800f5ef3c86bfb35b813863b99e8c0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "can1357",
-        "repo": "oh-my-pi",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
         "bun2nix": "bun2nix",
@@ -292,8 +261,7 @@
         "flake-compatish": "flake-compatish",
         "home-manager": "home-manager",
         "llm-agents": "llm-agents",
-        "nixpkgs": "nixpkgs",
-        "oh-my-pi": "oh-my-pi"
+        "nixpkgs": "nixpkgs"
       }
     },
     "systems": {
