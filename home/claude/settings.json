@@ -3,6 +3,10 @@
     "API_TIMEOUT_MS": "3000000"
   },
   "model": "haiku",
+  "statusLine": {
+    "type": "command",
+    "command": "/home/lillecarl/.claude/statusline.sh"
+  },
   "enabledPlugins": {
     "clangd-lsp@claude-plugins-official": true,
     "pyright-lsp@claude-plugins-official": true
@@ -14,8 +18,5 @@
     "webFetch": "*",
     "webSearch": "*"
   },
-  "statusLine": {
-    "type": "command",
-    "command": "/home/lillecarl/.claude/statusline.sh"
-  }
+  "remoteControlAtStartup": true
 }

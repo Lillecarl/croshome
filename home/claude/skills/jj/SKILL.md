@@ -26,7 +26,7 @@ Jujutsu is an experimental VCS compatible with Git. Key advantages over Git:
 | `git add` | `jj file track` | Auto-tracks new files; no staging needed |
 | `git add -p` | `jj commit --interactive` | Interactive staging for partial commits |
 | `git checkout -- <path>` | `jj restore <path>` | Restore file from parent/other revision |
-| `git commit` | `jj commit` (alias: `jj ci`) | Creates commit ON TOP of @ — does NOT move bookmarks |
+| `git commit` | `jj commit` (alias: `jj ci`) | Sets message on @ (the working copy), creates a new empty child, moves @ to that child — does NOT move bookmarks |
 | `git commit --amend` | `jj describe` (alias: `jj desc`) | Updates message; does NOT change content like Git amend |
 | `git reset --hard HEAD` | `jj abandon` | Discards the current commit/revision |
 | `git reset <rev>` | `jj new --allow-backwards <rev>` | jj new places you ON the commit (creates working-copy there) |
@@ -82,10 +82,23 @@ Like Git, rebasing creates new commits. Change IDs persist across rewrites.
 
 ## Best Practices for AI Agents
 
-### Use `jj commit` to Finish a Task
-AIs should prefer `jj commit` over `jj describe`.
-- `jj commit` creates a new revision ON TOP of the current one and moves the `@` (working copy) to a new empty commit. This prevents "task bleed" where new changes accidentally accumulate in the same revision.
-- `jj describe` only labels the current revision. If used, the AI must remember to call `jj new` manually before starting the next task.
+### Use `jj commit` to Finish a Task, Not `jj describe`
+
+**Never use `jj describe` to finish work.** `jj commit` is always the correct way to finalize a batch of changes.
+
+| Command | Creates empty child? | `@` moves? | Result |
+|---------|---------------------|-----------|--------|
+| `jj commit --message 'msg'` | ✅ Yes | ✅ Moves to new child | Clean working copy. Safe for next task. |
+| `jj describe --message 'msg'` | ❌ No | ❌ Stays on same commit | `@` remains on the just-labeled commit. Any subsequent edit changes that commit's content. **Dangerous.** |
+
+**Why this matters:** If you use `jj describe` and then make further changes (even by a different agent call), those new changes land in the same commit you just described. You've silently turned a "done" commit into a WIP, and there's no boundary between "what was finished" and "what was added later." With `jj commit`, you get a clean `@` child — any future changes are automatically separate.
+
+**When `jj describe` IS acceptable:**
+- Fixing a typo in a message on a commit that was already created with `jj commit`.
+- Renaming a commit whose content is already final and `@` is already on a clean child.
+- **Never** to set the initial message on the current `@` working copy — use `jj commit` instead. If you meant to finalize, `jj commit` is correct. If you genuinely want `@` to stay open, you should not be setting a message yet.
+
+**`jj describe` is NOT a safe alternative to `jj commit`.** The skill section below ("History Safety — SAFE commands") lists `jj describe` alongside `jj commit` under "appending is safe," but that only means it doesn't *rewrite* history — it still leaves `@` on a live commit ready to absorb more changes. Misusing it causes "task bleed," not history corruption.
 
 ### Squashing into Previous Commits
 If the current changes logically belong in the previous commit (e.g., a small fix or refinement), use `jj squash --use-destination-message` to absorb them:
@@ -105,15 +118,21 @@ jj --no-pager new --message 'Merge description' <rev1> <rev2>
 
 ### Deciding How to Commit: `jj commit` vs `jj-hunk commit` vs `jj-hunk split`
 
+**Golden rule: always end with `@` on an empty commit.** Whether you use `jj commit`, `jj-hunk split`, or `jj-hunk commit`, the final state must be `@` on a clean child so the next changes don't accidentally modify the finished work.
+
 **Decision guide — check in order:**
 
-1. **Are all changes in your working copy logically one commit?** → Use `jj commit`.
-2. **Are changes mixed (e.g., bugfix + refactor + feature)?** → Use `jj-hunk`. Start with `jj-hunk list | jq -c`, then:
-   - **Do you want everything committed (just organized into separate commits)?** → Use `jj-hunk split` repeatedly. Each call creates two commits: selected hunks in one, the rest in another. Then `jj describe` each with a proper message.
-   - **Do you want to commit only the "ready" parts and keep experimenting on the rest?** → Use `jj-hunk commit` for the ready hunks. The rest stays uncommitted in your working copy for further editing.
-3. **Is a small change logically part of the previous commit?** → Use `jj squash --use-destination-message`.
+1. **Are all changes in your working copy logically one commit?** → Use `jj commit --message '...'`. This commits your changes, creates a clean empty child, and moves `@` there.
 
-**Recommended workflow for clean history:**
+2. **Are changes mixed (e.g., bugfix + refactor + feature)?** → Use `jj-hunk`. Start with `jj-hunk list | jq -c`, then:
+   - **Do you want everything committed (just organized into separate commits)?** → Use `jj-hunk split` repeatedly. Each call creates two commits: selected hunks in one, the rest in another. When the last split finishes, `@` is on an empty child — done.
+   - **Do you want to commit only the "ready" parts and keep experimenting on the rest?** → Use `jj-hunk commit` for the ready hunks. The rest stays uncommitted in your working copy (`@` remains open for editing, which is intentional here).
+
+3. **Is a small change logically part of the previous commit?** → Use `jj squash --use-destination-message`. This squashes `@` into its parent, effectively moving `@` back to the parent. Your working copy becomes that parent commit — which is fine because it means you're refining an existing change, not starting something new.
+
+**⚠️ CRITICAL: Never use `jj describe` to finish a workflow.** After `jj-hunk split`, the split itself already sets the message and leaves `@` on a clean child. The old recommended workflow below used `jj describe` after `jj-hunk split` — that was wrong because it described the *second* commit (the one `@` is on) instead of the *first* commit (the one just created by the split). Use `jj describe --revisions @-` if you need to rename the newly-split-out commit (the parent), or better, pass the message directly to `jj-hunk split` like the examples above do.
+
+**Correct workflow for splitting into logical commits:**
 
 ```bash
 # Hack → commit everything as one working commit
@@ -122,16 +141,16 @@ jj --no-pager commit --message 'WIP: mixed changes'
 # Inspect hunks
 jj-hunk list | jq -c
 
-# Extract first logical piece (e.g., bugfix)
-jj-hunk split '{"files": {"main.py": {"hunks": [0]}}, "default": "reset"}' "fix: handle null case"
-jj describe --message 'fix: handle null case'
+# Extract first logical piece — message goes into the FIRST commit via split
+jj-hunk split '{"files": {"main.py": {"hunks": [0]}}, "default": "reset"}' 'fix: handle null case'
 
-# Extract second piece (e.g., refactoring)
-jj-hunk split '{"files": {"utils.py": {"action": "keep"}}, "default": "reset"}' "refactor: improve utils"
-jj describe --message 'refactor: improve utils'
+# Working copy (@) is now on the "rest" commit (empty child).
+# If the "rest" commit needs a descriptive message:
+jj --no-pager describe --message 'reminder: what remains'
 
-# Land remaining changes on an empty working copy
-jj new
+# ...but consider just doing another split instead, which sets its own message.
+
+# If done: @ is on an empty child — clean working copy, ready for next task.
 ```
 
 This gives you a narrative, logically separated commit history — one of jj's biggest strengths since change IDs stay stable across rewrites.
@@ -142,16 +161,20 @@ AIs must NEVER manipulate commit history unless the user explicitly asks. The fo
 
 - **`jj edit <rev>` is FORBIDDEN** — it sets `@` to a past commit, making further changes rewrite history. AIs should never do this.
 - **No history rewriting without permission** — `jj rebase`, `jj split`, `jj parallelize`, `jj arrange`, `jj absorb`, `jj metaedit`, and `jj duplicate` all rewrite history. NEVER use them unless the user explicitly asks.
-- **Appending is safe** — `jj commit`, `jj new`, `jj describe`, `jj bookmark create` all append to history without modifying existing commits. These are always fine.
+- **Appending is safe** — `jj commit`, `jj new`, `jj bookmark create` all append to history without modifying existing commits. These are always fine.
+- **`jj describe` requires caution** — It does not rewrite history, but it does NOT create a new empty child either. `@` stays on the described commit, ready to absorb further changes. This causes task bleed if you use it to "finish" work. Only use `jj describe` on a commit that is already a parent of `@`, not on `@` itself. See "Use `jj commit` to Finish a Task, Not `jj describe`" above.
 - **Branching from older commits is safe** — `jj new --allow-backwards <rev>` creates a new child of an older commit without modifying it. This is fine.
 - **Fixup squashing is the ONLY exception** — `jj squash --use-destination-message` (squashing `@` into its parent for a trivial fixup) is allowed without asking. It only collapses the working copy into its immediate parent, which is equivalent to amending.
 - **When the user asks for a rewrite, confirm intent** — if a user says vague things like "rebase this" or "fix up that commit", verify the scope first.
 
 ```bash
-# SAFE — appending only
+# SAFE — creates a clean working copy
 jj --no-pager commit --message 'message'
 jj --no-pager new --allow-backwards <rev>        # Branch from older commit
-jj --no-pager describe --message 'msg'   # Update @ description
+
+# USE WITH CAUTION — does NOT create a clean working copy
+# Only use on @- (a parent commit), not on @ itself.
+jj --no-pager describe --revisions @- --message 'msg'  # Update parent description
 
 # SAFE — fixup squash (allowed without asking)
 jj --no-pager squash --use-destination-message
@@ -434,7 +457,7 @@ git --no-pager log --oneline --grep="pattern"          # Search commit messages
 
 **IMPORTANT:** `--revisions` defaults to `@` for all commands. You almost never need `--revisions @`.
 
-**IMPORTANT:** Use **single quotes** (`'...'`) for `--message` values containing backticks (`\``), `$`, `"`, `!`, or `\`. Double quotes let bash interpret these as command substitution or escape sequences. For multi-line or complex messages, pipe through `--stdin` — this is the most reliable approach and avoids all shell quoting issues:
+**IMPORTANT:** Always use **single quotes** (`'...'`) for `--message` — never `--stdin`, piping, or heredocs.
 
 ```bash
 # WRONG — backticks trigger command substitution in double quotes
@@ -443,16 +466,11 @@ jj --no-pager commit --message "add `no_schedule` flag"
 # RIGHT — single quotes prevent all shell interpretation
 jj --no-pager commit --message 'add `no_schedule` flag'
 
-# BEST — heredoc with single-quoted delimiter (no interpretation at all)
-cat <<'EOF' | jj commit --stdin
-add `no_schedule` flag to Store
+# ALSO RIGHT — single quotes for multi-line messages
+jj --no-pager commit --message 'add `no_schedule` flag to Store
 
 Refactor `_create_builder_job` to accept overrides dict.
-Probe builders get `nixkube/probe: true` label.
-EOF
-
-# Also BEST — stdin from a file
-jj commit --stdin < /tmp/msg.txt
+Probe builders get `nixkube/probe: true` label.'
 ```
 
 Basic one-liner examples:
@@ -749,7 +767,7 @@ Note: `--git` flag is **required** on `jj diff`, `jj show`, `jj log`, and `jj in
 | Aspect | Git | jj |
 |--------|-----|----|
 | Staging area | Yes (index) | No — working copy IS the commit |
-| Creating commit | `git commit` moves HEAD | `jj commit` creates ON TOP of @, @ becomes empty |
+| Creating commit | `git commit` moves HEAD | `jj commit` sets message on @, creates new empty child, moves @ to it |
 | Branching | `git checkout -b` moves HEAD | `jj bookmark create` creates pointer, @ stays |
 | Merging | `git merge` moves branch pointer | `jj new A B` creates merge, @ moves to new empty |
 | Undo | Complex (`reflog`, `reset`) | `jj undo` — simple and reliable |
