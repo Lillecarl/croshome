@@ -16,6 +16,8 @@
     ./podman.nix
     ./ollama.nix
     ./ttyd.nix
+    /home/lillecarl/Code/pynixd/nix/nixos
+    ./pynixd.nix
     ./ai-rebuild.nix
   ];
   config = {
