@@ -83,6 +83,11 @@
     nixpkgs = {
       config.allowUnfree = true;
     };
+    services.btrfs.autoScrub = {
+      enable = true;
+      interval = "monthly";
+    };
+
     programs.mosh = {
       enable = true;
       openFirewall = true;
