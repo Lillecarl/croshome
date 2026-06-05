@@ -42,7 +42,10 @@
       foot.terminfo
     ];
     networking.hostName = "hetztop";
-    networking.firewall.allowedTCPPorts = [ 4321 8080 ];
+    networking.firewall.allowedTCPPorts = [
+      4321
+      8080
+    ];
     environment.etc.nixpkgs.source = inputs.nixpkgs.outPath;
     # environment.etc."profile.d/claude.sh".text = ''
     programs.bash.shellInit = lib.mkBefore ''
