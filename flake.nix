@@ -27,6 +27,10 @@
       url = "github:nix-community/bun2nix/staging-2.1.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    hermes = {
+      url = "github:NousResearch/hermes-agent";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
   outputs =
     inputs:

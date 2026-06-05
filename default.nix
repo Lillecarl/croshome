@@ -13,6 +13,24 @@ let
           self = ./.;
           llm-agents = /home/lillecarl/Code/llm-agents.nix;
           oh-my-pi = /home/lillecarl/Code/oh-my-pi;
+          hermes-agent =
+            let
+              latestRelease = builtins.fromJSON (
+                builtins.readFile (
+                  builtins.fetchurl {
+                    url = "https://api.github.com/repos/NousResearch/hermes-agent/releases/latest";
+                    name = "hermes-latest-release.json";
+                  }
+                )
+              );
+              tag = latestRelease.tag_name;
+            in
+            fetchTree {
+              type = "github";
+              owner = "NousResearch";
+              repo = "hermes-agent";
+              ref = tag;
+            };
         };
       }
     ).inputs;
