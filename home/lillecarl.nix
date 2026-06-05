@@ -90,20 +90,47 @@
       };
       opencode =
         let
-          latestRelease = builtins.fromJSON (builtins.readFile (builtins.fetchurl {
-            url = "https://api.github.com/repos/anomalyco/opencode/releases/latest";
-            name = "opencode-latest-release.json";
-          }));
+          latestRelease = builtins.fromJSON (
+            builtins.readFile (
+              builtins.fetchurl {
+                url = "https://api.github.com/repos/anomalyco/opencode/releases/latest";
+                name = "opencode-latest-release.json";
+              }
+            )
+          );
           tag = latestRelease.tag_name;
           version = lib.strings.removePrefix "v" tag;
           arch = if pkgs.stdenv.hostPlatform.isx86_64 then "x64" else "arm64";
         in
-        inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode.overrideAttrs (final: prev: {
-          inherit version;
-          src = builtins.fetchurl {
-            url = "https://github.com/anomalyco/opencode/releases/download/${tag}/opencode-linux-${arch}.tar.gz";
-            name = "opencode-${tag}.tar.gz";
-          };
+        inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.opencode.overrideAttrs (
+          final: prev: {
+            inherit version;
+            src = builtins.fetchurl {
+              url = "https://github.com/anomalyco/opencode/releases/download/${tag}/opencode-linux-${arch}.tar.gz";
+              name = "opencode-${tag}.tar.gz";
+            };
+          }
+        );
+      pi =
+        let
+          latestRelease = lib.pipe { } [
+            (x: builtins.fetchurl {
+              url = "https://api.github.com/repos/earendil-works/pi/releases/latest";
+              name = "pi-latest-release.json";
+            })
+            builtins.readFile
+            builtins.fromJSON
+            (x: {
+              tag = x.tag_name;
+              version = lib.strings.removePrefix "v" x.tag_name;
+              arch = if pkgs.stdenv.hostPlatform.isx86_64 then "x64" else "arm64";
+              tarball = x.tarball_url;
+            })
+          ];
+        in
+        (pkgs.callPackage ../../nix-pi/pi.nix { }).overrideAttrs (pa: {
+          inherit (latestRelease) version;
+          src = fetchTarball { url = latestRelease.tarball; };
         });
       omp =
         let
@@ -128,9 +155,13 @@
     home.packages = with pkgs; [
       config.lib.packages.gemini-cli
       # opencode
-      pi-coding-agent
+      # pi-coding-agent
+      claude-code
       config.lib.packages.opencode
+      config.lib.packages.pi
       # inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.kilocode-cli
+      inputs.hermes.packages.${pkgs.stdenv.hostPlatform.system}.default
       # config.lib.packages.omp
       playwright-mcp
       mcp-nixos
