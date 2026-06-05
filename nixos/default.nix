@@ -16,6 +16,7 @@
     ./podman.nix
     ./ollama.nix
     ./ttyd.nix
+    ./ai-rebuild.nix
   ];
   config = {
     boot.loader.grub.enable = true;
