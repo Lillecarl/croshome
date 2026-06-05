@@ -41,6 +41,7 @@
     environment.systemPackages = with pkgs.pkgsBuildBuild; [
       foot.terminfo
     ];
+    environment.etc.impurity.text = toString builtins.currentTime;
     networking.hostName = "hetztop";
     networking.firewall.allowedTCPPorts = [
       4321
