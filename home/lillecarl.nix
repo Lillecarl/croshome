@@ -114,10 +114,13 @@
       pi =
         let
           latestRelease = lib.pipe { } [
-            (x: builtins.fetchurl {
-              url = "https://api.github.com/repos/earendil-works/pi/releases/latest";
-              name = "pi-latest-release.json";
-            })
+            (
+              x:
+              builtins.fetchurl {
+                url = "https://api.github.com/repos/earendil-works/pi/releases/latest";
+                name = "pi-latest-release.json";
+              }
+            )
             builtins.readFile
             builtins.fromJSON
             (x: {
@@ -127,10 +130,19 @@
               tarball = x.tarball_url;
             })
           ];
+          package = (pkgs.callPackage ../../nix-pi/pi.nix { }).overrideAttrs (pa: {
+            inherit (latestRelease) version;
+            src = fetchTarball { url = latestRelease.tarball; };
+          });
         in
-        (pkgs.callPackage ../../nix-pi/pi.nix { }).overrideAttrs (pa: {
-          inherit (latestRelease) version;
-          src = fetchTarball { url = latestRelease.tarball; };
+        package.overrideAttrs (pa: {
+          postFixup = ''
+            wrapProgram $out/bin/pi --prefix PATH : ${lib.makeBinPath [
+              pkgs.ripgrep
+              pkgs.fd
+              pkgs.nodejs
+            ]}
+          '';
         });
       omp =
         let
