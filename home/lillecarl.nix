@@ -171,7 +171,7 @@
       claude-code
       config.lib.packages.opencode
       config.lib.packages.pi
-      # inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.kilocode-cli
       inputs.hermes.packages.${pkgs.stdenv.hostPlatform.system}.default
       # config.lib.packages.omp
@@ -180,6 +180,7 @@
       mcp-gateway
       context7-mcp
       # The rest
+      binutils
       ncdu
       sd
       atuin
@@ -202,6 +203,7 @@
       stern
       viddy
       waypipe
+      wireguard-tools
       wl-clipboard
       # # Python LSP and plugins
       # python3Packages.python-lsp-server
