@@ -107,6 +107,7 @@
         nixpkgs.flake = inputs.nixpkgs;
         n.flake = inputs.nixpkgs;
       };
+      package = pkgs.nix;
     };
     home = {
       username = "lillecarl";
