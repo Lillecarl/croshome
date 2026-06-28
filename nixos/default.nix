@@ -19,6 +19,7 @@
     /home/lillecarl/Code/pynixd/nix/nixos
     ./pynixd.nix
     ./ai-rebuild.nix
+    ./terminfo.nix
   ];
   config = {
     boot.loader.grub.enable = true;

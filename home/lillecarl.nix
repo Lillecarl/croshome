@@ -35,59 +35,6 @@
       };
     };
     lib.packages = {
-      gemini-cli = (
-        pkgs.gemini-cli.overrideAttrs (
-          finalAttrs: previousAttrs: {
-            version = "0.41.1";
-            src = pkgs.fetchFromGitHub {
-              owner = "google-gemini";
-              repo = "gemini-cli";
-              tag = "v${finalAttrs.version}";
-              hash = "sha256-8T13ROsE6NVR120NbFThADjSYy1PApAXqdHzclSA2yc=";
-            };
-            npmDepsHash = "sha256-YHo3mAG9UlEg8J5SCzCu2YhKdlz7lFPon5SweKWQ8rk=";
-            npmDeps = pkgs.fetchNpmDeps {
-              # __contentAddressed = true;
-              inherit (finalAttrs) src;
-              hash = finalAttrs.npmDepsHash;
-            };
-            patches = previousAttrs.patches or [ ] ++ [
-              ../patches/gemini-keep-trying.patch
-              ../patches/gemini-less-yolo.patch
-            ];
-          }
-        )
-      );
-      morphmcp = pkgs.buildNpmPackage rec {
-        pname = "morphmcp";
-        version = "0.8.165";
-
-        src = pkgs.fetchurl {
-          url = "https://registry.npmjs.org/@morphllm/${pname}/-/${pname}-${version}.tgz";
-          hash = "sha256-njk7w+UG0b5icdgmYZQP2YImMFSkTgT34/3CLOsEO9o=";
-        };
-
-        sourceRoot = "package";
-
-        postPatch = ''
-          cp ${./morphmcp-package-lock.json} package-lock.json
-        '';
-
-        npmDepsHash = "sha256-NNNsDFaJDP0aC7LjqiJ4X0A/W8/4RvKyEDStnL5ROio=";
-
-        makeCacheWritable = true;
-        npm_config_ignore_scripts = "true";
-
-        nativeBuildInputs = [ pkgs.makeWrapper ];
-
-        postInstall = ''
-          # Symlink ripgrep binary for @vscode/ripgrep
-          mkdir -p $out/lib/node_modules/@morphllm/morphmcp/node_modules/@vscode/ripgrep/bin
-          ln -s ${lib.getExe pkgs.ripgrep} $out/lib/node_modules/@morphllm/morphmcp/node_modules/@vscode/ripgrep/bin/rg
-        '';
-
-        dontBuild = true;
-      };
       opencode =
         let
           latestRelease = builtins.fromJSON (
@@ -165,15 +112,16 @@
     };
 
     home.packages = with pkgs; [
-      config.lib.packages.gemini-cli
       # opencode
       # pi-coding-agent
       claude-code
       config.lib.packages.opencode
       config.lib.packages.pi
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.kilocode-cli
-      inputs.hermes.packages.${pkgs.stdenv.hostPlatform.system}.default
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
+      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.reasonix
+      codex # OpenAI
       # config.lib.packages.omp
       playwright-mcp
       mcp-nixos

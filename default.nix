@@ -11,26 +11,8 @@ let
         source = ./.;
         overrides = {
           self = ./.;
-          llm-agents = /home/lillecarl/Code/llm-agents.nix;
+          # llm-agents = /home/lillecarl/Code/llm-agents.nix;
           oh-my-pi = /home/lillecarl/Code/oh-my-pi;
-          hermes-agent =
-            let
-              latestRelease = builtins.fromJSON (
-                builtins.readFile (
-                  builtins.fetchurl {
-                    url = "https://api.github.com/repos/NousResearch/hermes-agent/releases/latest";
-                    name = "hermes-latest-release.json";
-                  }
-                )
-              );
-              tag = latestRelease.tag_name;
-            in
-            fetchTree {
-              type = "github";
-              owner = "NousResearch";
-              repo = "hermes-agent";
-              ref = tag;
-            };
         };
       }
     ).inputs;
@@ -41,6 +23,7 @@ rec {
     system = builtins.currentSystem;
     overlays = [ (import ./pkgs) ];
   };
+  inherit (pkgs) lib;
   home = inputs.home-manager.lib.homeManagerConfiguration {
     pkgs = import inputs.nixpkgs { };
     modules = [
@@ -52,6 +35,19 @@ rec {
     };
   };
   hetztop = hetztopSystem { system = builtins.currentSystem; };
+  hetztop-options = lib.pipe (pkgs.lib.optionAttrSetToDocList hetztop.options) [
+    (lib.filter (v: v.visible && !v.internal))
+    (lib.foldl' (
+      acc: opt:
+      lib.recursiveUpdate acc (
+        lib.setAttrByPath opt.loc {
+          description = opt.description or "";
+          example = opt.example.text or opt.example or "";
+          type = opt.type or "";
+        }
+      )
+    ) { })
+  ];
   hetztopx = hetztopSystem { system = "x86_64-linux"; };
   hetztopSystem =
     {
