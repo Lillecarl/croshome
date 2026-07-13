@@ -2,14 +2,21 @@
   config,
   pkgs,
   lib,
+  inputs,
   ...
 }:
 {
   config = {
+    # The filter comes from the nanopynix source tree, and not from
+    # `services.pynixd.package.src`: the package is an `mkApp` result and
+    # carries no `src`.
     environment.etc."pynixd/filter.py".source =
-      "${config.services.pynixd.package.src}/pynixd/filters/scheduler_focus.py";
+      "${inputs.nanopynix}/pynixd/pynixd/filters/scheduler_focus.py";
     services.pynixd = {
       enable = true;
+      # The module states no default for `package` -- only `nixosModules.pynixd`
+      # in nanopynix' own flake does, and this imports the module file directly.
+      package = (import "${inputs.nanopynix}" { inherit pkgs; }).pynixd;
       settings = {
         log_level = "DEBUG";
         plugins = [ "/etc/pynixd/filter.py" ];

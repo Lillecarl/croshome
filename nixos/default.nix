@@ -16,7 +16,10 @@
     ./podman.nix
     ./ollama.nix
     ./ttyd.nix
-    /home/lillecarl/Code/pynixd/nix/nixos
+    # pynixd moved into the nanopynix monorepo, so its NixOS module comes from
+    # that input rather than a checkout of its own. nanopynix is `flake = false`,
+    # so this is the source tree and no second flake is evaluated.
+    "${inputs.nanopynix}/pynixd/nix/nixos"
     ./pynixd.nix
     ./ai-rebuild.nix
     ./terminfo.nix
