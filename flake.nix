@@ -1,9 +1,6 @@
 {
   inputs = {
-    flake-compatish = {
-      url = "github:lillecarl/flake-compatish";
-      flake = false;
-    };
+    flake-compatish.url = "github:lillecarl/flake-compatish";
     # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
     home-manager = {
@@ -26,6 +23,18 @@
     bun2nix = {
       url = "github:nix-community/bun2nix/staging-2.1.0";
       inputs.nixpkgs.follows = "nixpkgs";
+    };
+    acpcli = {
+      url = "github:lillecarl/acpcli";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    # A source tree, and not a flake. `default.nix` of nanopynix takes `pkgs`,
+    # so this package set builds it and no second nixpkgs is instantiated.
+    # `flake = false` is what keeps the outputs of nanopynix unevaluated:
+    # flake-compatish gives a node with `flake = false` its source only.
+    nanopynix = {
+      url = "github:Lillecarl/nanopynix";
+      flake = false;
     };
   };
   outputs =

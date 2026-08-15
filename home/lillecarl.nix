@@ -108,71 +108,24 @@
             };
           }
         );
-      pi =
-        let
-          latestRelease = lib.pipe { } [
-            (
-              x:
-              builtins.fetchurl {
-                url = "https://api.github.com/repos/earendil-works/pi/releases/latest";
-                name = "pi-latest-release.json";
-              }
-            )
-            builtins.readFile
-            builtins.fromJSON
-            (x: {
-              tag = x.tag_name;
-              version = lib.strings.removePrefix "v" x.tag_name;
-              arch = if pkgs.stdenv.hostPlatform.isx86_64 then "x64" else "arm64";
-              tarball = x.tarball_url;
-            })
-          ];
-          package = (pkgs.callPackage ../../nix-pi/pi.nix { }).overrideAttrs (pa: {
-            inherit (latestRelease) version;
-            src = fetchTarball { url = latestRelease.tarball; };
-          });
-        in
-        package.overrideAttrs (pa: {
-          postFixup = ''
-            wrapProgram $out/bin/pi --prefix PATH : ${lib.makeBinPath [
-              pkgs.ripgrep
-              pkgs.fd
-              pkgs.nodejs
-            ]}
-          '';
-        });
-      omp =
-        let
-          craneLib = inputs.crane.mkLib pkgs;
-          bun2nix = inputs.bun2nix.packages.${pkgs.stdenv.hostPlatform.system}.default;
-          ompSrc = builtins.path {
-            path = inputs.oh-my-pi.outPath;
-            name = "omp-source";
-          };
-          natives = pkgs.callPackage (inputs.oh-my-pi + "/nix/omp/rust-natives.nix") {
-            inherit craneLib;
-            src = ompSrc;
-          };
-        in
-        pkgs.callPackage (inputs.oh-my-pi + "/nix/omp/package.nix") {
-          inherit bun2nix;
-          src = ompSrc;
-          inherit natives;
-        };
+
     };
 
     home.packages = with pkgs; [
       # opencode
-      # pi-coding-agent
+      fabric-ai
       claude-code
       config.lib.packages.opencode
-      config.lib.packages.pi
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.antigravity-cli
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.kilocode-cli
-      inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.omp
       inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.reasonix
+      inputs.acpcli.packages.${pkgs.stdenv.hostPlatform.system}.acpcli
+      # `import`, and not a flake output: nanopynix is a `flake = false` input,
+      # so this reads its `default.nix` and no flake of it is evaluated. That
+      # file takes the package set that builds it, and this one carries the
+      # overlays of this configuration, so there is no second nixpkgs.
+      (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
       codex # OpenAI
-      # config.lib.packages.omp
       playwright-mcp
       mcp-nixos
       mcp-gateway

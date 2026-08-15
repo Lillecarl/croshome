@@ -11,8 +11,8 @@ let
         source = ./.;
         overrides = {
           self = ./.;
-          # llm-agents = /home/lillecarl/Code/llm-agents.nix;
-          oh-my-pi = /home/lillecarl/Code/oh-my-pi;
+          acpcli = /home/lillecarl/Code/acpcli;
+          nanopynix = /home/lillecarl/Code/nanopynix;
         };
       }
     ).inputs;
