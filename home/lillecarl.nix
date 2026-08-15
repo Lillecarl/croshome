@@ -138,6 +138,7 @@
       fish-lsp
       fzf
       gitui
+      inotify-tools
       kubectl
       kubectl-explore
       kubectx
