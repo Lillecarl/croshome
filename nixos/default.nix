@@ -23,6 +23,7 @@
     ./pynixd.nix
     ./ai-rebuild.nix
     ./btrfs.nix
+    ./nix-gc.nix
     ./terminfo.nix
   ];
   config = {
