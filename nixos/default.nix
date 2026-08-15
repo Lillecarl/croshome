@@ -22,6 +22,7 @@
     "${inputs.nanopynix}/pynixd/nix/nixos"
     ./pynixd.nix
     ./ai-rebuild.nix
+    ./btrfs.nix
     ./terminfo.nix
   ];
   config = {
