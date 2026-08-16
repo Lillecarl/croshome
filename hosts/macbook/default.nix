@@ -26,6 +26,13 @@
   # and the QEMU one is also what builds this one's guest image, which is why
   # removing it is a later step and not this one.
   local.vzBuilder.enable = true;
+  # `auto` is not available here: /etc/nix/machines parses this column with
+  # string2Int<unsigned int> and throws on anything else, so it is a number or
+  # nothing. This is that number for this Mac (`sysctl -n hw.ncpu`), and it
+  # lives in the host file rather than the module because it is a fact about
+  # the machine. The VM's own vCPU count needs no such treatment -- it reads
+  # hw.ncpu itself at start-up.
+  local.vzBuilder.maxJobs = 15;
 
   # HostName is unset out of the box, which lets macOS derive `hostname`
   # dynamically -- currently to garbage bytes.

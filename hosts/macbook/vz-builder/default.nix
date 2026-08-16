@@ -51,6 +51,10 @@ let
       pkgs.procps
     ];
     text = ''
+      # Read at start-up rather than baked in, so this follows the machine it
+      # runs on instead of pinning one Mac's core count into the repo.
+      cpus=${if cfg.cores == null then "$(/usr/sbin/sysctl -n hw.ncpu)" else toString cfg.cores}
+
       install -d -m 0755 ${lib.escapeShellArg keyDir}
       install -m 0444 /etc/nix/builder_ed25519.pub ${lib.escapeShellArg keyDir}/builder_ed25519.pub
 
@@ -74,7 +78,7 @@ let
       ''}
 
       vfkit \
-        --cpus ${toString cfg.cores} \
+        --cpus "$cpus" \
         --memory ${toString cfg.memory} \
         --bootloader "linux,kernel=${kernel}/Image,initrd=${netbootRamdisk}/initrd,cmdline=\"console=hvc0 init=${toplevel}/init\"" \
         --device virtio-rng \
@@ -136,9 +140,33 @@ in
     enable = lib.mkEnableOption "the Virtualization.framework Linux builder";
 
     cores = lib.mkOption {
+      type = lib.types.nullOr lib.types.int;
+      default = null;
+      description = ''
+        vCPUs given to the builder, or null for every core the host has.
+
+        All of them is the default because this VM only exists while a build is
+        running: there is no long-lived neighbour to starve, so holding cores
+        back would just make builds slower for nothing. The count is read from
+        `sysctl hw.ncpu` at start-up rather than fixed here.
+      '';
+    };
+
+    maxJobs = lib.mkOption {
       type = lib.types.int;
-      default = 6;
-      description = "vCPUs given to the builder.";
+      default = 4;
+      description = ''
+        Derivations Nix runs on the builder at once.
+
+        An integer, necessarily: /etc/nix/machines parses this column with
+        `string2Int<unsigned int>` and throws on anything else, so there is no
+        `auto` to match the host's core count. Set it per machine.
+
+        Separate from `cores`, which the guest sets to 0 -- Nix's sentinel for
+        "every core there is", so each job may use the whole VM. The two
+        oversubscribe on purpose: few builds parallelise well enough to
+        saturate the machine alone.
+      '';
     };
 
     memory = lib.mkOption {
@@ -170,13 +198,31 @@ in
         Whether and how to share this Mac's /nix/store into the builder. See
         ./guest.nix for what each value means.
 
-        `overlay` is the better answer and is not the default. It uses Nix's
-        experimental local-overlay-store, and it rests on two behaviours that
-        were measured rather than documented: overlayfs accepts a virtiofs
-        lower layer, and the host's live WAL database can be read over a
-        read-only mount. The second is not a supported SQLite configuration --
-        it works, which is not the same as being safe while the host daemon
-        writes. `substituter` gives most of the benefit with none of that.
+        `overlay` is implemented but NOT WORKING, and is not the default for
+        that reason alone. What it is blocked on, precisely, so the next
+        attempt does not re-derive it:
+
+        Working: the guest boots with the host store as its only lower layer
+        (its own closure is in there, having been built on this Mac, so the
+        squashfs is unnecessary); the lower store opens and answers queries --
+        `nix path-info --store '/host-nix?read-only=true' <path>` returns valid
+        inside the guest; `read-only=true` needs the `read-only-local-store`
+        experimental feature on top of `local-overlay-store`; and check-mount
+        must be off, because stage 1 mounts under /sysroot and the kernel keeps
+        recording `lowerdir=/sysroot/...` after the pivot.
+
+        Blocked: ssh-ng runs `nix-daemon --stdio` as the unprivileged `builder`
+        user. It reads the same nix.conf, tries to open the overlay store
+        itself, cannot write the upper layer, and the connection dies as "Nix
+        daemon disconnected unexpectedly". Passing --store to nix-daemon
+        instead is rejected by the legacy entry point and the daemon does not
+        start at all; sshd SetEnv NIX_REMOTE=daemon did not take effect either.
+        The fix is to make that unprivileged process proxy to the daemon rather
+        than open the store.
+
+        `substituter` gets most of the benefit -- inputs come from this Mac
+        rather than the network -- and costs only a copy into the guest's
+        tmpfs, which `overlay` would have avoided.
       '';
     };
 
@@ -248,7 +294,7 @@ in
           "aarch64-linux"
           "x86_64-linux" # via Rosetta
         ];
-        maxJobs = cfg.cores;
+        maxJobs = cfg.maxJobs;
         speedFactor = 2; # native aarch64 under Apple's hypervisor
         # No kvm: this is a guest, and nothing nested is available to it.
         supportedFeatures = [
