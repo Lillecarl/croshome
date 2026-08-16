@@ -25,7 +25,7 @@ nix-build . --attr cros.activationPackage && ./result/activate
 to build a configuration from, and `hosts/cros/home.nix` is one half of a
 configuration that `default.nix` has already assembled.
 
-Two rules to keep in mind when you edit this repo:
+Three rules to keep in mind when you edit this repo:
 
 - **Do not read `pkgs` to decide an `imports` list.** `imports` is resolved
   before `config` exists, so reading `pkgs` there makes the module system
@@ -34,6 +34,19 @@ Two rules to keep in mind when you edit this repo:
 - **`hosts/cros` does not import `home/`.** That machine is very slow, and it
   only has to run foot and reach the other two. Add to it by name, not by
   sharing.
+- **Run the binary before you call a package Linux-only.** `home/linux/` is for
+  things that cannot work on macOS, and three different signals all lie about
+  which those are:
+  - `meta.platforms` says a package is *allowed* on a platform, not that it
+    works there.
+  - A green build says it *compiled*, not that it runs.
+  - A red build often means `versionCheckPhase` got no output from the binary
+    inside the sandbox, while the same store path runs fine outside it. Build
+    with `doInstallCheck = false` and run it before believing the failure.
+
+  `opencode` and `kilocode-cli` sat in `home/linux/` for exactly this reason
+  and both run on macOS. Check the upstream release assets too: `opencode`
+  publishes a macOS CLI, and the comment claiming otherwise was wrong.
 
 ## Reading a change before activating it
 

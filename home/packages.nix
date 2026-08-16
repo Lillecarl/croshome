@@ -141,7 +141,6 @@
     )
 
     # The rest
-    atuin
     fish-lsp
     wireguard-tools
     fzf

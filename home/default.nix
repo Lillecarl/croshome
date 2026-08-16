@@ -1,7 +1,9 @@
 {
+  config,
   lib,
   inputs,
   platform,
+  selfStr,
   ...
 }:
 {
@@ -38,6 +40,15 @@
   catppuccin.autoEnable = true;
 
   programs.home-manager.enable = true;
+
+  # ~/.local/bin. An out-of-store symlink, so editing a script takes effect
+  # without a rebuild -- the same reason ./agents.nix links the skills.
+  #
+  # Shared rather than hetztop-only: k9s-ssh-node needs kubectl and ssh, and
+  # claudenix wraps nix, all of which the MacBook has. ChromeOS does not import
+  # this file at all, so it stays out on its own.
+  home.file.".local/bin".source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/localbin";
+  home.sessionPath = [ "${config.home.homeDirectory}/.local/bin" ];
 
   # Exports XDG_{CONFIG,CACHE,DATA,STATE}_HOME as session variables. macOS has
   # no XDG layout of its own, and this config expects one on every machine.
