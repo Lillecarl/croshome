@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# Build and activate a nix-darwin system from ./default.nix, without darwin-rebuild.
+#
+#   ./rebuild [build|switch|activate|check|diff|diff-drv|rollback|list] [host]
+#
+# [host] selects among the nix-darwin hosts, of which there is one today. It
+# reads `<host>.system`, which only a darwin configuration has, so passing
+# hetztop or cros here does not work.
+#
+# macOS only. The other two do not share an activation path with this one, so
+# they do not share a script either:
+#
+#   hetztop  nixos-rebuild switch --file . --attr hetztop
+#   cros     nix-build . --attr cros.activationPackage && ./result/activate
+#
+# `home-manager switch --file` is not the ChromeOS command. That flag takes a
+# module to build a configuration out of, and ./hosts/cros/home.nix is one half
+# of a configuration that ./default.nix has already assembled.
+#
+# The build runs unprivileged; only the profile update and the activation
+# script need root.
+set -euo pipefail
+
+repo=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+profile=/nix/var/nix/profiles/system
+
+action=${1:-switch}
+host=${2:-macbook}
+
+case $action in
+  build | switch | activate | check | diff | diff-drv | rollback | list) ;;
+  *)
+    echo "usage: ${0##*/} [build|switch|activate|check|diff|diff-drv|rollback|list] [host]" >&2
+    exit 1
+    ;;
+esac
+
+# NIX_REMOTE=daemon so root goes through the daemon too, as darwin-rebuild does;
+# -H keeps sudo from handing root your $HOME.
+asroot() { sudo -H NIX_REMOTE=daemon "$@"; }
+
+# Reads what a generation would change, so activating it is a decision rather
+# than a surprise. `switch` prints the summary first for the same reason.
+#
+# nvd walks both closures and lists the packages that appear, disappear or
+# change version. nix-diff compares the derivations instead, and answers the
+# case nvd cannot: no version moved, yet everything rebuilt. Its output covers
+# a whole system closure, so it stays behind its own action.
+current=/run/current-system
+
+# Both tools are in home.packages, but a diff has to work before the generation
+# that installs them is the running one. Falling back to the pinned nixpkgs of
+# this repo keeps the answer the same either way.
+runTool() {
+  local tool=$1
+  shift
+  if command -v "$tool" > /dev/null; then
+    "$tool" "$@"
+  else
+    nix run --file "$repo" "pkgs.$tool" -- "$@"
+  fi
+}
+
+showDiff() {
+  local new=$1
+
+  if [[ $(readlink -f "$current") == $(readlink -f "$new") ]]; then
+    echo "no change: the built system is the running one" >&2
+    return 0
+  fi
+
+  case $2 in
+    nvd) runTool nvd diff "$current" "$new" ;;
+    nix-diff)
+      # --environment is not the default, and without it nix-diff stops at
+      # "Skipping environment comparison" once the input derivations already
+      # differ. nix-darwin puts the whole activation script in the environment
+      # of the top-level derivation, so that default hides exactly the changes
+      # worth reading before an activation.
+      #
+      # The other three keep the output short: --skip-already-compared folds a
+      # subtree that only changed through an input already shown, and word
+      # diffs with a small context stop a one-line JSON blob from printing
+      # twice in full.
+      runTool nix-diff \
+        --environment \
+        --skip-already-compared \
+        --word-oriented \
+        --context 4 \
+        "$current" "$new"
+      ;;
+  esac
+}
+
+if [[ $action == list ]]; then
+  # nix-env takes a write lock on the profile even to read it.
+  asroot nix-env -p "$profile" --list-generations
+  exit 0
+fi
+
+if [[ $action == rollback ]]; then
+  asroot nix-env -p "$profile" --rollback
+  asroot "$(cat "$profile/systemConfig")/activate"
+  exit 0
+fi
+
+echo "building $host..." >&2
+system=$(nix-build "$repo" --attr "$host.system" --out-link "$repo/result")
+
+case $action in
+  build) echo "$system" ;;
+  # checkActivation makes the activation script run its preflight checks only.
+  check) asroot env checkActivation=1 "$system/activate" ;;
+  activate) asroot "$system/activate" ;;
+  diff) showDiff "$system" nvd ;;
+  diff-drv) showDiff "$system" nix-diff ;;
+  switch)
+    showDiff "$system" nvd || true
+    # Registering the generation is what makes rollback possible.
+    asroot nix-env -p "$profile" --set "$system"
+    asroot "$system/activate"
+    ;;
+esac

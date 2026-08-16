@@ -3,6 +3,7 @@
   lib,
   modulesPath,
   inputs,
+  homeArgs,
   ...
 }:
 {
@@ -10,7 +11,6 @@
     inputs.disko.nixosModules.disko
     inputs.home-manager.nixosModules.home-manager
     (modulesPath + "/profiles/qemu-guest.nix")
-    ../home
     ./disko.nix
     ./installscript.nix
     ./podman.nix
@@ -27,6 +27,27 @@
     ./terminfo.nix
   ];
   config = {
+    # The account and the home-manager wiring used to live in ../home, next to
+    # the modules it pulls in. It is host state -- a password hash, a uid, the
+    # groups this machine has -- so it belongs to the host now that ../../home
+    # is shared with the MacBook and ChromeOS.
+    programs.fish.enable = true;
+    users.users.lillecarl = {
+      extraGroups = [
+        "wheel"
+        "podman"
+      ];
+      hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
+      isNormalUser = true;
+      openssh.authorizedKeys.keyFiles = [ ../../lillecarl.pub ];
+      shell = pkgs.fish;
+    };
+    home-manager = {
+      useGlobalPkgs = true;
+      extraSpecialArgs = homeArgs;
+      users.lillecarl = import ./home.nix;
+    };
+
     boot.loader.grub.enable = true;
     boot.initrd.availableKernelModules = [
       "ahci"
@@ -48,7 +69,8 @@
       foot.terminfo
     ];
     # reference catppuccin whiskers so it doesn't get garbage collected every time you collect garbage.
-    environment.etc.catppucin-whiskers.source = inputs.catppuccin.packages.${pkgs.stdenv.hostPlatform.system}.whiskers;
+    environment.etc.catppucin-whiskers.source =
+      inputs.catppuccin.packages.${pkgs.stdenv.hostPlatform.system}.whiskers;
     networking.hostName = "hetztop";
     networking.firewall.allowedTCPPorts = [
       4321
@@ -92,9 +114,6 @@
         nixpkgs.flake = inputs.nixpkgs;
         n.flake = inputs.nixpkgs;
       };
-    };
-    nixpkgs = {
-      config.allowUnfree = true;
     };
     services.btrfs.autoScrub = {
       enable = true;

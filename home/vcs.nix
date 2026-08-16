@@ -1,11 +1,18 @@
-{ config, selfStr, ... }:
+{
+  config,
+  lib,
+  selfStr,
+  ...
+}:
 {
   config = {
     programs.jujutsu = {
       enable = true;
       settings = {
         user.name = "lillecarl";
-        user.email = "git@lillecarl.com";
+        # mkDefault so a host can commit under another address. The git
+        # identity below reads this value, so overriding it moves both.
+        user.email = lib.mkDefault "git@lillecarl.com";
         git.private-commits = "description(glob:'private:*')";
         ui.pager = [
           "sh"

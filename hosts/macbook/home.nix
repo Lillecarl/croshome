@@ -1,0 +1,39 @@
+{ pkgs, ... }:
+let
+  # Homebrew 6 refuses to load a cask from a tap nobody has vouched for, and
+  # `brew bundle` failing takes the whole activation with it. The tap named
+  # here is the one ./fuse.nix adds; `brew trust` writes exactly this file.
+  brewTrust = pkgs.writeText "homebrew-trust.json" (
+    builtins.toJSON { trustedtaps = [ "macos-fuse-t/cask" ]; }
+  );
+in
+{
+  imports = [ ../../home ];
+
+  home.username = "lillecarl";
+  home.homeDirectory = "/Users/lillecarl";
+  home.stateVersion = "26.11";
+
+  # Work machine, so commits carry the work address rather than the
+  # git@lillecarl.com that ../../home/vcs.nix defaults to. Setting it here is
+  # enough for git too: vcs.nix reads the git identity off this one.
+  programs.jujutsu.settings.user.email = "carl.andersson@dynamist.se";
+
+  # Both locations, because brew picks between them from the environment: it
+  # uses $XDG_CONFIG_HOME/homebrew when that is set, which is the case in a
+  # shell, and ~/.homebrew otherwise -- and activation runs brew under sudo,
+  # which resets the environment down to PATH.
+  home.file.".homebrew/trust.json".source = brewTrust;
+  xdg.configFile."homebrew/trust.json".source = brewTrust;
+
+  home.packages = [
+    # The CLI only. Pulling from lillecarl.cachix.org is already set up as a
+    # substituter in ./default.nix; this is for pushing, and it keeps its auth
+    # token in ~/.config/cachix/cachix.dhall, which stays hand-managed.
+    pkgs.cachix
+    pkgs.autossh
+    # gh's opposite number; no home-manager module for it, and its config lives
+    # in ~/.config/glab-cli/ either way.
+    pkgs.glab
+  ];
+}

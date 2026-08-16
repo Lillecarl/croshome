@@ -11,6 +11,10 @@
       url = "github:catppuccin/nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    nix-darwin = {
+      url = "github:nix-darwin/nix-darwin";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -44,5 +48,6 @@
     in
     {
       nixosConfigurations.hetztop = default.hetztopSystem { system = "x86_64-linux"; };
+      darwinConfigurations.macbook = default.macbookSystem { system = "aarch64-darwin"; };
     };
 }

@@ -1,3 +1,9 @@
+# Files to place by hand on the ChromeOS machine
+
+Neither of these is managed by home-manager: they configure Crostini itself,
+which lives outside the container that Nix runs in. Recorded here so a rebuilt
+machine can be brought back to the same state.
+
 # /etc/systemd/user/sommelier@0.service.d/cros-sommelier-override.conf
 [Service]
 Environment="SOMMELIER_ACCELERATORS=Super_L,<Alt>bracketleft,<Alt>bracketright,<Alt>tab,<Alt>minus,<Alt>equal,<Alt>space"
