@@ -117,13 +117,28 @@ in
       # nothing. mDNS does: mDNSResponder answers <hostName>.local natively,
       # with nothing configured on the host side.
       networking.hostName = "vzbuilder";
-      networking.useDHCP = true;
 
       # systemd-networkd rather than dhcpcd. dhcpcd spent 4.587s on the
       # critical chain to multi-user.target -- more than half of userspace --
       # because it probes and waits before declaring the lease usable.
       # networkd's client does not.
       networking.useNetworkd = true;
+
+      # networkd needs the interface configured explicitly, and this is the
+      # whole of it. `networking.useDHCP` is the legacy global switch: under
+      # networkd it generates no .network unit, so networkd starts, matches
+      # nothing, and the guest comes up with no address at all -- no lease, no
+      # ARP entry, no mDNS name. Nothing logs an error; the host simply cannot
+      # resolve vzbuilder.local, and a build sits on an open socket waiting for
+      # a builder that will never answer.
+      networking.useDHCP = false;
+      systemd.network.networks."10-uplink" = {
+        matchConfig.Name = "en*";
+        networkConfig.DHCP = "ipv4";
+        # Nothing waits on network-online.target here: the builder is reached
+        # by name over mDNS, and sshd is socket-activated.
+        linkConfig.RequiredForOnline = "no";
+      };
 
       # No firewall on a builder that exists for a minute, on a host-only NAT,
       # reachable from one Mac. It cost 596ms of the boot it is not protecting.
@@ -283,11 +298,21 @@ in
       # where the guest's system lives.
       netboot.storeContents = lib.mkForce [ ];
 
-      # ...and take what is left of it off the critical path. netboot marks
-      # /nix/.ro-store neededForBoot, so stage 1 sets up a loop device for it
-      # and waits -- about a second, for a squashfs that is now empty and that
-      # nothing in this mode reads. Stage 2 can mount it whenever.
-      fileSystems."/nix/.ro-store".neededForBoot = lib.mkForce false;
+      # ...and drop the mount for it altogether. netboot marks /nix/.ro-store
+      # neededForBoot, so stage 1 attaches a loop device to the squashfs and
+      # waits for it -- for an image that is now empty and that nothing in this
+      # mode reads, since /nix/store overlays the host store instead.
+      #
+      # The whole entry has to be replaced, not just `neededForBoot`. netboot
+      # defines it with mkImageMediaOverride, and against that a mkForce on a
+      # single attribute silently loses -- `neededForBoot` stayed true through
+      # a rebuild and a boot. Forcing the entry itself wins, and `enable =
+      # false` means no mount unit is generated at all.
+      fileSystems."/nix/.ro-store" = lib.mkForce {
+        enable = false;
+        device = "none";
+        fsType = "tmpfs";
+      };
 
       # netboot registers the squashfs contents into the Nix database at boot.
       # The squashfs is empty here, so the service only fails -- the paths come

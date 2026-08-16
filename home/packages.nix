@@ -121,6 +121,19 @@
     sqlite # query any .db directly instead of writing a script around it
     yq-go # jq syntax over YAML, TOML and XML
 
+    # macOS ships no `timeout` at all, and its BSD versions of the rest take
+    # different flags from the GNU ones that every script and every agent
+    # assumes. moreutils adds `sponge`, `ts`, `chronic`, `parallel`.
+    #
+    # Worth knowing rather than discovering: these are unprefixed, and
+    # home.packages comes before the system path, so on darwin `ls`, `date`,
+    # `cp`, `stat` and the rest now behave like GNU instead of BSD. That is the
+    # point of installing them; it is also the surprise. `coreutils-prefixed`
+    # is the alternative if the shadowing ever gets in the way -- it installs
+    # the same tools as `gls`, `gdate`, `gtimeout` and leaves BSD in place.
+    coreutils
+    moreutils
+
     # Software bill of materials for a closure. The dfdiskcache patch is a
     # dependency whose requirements pin pandas below 3, which nixpkgs has moved
     # past; the runtime check is what fails on it, not the code.
