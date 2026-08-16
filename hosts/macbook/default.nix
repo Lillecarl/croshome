@@ -7,6 +7,7 @@
 {
   imports = [
     inputs.home-manager.darwinModules.home-manager
+    ./ai-rebuild.nix
     ./cocoa-way.nix
     ./aerospace.nix
     ./borders.nix
