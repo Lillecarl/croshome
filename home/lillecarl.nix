@@ -132,6 +132,7 @@
       context7-mcp
       # The rest
       binutils
+      taskwarrior3
       ncdu
       sd
       atuin
@@ -149,7 +150,21 @@
       nerd-fonts.hack
       nixd
       nixfmt
-      sbomnix
+      (
+        let
+          patchedPython = pkgs.python3.override {
+            packageOverrides = self: super: {
+              dfdiskcache = super.dfdiskcache.overrideAttrs (old: {
+                pythonRuntimeDepsCheck = false;
+                postPatch = (old.postPatch or "") + ''
+                  substituteInPlace requirements/requirements.txt --replace "pandas>=1,<3" "pandas>=1"
+                '';
+              });
+            };
+          };
+        in
+        sbomnix.override { python3 = patchedPython; }
+      )
       rclone
       sshuttle
       stern
