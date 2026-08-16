@@ -118,6 +118,16 @@ in
       # with nothing configured on the host side.
       networking.hostName = "vzbuilder";
       networking.useDHCP = true;
+
+      # systemd-networkd rather than dhcpcd. dhcpcd spent 4.587s on the
+      # critical chain to multi-user.target -- more than half of userspace --
+      # because it probes and waits before declaring the lease usable.
+      # networkd's client does not.
+      networking.useNetworkd = true;
+
+      # No firewall on a builder that exists for a minute, on a host-only NAT,
+      # reachable from one Mac. It cost 596ms of the boot it is not protecting.
+      networking.firewall.enable = false;
       services.avahi = {
         enable = true;
         publish = {
@@ -262,6 +272,35 @@ in
           lib.replaceStrings [ "%" ] [ "%%" ] overlayStoreUri
         }"
       ];
+
+      # The initrd carries a squashfs of the whole system closure -- 451 MiB
+      # of it -- and in this mode nothing reads it: the system comes from the
+      # host store through the overlay instead. Emptying it drops a second copy
+      # of the closure from the image and the cost of decompressing it on every
+      # boot, which is most of the cold-start time.
+      #
+      # Only safe here. With hostStore "substituter" or "off" the squashfs *is*
+      # where the guest's system lives.
+      netboot.storeContents = lib.mkForce [ ];
+
+      # ...and take what is left of it off the critical path. netboot marks
+      # /nix/.ro-store neededForBoot, so stage 1 sets up a loop device for it
+      # and waits -- about a second, for a squashfs that is now empty and that
+      # nothing in this mode reads. Stage 2 can mount it whenever.
+      fileSystems."/nix/.ro-store".neededForBoot = lib.mkForce false;
+
+      # netboot registers the squashfs contents into the Nix database at boot.
+      # The squashfs is empty here, so the service only fails -- the paths come
+      # from the lower store's database instead.
+      systemd.services.register-nix-paths.enable = lib.mkForce false;
+
+      # A host key is installed from nixpkgs' fixed pair, so there is nothing
+      # to generate at boot.
+      services.openssh.hostKeys = lib.mkForce [ ];
+
+      # A builder that lives for a minute has no use for a clock discipline
+      # daemon, and it holds up the network target while it starts.
+      services.timesyncd.enable = false;
 
       # neededForBoot on both halves, and for different reasons.
       #

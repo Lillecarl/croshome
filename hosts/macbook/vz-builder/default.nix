@@ -123,12 +123,15 @@ let
     text = ''
       /bin/launchctl kickstart system/org.nixos.vz-builder-vm 2>/dev/null || true
 
-      # First connection pays the boot; later ones find it already up.
-      for _ in $(seq 1 ${toString cfg.bootTimeout}); do
+      # First connection pays the boot; later ones find it already up. Polled
+      # four times a second rather than once: a whole-second granularity adds
+      # half a second on average to every cold build, which is real next to a
+      # boot measured in single digits.
+      for _ in $(seq 1 $(( ${toString cfg.bootTimeout} * 4 ))); do
         if socat -u OPEN:/dev/null TCP:${guestHost}:22,connect-timeout=1 2>/dev/null; then
           break
         fi
-        sleep 1
+        sleep 0.25
       done
 
       exec socat STDIO TCP:${guestHost}:22
@@ -227,8 +230,15 @@ in
 
     idleTimeout = lib.mkOption {
       type = lib.types.int;
-      default = 600;
-      description = "Seconds without a connection before the VM shuts down.";
+      default = 60;
+      description = ''
+        Seconds without a connection before the VM shuts down.
+
+        Short on purpose. The VM holds its whole memory footprint for as long
+        as it lives -- the host cannot reclaim a guest's page cache -- and it
+        boots again in a few seconds, so there is little to gain by lingering
+        and a couple of GiB to lose.
+      '';
     };
 
     bootTimeout = lib.mkOption {
