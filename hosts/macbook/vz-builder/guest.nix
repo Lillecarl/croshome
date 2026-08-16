@@ -12,7 +12,7 @@
   ...
 }:
 let
-  cfg = config.vzBuilder;
+  cfg = config.virtualisation.linux-vz-builder;
   sharingHostStore = cfg.hostStore != "off";
 
   # check-mount=false is not papering over a broken mount. Nix compares
@@ -31,7 +31,7 @@ in
 {
   imports = [ "${modulesPath}/installer/netboot/netboot.nix" ];
 
-  options.vzBuilder.debugAccess = lib.mkOption {
+  options.virtualisation.linux-vz-builder.debugAccess = lib.mkOption {
     type = lib.types.bool;
     default = false;
     description = ''
@@ -48,7 +48,7 @@ in
     '';
   };
 
-  options.vzBuilder.hostStore = lib.mkOption {
+  options.virtualisation.linux-vz-builder.hostStore = lib.mkOption {
     type = lib.types.enum [
       "off"
       "substituter"
@@ -311,12 +311,22 @@ in
         # outright on a read-only mount; the flag drops locking and opens
         # SQLite with `immutable` instead.
         #
-        # That is also the sharp edge of this whole mode. `immutable` promises
-        # SQLite the file will not change, and the host's daemon writes to it
-        # whenever anything builds on the Mac. It is what makes the live WAL
-        # database readable at all, and it is why a stale or inconsistent read
-        # is possible in principle. Switch hostStore to "substituter" if this
-        # ever misbehaves.
+        # `immutable` promises SQLite the file will not change, while the
+        # host's daemon writes to it whenever anything builds on the Mac, which
+        # looks alarming until you notice the layer below makes the same
+        # promise. overlayfs already requires that a lowerdir not be modified
+        # while mounted -- do it anyway and the behaviour is undefined -- so
+        # the guest's view of the store files is frozen at mount time too. The
+        # database view and the file view are frozen together and therefore
+        # agree: neither sees paths the host adds afterwards. It is also why
+        # nothing here contends on the host's derivation locks; the guest locks
+        # in its own writable layer.
+        #
+        # What is left is the narrower case of the host checkpointing its WAL
+        # into the main database file mid-read, or collecting garbage out from
+        # under a mounted lower layer. Both are the same "lowerdir changed"
+        # hazard overlayfs already names. Switch hostStore to "substituter" if
+        # it ever misbehaves.
         #
         # `%3F` is a literal `?`: the value is itself a store URI, and it has
         # to survive being a query parameter of the outer one. decodeQuery

@@ -48,28 +48,42 @@ Three rules to keep in mind when you edit this repo:
   and both run on macOS. Check the upstream release assets too: `opencode`
   publishes a macOS CLI, and the comment claiming otherwise was wrong.
 
-## The two Linux builders on the MacBook
+## The Linux builders on the MacBook
 
-| | `nix.linux-builder` | `local.vzBuilder` |
+| | `nix.linux-vz-builder` | `nix.linux-builder` |
 | --- | --- | --- |
-| Hypervisor | QEMU + HVF | Virtualization.framework (vfkit) |
-| Systems | aarch64-linux | aarch64-linux, **x86_64-linux** |
-| Lifetime | always on | socket-activated, exits after 10 idle minutes |
-| Disk | qcow2 image | none; squashfs + tmpfs |
+| Hypervisor | Virtualization.framework (vfkit) | QEMU + HVF |
+| Systems | aarch64-linux, **x86_64-linux** | aarch64-linux |
+| Lifetime | socket-activated, exits after 60s idle | always on |
+| Disk | none; the host store is the lower layer | qcow2 image |
+| State | **in use** | kept, `enable = false` |
 
-x86_64-linux only works on the second one. Rosetta-for-Linux is a
+x86_64-linux only works on the VZ one. Rosetta-for-Linux is a
 Virtualization.framework feature, so no amount of QEMU configuration reaches
 it.
 
-Both are kept because the QEMU builder is what builds the other one's guest
-image. Do not remove it while `local.vzBuilder` is the only Linux builder, or
-the next guest change has nothing to build it.
+The QEMU one is disabled but deliberately not deleted: it is the way back if
+the VZ builder breaks. If the VZ *guest* is what needs fixing, turn
+`nix.linux-vz-builder.enable` off in the same edit -- the guest is an
+aarch64-linux system, so building a changed one needs a Linux builder, and
+that is the deadlock. It is not hypothetical; see the commit that added the
+activation check.
 
-To use the VZ builder, just build something: connecting to its port is what
-starts it. `hosts/macbook/vz-builder/guest.nix` is a whole NixOS system, so
-changing it means an aarch64-linux rebuild.
+To use the VZ builder, just build something: connecting to 127.0.0.1:31122 is
+what starts it. `hosts/macbook/vz-builder/guest.nix` is a whole NixOS system,
+so changing it means an aarch64-linux rebuild.
 
-Three things there were measured rather than read, and are easy to get wrong:
+`nix.linux-vz-builder.debugAccess` (off by default) authorises the keypair
+nixpkgs ships for its builder VM -- world-readable, so an already-public key --
+and lets you in for profiling:
+
+```sh
+key="$(nix eval --raw -f . inputs.nixpkgs)/nixos/modules/profiles/keys/ssh_host_ed25519_key"
+ssh -i "$key" -p 31122 builder@127.0.0.1 systemd-analyze blame
+ssh -i "$key" -p 31122 root@127.0.0.1 systemctl poweroff   # beats waiting out the idle timer
+```
+
+Four things there were measured rather than read, and are easy to get wrong:
 
 - macOS **bootpd serves no DNS**. The DHCP hostname lands in
   `/var/db/dhcpd_leases` and resolves nowhere. mDNS is what works, which is why
@@ -80,6 +94,9 @@ Three things there were measured rather than read, and are easy to get wrong:
   the daemon whether a path is valid, then reads the contents off the *local*
   filesystem, so builds succeed and nothing can be read back. Use `ssh-ng://`.
   Reported as Lillecarl/nix#307.
+- A guest change is not in effect until the VM has **restarted onto it**.
+  Measuring a still-resident VM after a rebuild reads as confirmation and is
+  not. Activation now stops a stale VM for this reason.
 
 ## Reading a change before activating it
 

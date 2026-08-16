@@ -18,21 +18,24 @@
   config,
   lib,
   pkgs,
-  inputs,
   ...
 }:
 let
-  cfg = config.local.vzBuilder;
+  cfg = config.nix.linux-vz-builder;
 
-  guest = inputs.nixpkgs.lib.nixosSystem {
-    system = "aarch64-linux";
+  # eval-config.nix rather than a flake's lib.nixosSystem, so this module needs
+  # nothing but a path to nixpkgs and could be lifted into nix-darwin as it is.
+  guest = import "${cfg.nixpkgs}/nixos/lib/eval-config.nix" {
     modules = [
       ./guest.nix
       {
-        vzBuilder.hostStore = cfg.hostStore;
-        vzBuilder.debugAccess = cfg.debugAccess;
+        nixpkgs.hostPlatform = "aarch64-linux";
+        virtualisation.linux-vz-builder = {
+          inherit (cfg) hostStore debugAccess;
+        };
       }
-    ];
+    ]
+    ++ cfg.extraModules;
   };
 
   inherit (guest.config.system.build) kernel netbootRamdisk toplevel;
@@ -148,8 +151,26 @@ let
   };
 in
 {
-  options.local.vzBuilder = {
-    enable = lib.mkEnableOption "the Virtualization.framework Linux builder";
+  options.nix.linux-vz-builder = {
+    enable = lib.mkEnableOption "a Linux builder running under Virtualization.framework";
+
+    nixpkgs = lib.mkOption {
+      type = lib.types.path;
+      default = pkgs.path;
+      defaultText = lib.literalExpression "pkgs.path";
+      description = ''
+        The nixpkgs used to build the guest. Defaults to the one this system is
+        built from, which is usually what you want; point it elsewhere if the
+        builder should track a different channel from its host.
+      '';
+    };
+
+    extraModules = lib.mkOption {
+      type = lib.types.listOf lib.types.deferredModule;
+      default = [ ];
+      example = lib.literalExpression ''[ { boot.binfmt.emulatedSystems = [ "riscv64-linux" ]; } ]'';
+      description = "Extra NixOS modules to merge into the guest.";
+    };
 
     cores = lib.mkOption {
       type = lib.types.nullOr lib.types.int;

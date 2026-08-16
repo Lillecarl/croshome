@@ -22,9 +22,9 @@ in
     # breaks.
     #
     # To revive it, flip this to true. If the VZ *guest* is what broke and
-    # needs a config change, turn `local.vzBuilder.enable` off in the same
+    # needs a config change, turn `nix.linux-vz-builder.enable` off in the same
     # edit: the guest is an aarch64-linux system, so building a changed one
-    # needs a Linux builder, and that is the deadlock. With vzBuilder off the
+    # needs a Linux builder, and that is the deadlock. With that off the
     # darwin system has no Linux derivation left to build, so it builds here,
     # and this VM's own image comes from the cache rather than being built --
     # which is the whole reason `package` below comes from nixpkgs-stable.
