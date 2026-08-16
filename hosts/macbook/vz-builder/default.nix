@@ -246,7 +246,16 @@ let
         sleep 0.25
       done
 
-      exec socat STDIO TCP:${guestHost}:22
+      # Deliberately not `exec socat`. The idle watchdog in runVm above finds a
+      # live connection with `pgrep -f vz-builder-connect`, and exec replaces
+      # this process image, so the name it greps for disappears the instant the
+      # handler starts moving bytes. Every open connection then looked idle and
+      # the VM shut down under running builds, which surfaces as "Nix daemon
+      # disconnected unexpectedly (maybe it crashed?)" -- a message that points
+      # at the guest and not at the host that killed it. Keeping the wrapper
+      # process alive costs one shell per open connection and makes the
+      # watchdog's "counting handlers" comment true.
+      socat STDIO TCP:${guestHost}:22
     '';
   };
 in

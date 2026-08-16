@@ -39,6 +39,23 @@
   nix.linux-vz-builder.authorizedKeys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4AwtWUz3usygb2J6owsUJs4X2yTchIGZyI+VDE76tF"
   ];
+  # Taste, not a builder concern, so it goes here rather than into the module.
+  #
+  # A module argument and not a bare attribute set: `pkgs` inside a deferred
+  # module is the *guest's* package set, aarch64-linux. Reading the `pkgs` of
+  # this file would put a darwin build of terminfo into a NixOS system.
+  nix.linux-vz-builder.extraModules = [
+    (
+      { pkgs, ... }:
+      {
+        # kitty sets TERM=xterm-kitty, which no other machine has heard of. An
+        # interactive `vzrun` from a kitty window otherwise lands in a shell
+        # where every curses program says "unknown terminal type" -- clear,
+        # less and any TUI included. The terminfo entry alone, not kitty.
+        environment.systemPackages = [ pkgs.kitty.terminfo ];
+      }
+    )
+  ];
 
   # HostName is unset out of the box, which lets macOS derive `hostname`
   # dynamically -- currently to garbage bytes.

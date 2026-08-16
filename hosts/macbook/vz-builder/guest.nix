@@ -167,6 +167,19 @@ in
         enable = true;
         startWhenNeeded = true;
         settings.PasswordAuthentication = false;
+
+        # Off because the key files arrive over virtiofs, and Virtualization.
+        # framework does not pass ownership through: /var/lib/vz-builder/keys
+        # is 0:0 on the Mac and shows up as 1000:1000 -- `builder` -- in here.
+        # StrictModes requires an authorized_keys file to be owned by root or
+        # by the user logging in, so that mapping quietly authorises `builder`
+        # and refuses every other account. `vzrun --root` failed on exactly
+        # this, with "Permission denied (publickey)" and no hint as to why.
+        #
+        # The check exists to stop one guest user from planting keys for
+        # another. It cannot do that here: the share is read-only and its
+        # contents come from the host, so no process in this VM can write it.
+        settings.StrictModes = false;
         # These paths carry no %u, so they are consulted for every user rather
         # than per account: the builder key and anything in `authorizedKeys`
         # log in as `root` as well as `builder`. That is what `vzrun --root`
@@ -204,9 +217,20 @@ in
         openssh.authorizedKeys.keyFiles = lib.optional cfg.debugAccess "${modulesPath}/profiles/keys/ssh_host_ed25519_key.pub";
         # Reading the *system* journal is the point of logging in: the console
         # is at log_level=warning, so it says nothing about the initrd.
-        extraGroups = lib.optional cfg.debugAccess "systemd-journal";
+        extraGroups = [ "wheel" ] ++ lib.optional cfg.debugAccess "systemd-journal";
       };
       users.groups.builder = { };
+
+      # `builder` is pseudo-root: wheel, and wheel needs no password. It has no
+      # password to give -- it authenticates by key -- so without this sudo is
+      # not merely inconvenient, it is unusable.
+      #
+      # This grants nothing that was not already reachable. `builder` is a
+      # trusted Nix user, so it can run arbitrary code as root in this VM by
+      # submitting a derivation, and the same keys log in as root directly.
+      # What it buys is that `vzrun sudo ...` works in the middle of a session
+      # rather than needing a second connection as another user.
+      security.sudo.wheelNeedsPassword = false;
 
       # How the host finds this machine. macOS bootpd records the DHCP hostname
       # in /var/db/dhcpd_leases but serves no DNS, so DHCP alone resolves
