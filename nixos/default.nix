@@ -47,7 +47,6 @@
     environment.systemPackages = with pkgs.pkgsBuildBuild; [
       foot.terminfo
     ];
-    environment.etc.impurity.text = toString builtins.currentTime;
     # reference catppuccin whiskers so it doesn't get garbage collected every time you collect garbage.
     environment.etc.catppucin-whiskers.source = inputs.catppuccin.packages.${pkgs.stdenv.hostPlatform.system}.whiskers;
     networking.hostName = "hetztop";
