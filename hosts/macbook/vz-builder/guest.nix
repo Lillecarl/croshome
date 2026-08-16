@@ -49,20 +49,6 @@ in
     '';
   };
 
-  options.virtualisation.linux-vz-builder.nixpkgsSource = lib.mkOption {
-    type = lib.types.str;
-    default = "";
-    description = ''
-      Store path of the nixpkgs the host resolves `nixpkgs` to. The guest
-      points both its NIX_PATH and its flake registry at it, so `<nixpkgs>`
-      and `nixpkgs#foo` mean the same thing on both sides of the VM boundary.
-
-      A string rather than a path, so interpolating it does not re-add it to
-      the store under a fresh hash. Empty leaves the NixOS defaults, which in
-      this guest point at a channel profile that does not exist.
-    '';
-  };
-
   options.virtualisation.linux-vz-builder.swap = lib.mkOption {
     type = lib.types.bool;
     default = false;
@@ -409,12 +395,6 @@ in
       # so the guest names the *same store path* -- evaluating identical
       # content at a different path would hash every derivation differently
       # and miss the cache. `pkgs.path` did exactly that.
-      # Only nixPath is respelled here. The registry comes over verbatim from
-      # ./default.nix, because its entries resolve to store paths the guest
-      # already sees. nixPath cannot: the host spells it `nixpkgs=/etc/nixpkgs`
-      # and /etc in the guest is the guest's own, so the entry would dangle.
-      # Same source either way -- ./default.nix reads it out of that registry.
-      nix.nixPath = lib.mkIf (cfg.nixpkgsSource != "") [ "nixpkgs=${cfg.nixpkgsSource}" ];
 
       # A builder evaluates nothing, so it needs no docs.
       documentation.enable = false;

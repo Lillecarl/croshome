@@ -44,10 +44,33 @@ let
         # keeps narHash, rev and lastModified, so the guest's registry is
         # locked exactly as the host's is.
         nix.registry = config.nix.registry;
+
+        # NIX_PATH verbatim as well, which takes replicating what it names.
+        # The host spells it `nixpkgs=/etc/nixpkgs`, and /etc in the guest is
+        # the guest's own, so the entry would dangle -- confirmed by looking:
+        # the guest had no /etc/nixpkgs at all. Giving the guest that same
+        # entry, pointing at the same store path the host's symlink resolves
+        # to, makes the host's own spelling true in here.
+        #
+        # The limit of this, for anyone lifting the module: an entry naming a
+        # host path that is not `environment.etc.nixpkgs` still dangles. This
+        # replicates the one indirection nix-darwin and NixOS share, not
+        # arbitrary host layout.
+        nix.nixPath = config.nix.nixPath;
+        # `source` alone, not the whole entry. nix-darwin's environment.etc
+        # submodule has `knownSha256Hashes`, which NixOS's does not, so handing
+        # the evaluated entry over fails with "option does not exist". The two
+        # module systems agree on what an /etc entry means, not on its fields.
+        #
+        # nix.registry above survives the same treatment only because those two
+        # submodules happen to match field for field. Copying evaluated config
+        # between darwin and NixOS is safe per option, never in general.
+        environment.etc = lib.optionalAttrs (config.environment.etc ? nixpkgs) {
+          nixpkgs.source = config.environment.etc.nixpkgs.source;
+        };
         virtualisation.linux-vz-builder = {
           inherit (cfg) hostStore debugAccess;
           swap = cfg.swapSize > 0;
-          nixpkgsSource = hostNixpkgs;
         };
       }
     ]
@@ -91,33 +114,12 @@ let
   storeDisk = "/nix/var/vz-store.img";
   swapDisk = "/nix/var/vz-swap.img";
 
-  # Where this Mac says `nixpkgs` is, so the guest can agree with it instead of
-  # being told separately and drifting.
-  #
-  # Taken from the registry rather than from nix.nixPath, because nixPath holds
-  # the host's *spelling* -- `nixpkgs=/etc/nixpkgs` -- and /etc in the guest is
-  # the guest's own, so copying it verbatim gives a dangling path. The registry
-  # holds what that spelling resolves to: a store path, which the guest sees
-  # through the overlay at the same location.
-  #
-  # A string, and that is load-bearing. Interpolating a path *value* re-adds it
-  # to the store, and the guest ended up with a nixpkgs at
-  # bpq5xzw3...-4g6m60kii...-02ypmav2...-source -- the same content at a
-  # different path, so every derivation evaluated through it hashed differently
-  # from the host's and missed the cache.
-  #
-  # The whole `config.nix.registry` cannot be copied across: it is an evaluated
-  # submodule, so it carries `to` (which NixOS sets internally with mkIf from
-  # `flake`) alongside `flake` itself, and assigning both back is a conflict
-  # rather than a merge.
-  hostNixpkgs =
-    let
-      entry = config.nix.registry.nixpkgs or null;
-    in
-    if entry != null && (entry.flake or null) != null then
-      "${entry.flake}"
-    else
-      "${cfg.nixpkgs}";
+  # vfkit's REST endpoint, which ../../../pkgs/vfkit-balloon.nix extends with
+  # /vm/memory-balloon. A unix socket rather than a loopback port: the balloon
+  # can shrink a running guest and /vm/state can stop it, and a socket is
+  # reachable only by something that can open this path. 30 bytes, comfortably
+  # inside the 104-byte limit macOS puts on a unix socket path.
+  restSocket = "/var/lib/vz-builder/rest.sock";
 
   # The guest publishes this over mDNS and mDNSResponder answers it natively,
   # so nothing here has to discover an IP.
@@ -223,6 +225,7 @@ let
       #
       # Order matters below: the store disk is added first, so it is /dev/vda
       # in the guest and swap is /dev/vdb.
+      rm -f ${lib.escapeShellArg restSocket}
       rm -f ${lib.escapeShellArg storeDisk} ${lib.escapeShellArg swapDisk}
       truncate -s ${toString cfg.diskSize}M ${lib.escapeShellArg storeDisk}
       disks=(--device "virtio-blk,path=${storeDisk}")
@@ -262,8 +265,24 @@ let
         "''${disks[@]}" \
         "''${rosetta[@]}" \
         ${lib.optionalString (cfg.hostStore != "off") ''"''${hostStore[@]}" \''}
+        --restful-uri "unix://${restSocket}" \
         --device "virtio-serial,logFilePath=/var/log/vz-builder.log" &
       vm=$!
+
+      # vfkit creates the socket under root's umask, so 0755 -- and connecting
+      # to a unix socket needs *write* permission, which leaves it root-only.
+      # Opened up so an ordinary session can read the balloon without sudo. It
+      # grants no privilege that reaching the builder on ${toString cfg.port}
+      # does not already grant, that being a shell as a trusted Nix user.
+      (
+        for _ in $(seq 1 100); do
+          if [ -S ${lib.escapeShellArg restSocket} ]; then
+            chmod 0666 ${lib.escapeShellArg restSocket}
+            break
+          fi
+          sleep 0.1
+        done
+      ) &
 
       # Recorded for the activation check in ./default.nix, and cleared on the
       # way out so a dead VM never looks live.

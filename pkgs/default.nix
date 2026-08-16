@@ -23,6 +23,19 @@ final: prev: {
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
+  # vfkit with the memory balloon reachable over its REST API. Darwin only: it
+  # wraps Apple's Virtualization.framework and does not exist elsewhere, so
+  # naming prev.vfkit unconditionally would break evaluation on the Linux hosts.
+  vfkit =
+    if prev.stdenv.hostPlatform.isDarwin then
+      # `inherit (prev) vfkit` is required, not tidiness. callPackage resolves
+      # its arguments against the *final* package set even when reached through
+      # `prev`, so leaving it implicit feeds this override back into itself and
+      # evaluation dies with infinite recursion.
+      prev.callPackage ./vfkit-balloon.nix { inherit (prev) vfkit; }
+    else
+      prev.vfkit;
+
   foot = prev.foot.overrideAttrs (pattrs: {
     patches = pattrs.patches or [ ] ++ [
       ./0001-ignore-numlock.patch
