@@ -1,4 +1,24 @@
 final: prev: {
+  claude-code =
+    let
+      baseUrl = "https://downloads.claude.ai/claude-code-releases";
+      version = final.lib.strings.trim (
+        builtins.readFile (
+          builtins.fetchurl {
+            url = "${baseUrl}/latest";
+            name = "claude-code-latest-version";
+          }
+        )
+      );
+      platformKey = "${final.stdenv.hostPlatform.node.platform}-${final.stdenv.hostPlatform.node.arch}";
+    in
+    prev.claude-code.overrideAttrs (_: {
+      inherit version;
+      src = builtins.fetchurl {
+        url = "${baseUrl}/${version}/${platformKey}/claude";
+      };
+    });
+
   toad = final.python314.pkgs.callPackage ./toad.nix { };
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };
