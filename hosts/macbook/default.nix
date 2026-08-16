@@ -33,6 +33,12 @@
   # the machine. The VM's own vCPU count needs no such treatment -- it reads
   # hw.ncpu itself at start-up.
   nix.linux-vz-builder.maxJobs = 15;
+  # What `vzrun` logs in with. This is the public half of ~/.ssh/id_ed25519,
+  # so it is checked in on purpose -- the alternative is reading a path outside
+  # the repo at evaluation time, which makes the build depend on this Mac.
+  nix.linux-vz-builder.authorizedKeys = [
+    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4AwtWUz3usygb2J6owsUJs4X2yTchIGZyI+VDE76tF"
+  ];
 
   # HostName is unset out of the box, which lets macOS derive `hostname`
   # dynamically -- currently to garbage bytes.

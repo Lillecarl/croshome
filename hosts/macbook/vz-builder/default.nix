@@ -67,6 +67,85 @@ let
   # so nothing here has to discover an IP.
   guestHost = "${guest.config.networking.hostName}.local";
 
+  # Delivered over the key share at start-up, like the builder key beside it,
+  # so changing who may log in does not rebuild the guest.
+  authorizedKeysFile = pkgs.writeText "vz-builder-authorized-keys" (
+    lib.concatLines cfg.authorizedKeys
+  );
+
+  # `vzrun` verifies the guest against the public half of the fixed key
+  # ./guest.nix installs, taken from the same nixpkgs the guest is built from.
+  # So there is no first-use prompt, and no entry written into your own
+  # known_hosts for a machine that is rebuilt every few minutes.
+  knownHosts = pkgs.writeText "vz-builder-known-hosts" ''
+    vz-builder ${builtins.readFile "${cfg.nixpkgs}/nixos/modules/profiles/keys/ssh_host_ed25519_key.pub"}
+  '';
+
+  # Run a Linux command in the builder, for the Linux-only things a Nix build
+  # cannot do: anything that wants a network, a real /proc, a mount namespace,
+  # or just a shell.
+  #
+  # Nothing about it is special-cased on the host side. It connects to the same
+  # port a distributed build does, so it starts the VM the same way, and the
+  # idle watchdog counts its connection the same way -- an open session holds
+  # the VM up and closing it starts the clock.
+  vzrun = pkgs.writeShellApplication {
+    name = "vzrun";
+    runtimeInputs = [
+      pkgs.openssh
+      pkgs.coreutils # `id`, for the multiplexing socket path
+    ];
+    text = ''
+      user=builder
+      if [ "''${1-}" = "--root" ]; then
+        user=root
+        shift
+      fi
+
+      opts=(
+        -p ${toString cfg.port}
+        -l "$user"
+        -o HostKeyAlias=vz-builder
+        -o UserKnownHostsFile=${knownHosts}
+        -o StrictHostKeyChecking=yes
+        # Multiplexing, because this is meant to be called in a loop: a warm VM
+        # answers a fresh handshake in about 150ms and a reused one in about
+        # 20ms. ControlPersist stays well under idleTimeout
+        # (${toString cfg.idleTimeout}s) so a forgotten master cannot pin the VM
+        # up. The socket goes in /tmp because a macOS unix socket path cannot
+        # exceed 104 bytes and %C alone is 64 of them.
+        -o ControlMaster=auto
+        -o "ControlPath=/tmp/vzrun-$(id -u)-%C"
+        -o ControlPersist=30
+      )
+
+      if [ -t 0 ] && [ -t 1 ]; then
+        opts+=(-t)
+      else
+        opts+=(-T)
+      fi
+
+      # Start in the same directory when the guest has one by that name. It
+      # often does, and that is the point: /nix/store in the guest is this
+      # Mac's store through the overlay, so a store path you are standing in
+      # here is the same path there. `nix build` something for Linux, then run
+      # ./result/bin/x under vzrun. Otherwise fall back to /build, the scratch
+      # share and the only large writable place in the guest.
+      cd_to="cd $(printf '%q' "$PWD") 2>/dev/null || cd /build"
+
+      if [ "$#" -eq 0 ]; then
+        remote="$cd_to; exec \"\$SHELL\""
+      else
+        remote="$cd_to; exec $(printf '%q ' "$@")"
+      fi
+
+      # Quoted twice for two parses: sshd hands the string to the remote login
+      # shell, which then hands the script to `bash -l`. The login shell is
+      # what puts a usable PATH in front of the command.
+      exec ssh "''${opts[@]}" 127.0.0.1 -- bash -lc "$(printf '%q' "$remote")"
+    '';
+  };
+
   runVm = pkgs.writeShellApplication {
     name = "vz-builder-vm";
     runtimeInputs = [
@@ -86,6 +165,7 @@ let
 
       install -d -m 0755 ${lib.escapeShellArg keyDir}
       install -m 0444 /etc/nix/builder_ed25519.pub ${lib.escapeShellArg keyDir}/builder_ed25519.pub
+      install -m 0444 ${authorizedKeysFile} ${lib.escapeShellArg keyDir}/authorized_keys
 
       # Rosetta has to be present on the host; `softwareupdate --install-rosetta`
       # puts it there. Without it the VM still boots and still builds
@@ -240,6 +320,30 @@ in
       '';
     };
 
+    authorizedKeys = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      example = lib.literalExpression ''[ "ssh-ed25519 AAAAC3Nz... you@mac" ]'';
+      description = ''
+        Public keys that may log into the guest, which is what `vzrun` needs.
+
+        `vzrun` runs a command in the builder, for the Linux-only work a build
+        sandbox cannot do -- something that wants a network, a real /proc, a
+        mount namespace, or a shell. Without a key here the command is
+        installed but every call is refused: the builder key in /etc/nix is
+        root-owned and mode 0600, so it is not an answer for an ordinary user.
+
+        The keys travel over the same virtiofs share as the builder key, so
+        changing this list does not rebuild the guest.
+
+        Note that ./guest.nix lists the key files globally rather than per
+        user, so a key here logs in as `root` as well as `builder`. That is
+        `vzrun --root`, and it is deliberate: the guest is disposable, it is
+        reachable only from this Mac, and `builder` is a trusted Nix user
+        already -- it can run arbitrary code here by submitting a derivation.
+      '';
+    };
+
     debugAccess = lib.mkOption {
       type = lib.types.bool;
       default = false;
@@ -309,6 +413,8 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    environment.systemPackages = [ vzrun ];
+
     # Started by ./default.nix's connect handler, never at load. RunAtLoad and
     # KeepAlive would defeat the entire point.
     launchd.daemons.vz-builder-vm = {

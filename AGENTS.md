@@ -73,6 +73,60 @@ To use the VZ builder, just build something: connecting to 127.0.0.1:31122 is
 what starts it. `hosts/macbook/vz-builder/guest.nix` is a whole NixOS system,
 so changing it means an aarch64-linux rebuild.
 
+### Running Linux commands: `vzrun`
+
+`vzrun` runs a command in the builder, for Linux-only work that a build sandbox
+cannot do -- something that wants a network, a real `/proc`, a mount namespace,
+or just a shell.
+
+```sh
+vzrun uname -m                 # aarch64
+vzrun --root mount             # root in the guest; see below
+vzrun                          # interactive shell
+```
+
+It connects to the same port a distributed build does, so it starts the VM the
+same way and the idle watchdog counts it the same way. An open session holds
+the VM up; closing it starts the 60s clock. Measured: **7.9s cold** (that is
+the guest booting) and **63ms warm**, the second because ssh multiplexing keeps
+one connection for 30s.
+
+The useful part is that **`/nix/store` in the guest is this Mac's store**,
+through the overlay. So a Linux binary built here can simply be run:
+
+```sh
+nix build --file . <attr> && vzrun ./result/bin/<x>
+```
+
+`vzrun` starts in `$PWD` when the guest has a directory by that name, which is
+why the line above works, and falls back to `/build` when it does not. Nothing
+else of this Mac is visible -- there is no share of `$HOME`. Use `/build` (the
+host's `/nix/var/vz-tmp`, cleared on every VM start) to move files.
+
+A store path added on the Mac **while the VM runs** behaves in two ways at
+once, and both were measured against one VM instance:
+
+| | new path added mid-run |
+| --- | --- |
+| `vzrun ls $p/bin` | works -- overlayfs reads the lower layer live |
+| `vzrun nix path-info $p` | "this path will be fetched" -- not valid |
+
+The daemon holds the lower store's SQLite open as `immutable`, so its view of
+the *database* is frozen at boot while its view of the *files* is not. This
+does not affect `vzrun`, which goes to the filesystem and never asks Nix. It
+does mean a build inside the guest may refetch something the Mac already has.
+Restarting the VM re-reads the database.
+
+Two more things worth knowing:
+
+- `nix.linux-vz-builder.authorizedKeys` is what makes it work, and it is a
+  separate mechanism from `debugAccess`. The builder key in `/etc/nix` is
+  `root:nixbld 0600`, so it is not an answer for an ordinary user.
+- Those keys are listed **globally** in the guest's sshd, not per user, so they
+  log in as `root` too. `--root` is that. The guest is disposable and reachable
+  only from this Mac, and `builder` is a trusted Nix user that can run anything
+  there by submitting a derivation, so root adds no reachable privilege.
+
 `nix.linux-vz-builder.debugAccess` (off by default) authorises the keypair
 nixpkgs ships for its builder VM -- world-readable, so an already-public key --
 and lets you in for profiling:

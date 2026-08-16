@@ -167,8 +167,22 @@ in
         enable = true;
         startWhenNeeded = true;
         settings.PasswordAuthentication = false;
+        # These paths carry no %u, so they are consulted for every user rather
+        # than per account: the builder key and anything in `authorizedKeys`
+        # log in as `root` as well as `builder`. That is what `vzrun --root`
+        # uses. It is a disposable VM on a host-only NAT, and `builder` is a
+        # trusted Nix user that can already run anything here by submitting a
+        # derivation, so root adds no reachable privilege.
+        #
+        # authorized_keys is the interactive half and arrives on the same share
+        # as the builder key; ./default.nix writes it at VM start, so it is
+        # empty rather than missing when nobody is authorised.
         authorizedKeysFiles = lib.mkForce (
-          [ "/var/keys/builder_ed25519.pub" ] ++ lib.optional cfg.debugAccess "/etc/ssh/authorized_keys.d/%u"
+          [
+            "/var/keys/builder_ed25519.pub"
+            "/var/keys/authorized_keys"
+          ]
+          ++ lib.optional cfg.debugAccess "/etc/ssh/authorized_keys.d/%u"
         );
       };
 
