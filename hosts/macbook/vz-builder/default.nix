@@ -50,21 +50,20 @@ let
   # from a current one. Holds the guest's toplevel and the vfkit pid.
   runningFile = "/var/lib/vz-builder/running";
 
-  # Where guest builds do their scratch work, shared read-write.
+  # Build outputs, scratch and swap, on real disks rather than in RAM.
   #
-  # Under /nix rather than /tmp or $TMPDIR, and not by accident. Every temp
-  # directory macOS manages lives on the boot volume, and that volume is
-  # case-insensitive APFS -- `diskutil info /` says so, and `touch a; test -e A`
-  # confirms it. A build directory where `foo` and `FOO` are the same file
-  # breaks exactly the derivations a case-sensitive store exists to support.
+  # Build scratch used to be a virtiofs share of a host directory. That put it
+  # on the SSD but gave it the host's clock, and the guest runs about 70ms
+  # behind macOS -- so files came back with an mtime in the guest's future and
+  # meson reported clock skew. It lives on the guest's own ext4 now. See
+  # ./guest.nix.
   #
-  # Staying inside /nix also keeps the requirement to one volume: a store this
-  # module can already insist is case-sensitive, which the activation check
-  # below does. Cleared on every VM start, which is stricter than "cleared on
-  # reboot".
-  buildScratch = "/nix/var/vz-tmp";
-
-  # Build outputs and swap, on real disks rather than in RAM.
+  # It also retires a constraint: the share had to sit under /nix because every
+  # macOS-managed temp directory is on the case-insensitive boot volume, and a
+  # build directory where `foo` and `FOO` collide breaks the derivations a
+  # case-sensitive store exists to support. A guest filesystem has no such
+  # problem. The images below stay under /nix anyway, since that is the volume
+  # the activation check already proves is case-sensitive.
   #
   # netboot puts the overlay's upper layer on a tmpfs, so every build *output*
   # was charged to guest RAM and capped at half of it -- 3.9 GiB of the 8. A
@@ -143,9 +142,9 @@ let
       # often does, and that is the point: /nix/store in the guest is this
       # Mac's store through the overlay, so a store path you are standing in
       # here is the same path there. `nix build` something for Linux, then run
-      # ./result/bin/x under vzrun. Otherwise fall back to /build, the scratch
-      # share and the only large writable place in the guest.
-      cd_to="cd $(printf '%q' "$PWD") 2>/dev/null || cd /build"
+      # ./result/bin/x under vzrun. Otherwise fall back to the guest's disk,
+      # the only large writable place it has.
+      cd_to="cd $(printf '%q' "$PWD") 2>/dev/null || cd /nix/.rw-store/build"
 
       if [ "$#" -eq 0 ]; then
         remote="$cd_to; exec \"\$SHELL\""
@@ -171,11 +170,6 @@ let
       # Read at start-up rather than baked in, so this follows the machine it
       # runs on instead of pinning one Mac's core count into the repo.
       cpus=${if cfg.cores == null then "$(/usr/sbin/sysctl -n hw.ncpu)" else toString cfg.cores}
-
-      # Fresh every start: this is scratch, and a build that died with the last
-      # VM has nothing worth keeping.
-      rm -rf ${lib.escapeShellArg buildScratch}
-      install -d -m 0755 ${lib.escapeShellArg buildScratch}
 
       # Sparse and fresh every start. A 128 GiB store disk occupies about 6 MiB
       # once formatted, and the guest's mkfs.ext4 takes ~95ms at any size
@@ -220,7 +214,6 @@ let
         --device virtio-rng \
         --device "virtio-net,nat" \
         --device "virtio-fs,sharedDir=${keyDir},mountTag=keys" \
-        --device "virtio-fs,sharedDir=${buildScratch},mountTag=buildscratch" \
         "''${disks[@]}" \
         "''${rosetta[@]}" \
         ${lib.optionalString (cfg.hostStore != "off") ''"''${hostStore[@]}" \''}
@@ -361,11 +354,17 @@ in
       type = lib.types.int;
       default = 131072; # 128 GiB
       description = ''
-        Size in MiB of the ephemeral disk holding build outputs.
+        Size in MiB of the ephemeral disk holding build outputs and scratch.
 
         This is the store's writable layer, which netboot would otherwise put
         on a tmpfs -- charging every build output to guest RAM and capping it
-        at half of `memory`. Builds larger than that died.
+        at half of `memory`. Builds larger than that died. Nix's build
+        directory sits here too, so the two share the space.
+
+        It only ever has to hold work in flight, which is why this is not
+        larger. A build started from the Mac has its result copied back when
+        it finishes, so the next VM start sees that path in the lower layer
+        and the writable layer begins empty again.
 
         Generous by default because it costs almost nothing. The image is
         sparse and recreated on each start, so it occupies about 6 MiB until

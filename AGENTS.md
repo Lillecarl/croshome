@@ -101,9 +101,16 @@ nix build --file . <attr> && vzrun ./result/bin/<x>
 ```
 
 `vzrun` starts in `$PWD` when the guest has a directory by that name, which is
-why the line above works, and falls back to `/build` when it does not. Nothing
-else of this Mac is visible -- there is no share of `$HOME`. Use `/build` (the
-host's `/nix/var/vz-tmp`, cleared on every VM start) to move files.
+why the line above works, and falls back to `/nix/.rw-store/build` when it does
+not. Nothing else of this Mac is visible -- there is no share of `$HOME`.
+
+Scratch used to be a virtiofs share of a host directory, and that is why
+**meson reported clock skew**: the guest runs ~70ms behind macOS, so a file
+written through virtiofs came back with an mtime in the guest's future. It
+lives on the guest's own ext4 now, where the clock that writes a timestamp is
+the clock that reads it. The read-only store share is the only virtiofs left in
+a build's path and cannot skew anything, because Nix normalises store
+timestamps to the epoch (`mtime=1`).
 
 A store path added on the Mac **while the VM runs** behaves in two ways at
 once, and both were measured against one VM instance:

@@ -204,23 +204,21 @@ in
         '';
       };
 
-      # Build scratch, read-write, on the host's disk.
+      # Build scratch, on the guest's own disk beside the store layer.
       #
-      # Everything else in this guest is RAM: / is a tmpfs, so /tmp is too, and
-      # the overlay's upper layer holding build *outputs* is another. Nix's
-      # default build directory sits on the root tmpfs as well, so a large
-      # build used to be bounded by `memory` and died to the OOM killer rather
-      # than to anything legible. This moves the scratch half of that onto the
-      # SSD, where it costs nothing to be large.
+      # It used to be a virtiofs share of a host directory, which put it on the
+      # SSD but gave it the *host's* clock. The guest runs about 70ms behind
+      # macOS -- measured, repeatably -- so a file written through virtiofs came
+      # back with an mtime slightly in the guest's future, and build systems
+      # that compare mtimes to now say so. Meson and make call it clock skew,
+      # and they are right.
       #
-      # Not neededForBoot on purpose: it is wanted by the daemon, not by stage
-      # 1, and stage 1 already trips systemd's mount-monitor rate limit twice
-      # without help.
-      fileSystems."/build" = {
-        device = "buildscratch";
-        fsType = "virtiofs";
-        options = [ "nofail" ];
-      };
+      # On ext4 the timestamps come from the same clock that reads them, so the
+      # comparison is consistent no matter what the host thinks the time is.
+      # The read-only store share is left as the only virtiofs in a build's
+      # path, and it cannot skew anything: Nix normalises store timestamps to
+      # the epoch, so nothing there is ever in the future.
+      systemd.tmpfiles.rules = [ "d /nix/.rw-store/build 0755 root root -" ];
 
       # Socket activation, on TCP. systemd accepts any SOCK_STREAM so vsock
       # would work identically, but vsock needs a ProxyCommand in root's ssh
@@ -350,9 +348,11 @@ in
         # /etc/nix/machines is a different field, dispatch rather than
         # scheduling, and takes an integer only.)
         max-jobs = "auto";
-        # Scratch on the host's disk rather than the root tmpfs; see the
-        # /build mount above.
-        build-dir = "/build";
+        # Scratch on the guest's own disk, beside the store's write layer and
+        # on the same filesystem as it. Not the root tmpfs, which would charge
+        # every build's temporary files to RAM, and no longer a virtiofs share,
+        # which gave them host timestamps. See the tmpfiles rule above.
+        build-dir = "/nix/.rw-store/build";
 
         # cores is how many CPUs each individual job gets. 0 is its sentinel
         # for "all of them": the builder passes NIX_BUILD_CORES = buildCores,
@@ -543,7 +543,7 @@ in
 
       systemd.services.nix-daemon.unitConfig.RequiresMountsFor = [
         "/host-nix/nix"
-        "/build"
+        "/nix/.rw-store" # build-dir lives here, as does the store write layer
       ];
 
       fileSystems."/nix/store" = lib.mkForce {
