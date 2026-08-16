@@ -204,7 +204,12 @@
       enable = true;
       enableFishIntegration = true;
     };
+    # `enable` is about to stop meaning "theme every port that is enabled" and
+    # become a global on/off, with `autoEnable` carrying the old sense. Stating
+    # both keeps today's behaviour through that change instead of inheriting
+    # whichever default lands.
     catppuccin.enable = true;
+    catppuccin.autoEnable = true;
     programs.htop.enable = true;
     programs.kubecolor.enable = true;
 

@@ -14,7 +14,10 @@
   config = {
     programs.kubecolor.enable = true;
     programs.k9s.enable = true;
+    # See the note in home/lillecarl.nix: `autoEnable` is taking over the
+    # "theme every enabled port" meaning that `enable` has today.
     catppuccin.enable = true;
+    catppuccin.autoEnable = true;
     programs.jq.enable = true;
     programs.ripgrep.enable = true;
     programs.fd.enable = true;
