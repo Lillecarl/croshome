@@ -49,6 +49,20 @@ let
   # from a current one. Holds the guest's toplevel and the vfkit pid.
   runningFile = "/var/lib/vz-builder/running";
 
+  # Where guest builds do their scratch work, shared read-write.
+  #
+  # Under /nix rather than /tmp or $TMPDIR, and not by accident. Every temp
+  # directory macOS manages lives on the boot volume, and that volume is
+  # case-insensitive APFS -- `diskutil info /` says so, and `touch a; test -e A`
+  # confirms it. A build directory where `foo` and `FOO` are the same file
+  # breaks exactly the derivations a case-sensitive store exists to support.
+  #
+  # Staying inside /nix also keeps the requirement to one volume: a store this
+  # module can already insist is case-sensitive, which the activation check
+  # below does. Cleared on every VM start, which is stricter than "cleared on
+  # reboot".
+  buildScratch = "/nix/var/vz-tmp";
+
   # The guest publishes this over mDNS and mDNSResponder answers it natively,
   # so nothing here has to discover an IP.
   guestHost = "${guest.config.networking.hostName}.local";
@@ -64,6 +78,11 @@ let
       # Read at start-up rather than baked in, so this follows the machine it
       # runs on instead of pinning one Mac's core count into the repo.
       cpus=${if cfg.cores == null then "$(/usr/sbin/sysctl -n hw.ncpu)" else toString cfg.cores}
+
+      # Fresh every start: this is scratch, and a build that died with the last
+      # VM has nothing worth keeping.
+      rm -rf ${lib.escapeShellArg buildScratch}
+      install -d -m 0755 ${lib.escapeShellArg buildScratch}
 
       install -d -m 0755 ${lib.escapeShellArg keyDir}
       install -m 0444 /etc/nix/builder_ed25519.pub ${lib.escapeShellArg keyDir}/builder_ed25519.pub
@@ -91,6 +110,7 @@ let
         --device virtio-rng \
         --device "virtio-net,nat" \
         --device "virtio-fs,sharedDir=${keyDir},mountTag=keys" \
+        --device "virtio-fs,sharedDir=${buildScratch},mountTag=buildscratch" \
         "''${rosetta[@]}" \
         ${lib.optionalString (cfg.hostStore != "off") ''"''${hostStore[@]}" \''}
         --device "virtio-serial,logFilePath=/var/log/vz-builder.log" &
@@ -328,6 +348,25 @@ in
     # This does interrupt a build in flight, on purpose. The alternative is
     # serving results from a guest the configuration no longer describes.
     system.activationScripts.postActivation.text = ''
+      ${lib.optionalString (cfg.hostStore == "overlay") ''
+        # /nix has to be case-sensitive for the overlay store to mean anything.
+        # On a case-insensitive store Nix mangles colliding names
+        # (`use-case-hack`), and a guest reading those paths through the
+        # overlay sees the mangled names rather than the real ones. Checked
+        # here rather than asserted during evaluation, because it is a property
+        # of the filesystem and not of the configuration.
+        caseprobe=$(mktemp -d /nix/.vz-case-check-XXXXXX)
+        touch "$caseprobe/a"
+        if [ -e "$caseprobe/A" ]; then
+          rm -rf "$caseprobe"
+          echo "nix.linux-vz-builder: /nix is on a case-INSENSITIVE filesystem." >&2
+          echo "  hostStore = \"overlay\" cannot work there: Nix mangles colliding" >&2
+          echo "  store names and the guest reads the mangled ones. Put /nix on a" >&2
+          echo "  case-sensitive volume, or set hostStore to \"substituter\"." >&2
+          exit 1
+        fi
+        rm -rf "$caseprobe"
+      ''}
       running=${lib.escapeShellArg runningFile}
       if [ -e "$running" ]; then
         gen=$(head -1 "$running")

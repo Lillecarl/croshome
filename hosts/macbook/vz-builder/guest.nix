@@ -141,6 +141,24 @@ in
         options = [ "ro" ];
       };
 
+      # Build scratch, read-write, on the host's disk.
+      #
+      # Everything else in this guest is RAM: / is a tmpfs, so /tmp is too, and
+      # the overlay's upper layer holding build *outputs* is another. Nix's
+      # default build directory sits on the root tmpfs as well, so a large
+      # build used to be bounded by `memory` and died to the OOM killer rather
+      # than to anything legible. This moves the scratch half of that onto the
+      # SSD, where it costs nothing to be large.
+      #
+      # Not neededForBoot on purpose: it is wanted by the daemon, not by stage
+      # 1, and stage 1 already trips systemd's mount-monitor rate limit twice
+      # without help.
+      fileSystems."/build" = {
+        device = "buildscratch";
+        fsType = "virtiofs";
+        options = [ "nofail" ];
+      };
+
       # Socket activation, on TCP. systemd accepts any SOCK_STREAM so vsock
       # would work identically, but vsock needs a ProxyCommand in root's ssh
       # config and the nix-daemon is what dials out. Over the NAT interface no
@@ -231,6 +249,10 @@ in
         # /etc/nix/machines is a different field, dispatch rather than
         # scheduling, and takes an integer only.)
         max-jobs = "auto";
+        # Scratch on the host's disk rather than the root tmpfs; see the
+        # /build mount above.
+        build-dir = "/build";
+
         # cores is how many CPUs each individual job gets. 0 is its sentinel
         # for "all of them": the builder passes NIX_BUILD_CORES = buildCores,
         # falling back to getDefaultCores() when that is 0.
@@ -418,7 +440,10 @@ in
       # a comment. RequiresMountsFor below is the belt to this braces.
       fileSystems."/host-nix/nix".neededForBoot = true;
 
-      systemd.services.nix-daemon.unitConfig.RequiresMountsFor = [ "/host-nix/nix" ];
+      systemd.services.nix-daemon.unitConfig.RequiresMountsFor = [
+        "/host-nix/nix"
+        "/build"
+      ];
 
       fileSystems."/nix/store" = lib.mkForce {
         overlay = {
