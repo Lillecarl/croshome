@@ -30,6 +30,10 @@
 
     programs.git = {
       enable = true;
+      ignores = [
+        "CLAUDE.local.md"
+        "**/.claude/settings.local.json"
+      ];
       settings = {
         user.name = config.programs.jujutsu.settings.user.name;
         user.email = config.programs.jujutsu.settings.user.email;
