@@ -52,5 +52,18 @@ in
 
     # Lets an agent apply a configuration change without a password prompt.
     ${user} ALL=(root) NOPASSWD: /run/current-system/sw/bin/ai-rebuild ""
+
+    # Reading how much memory a process uses now needs root. macOS 26 gates
+    # per-process memory behind an entitlement, and not only for other users'
+    # processes -- `ps -o rss= -p $$` on your own shell answers
+    # "ps: rss: requires entitlement". footprint and top refuse the same way,
+    # and vmmap prints nothing. There is no unprivileged way left to ask.
+    #
+    # Both are read-only reporting tools, and neither reveals anything a root
+    # shell would not. This restores a measurement that used to need no
+    # privilege at all.
+    ${user} ALL=(root) NOPASSWD: /bin/ps
+    ${user} ALL=(root) NOPASSWD: /usr/bin/footprint
+
   '';
 }
