@@ -77,9 +77,11 @@
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
           "nix-csi.cachix.org-1:i4w33gR4efO67jpz8U7g/MdvRQ6mQ3LEF9fB8tES60g="
+          "lillecarl.cachix.org-1:NN/LLMg7mbyvZCu32Qlo8LpSHqNw7Rr3VBCEYQvRpT0="
         ];
         substituters = [
           "https://nix-csi.cachix.org"
+          "https://lillecarl.cachix.org"
         ];
         sandbox = "relaxed";
       };
