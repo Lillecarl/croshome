@@ -16,6 +16,11 @@
     ./ready.nix
     ./fuse.nix
     ./eurkey.nix
+    # The darwin counterpart of the import in hosts/hetztop/default.nix. Same
+    # input, same reason: nanopynix is `flake = false`, so this is the source
+    # tree and no second flake is evaluated.
+    "${inputs.nanopynix}/pynixd/nix/darwin"
+    ./pynixd.nix
   ];
 
   system.stateVersion = 7;
