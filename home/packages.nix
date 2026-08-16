@@ -117,6 +117,7 @@
     # opposite, and they are here for a human.
     config.lib.packages.comma
     gron # JSON to greppable lines and back, for when the shape is unknown
+    hyperfine # timing with warm-up, repeats and a variance figure, not one run
     jc # turns the output of ~100 classic commands into JSON
     sqlite # query any .db directly instead of writing a script around it
     yq-go # jq syntax over YAML, TOML and XML
