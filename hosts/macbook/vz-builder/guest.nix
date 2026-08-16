@@ -37,7 +37,7 @@ in
       "substituter"
       "overlay"
     ];
-    default = "substituter";
+    default = "overlay";
     description = ''
       How the guest uses the host's /nix/store, which is mounted read-only at
       /host-nix together with the host's Nix database.
@@ -242,22 +242,26 @@ in
       # to do, and the connection dies with "Nix daemon disconnected
       # unexpectedly". Left unset, it resolves `auto`, finds it is not root,
       # and proxies to the daemon, which is the intended path.
-      # The daemon serves the overlay store, set the ordinary way in nix.conf.
-      # Passing --store on nix-daemon's command line instead does not work: the
-      # legacy entry point rejects it and the daemon never starts, leaving
-      # clients with "cannot connect to socket".
-      nix.settings.store = overlayStoreUri;
+      # The overlay store is named in exactly one place: the daemon's command
+      # line. Every client, including the unprivileged `nix-daemon --stdio`
+      # that ssh-ng runs as the `builder` user, reads `store = daemon` from
+      # nix.conf and proxies here instead of trying to open the overlay store
+      # itself -- which it cannot do, having no write access to the upper
+      # layer. The command line beats nix.conf, so the daemon does not follow
+      # `store = daemon` back into itself.
+      nix.settings.store = "daemon";
 
-      # ...and the ssh session must not try to open that store itself.
-      # ssh-ng runs `nix-daemon --stdio` as the unprivileged `builder` user. It
-      # resolves the same nix.conf, tries to open the overlay store directly --
-      # writing the upper layer, taking locks -- has no permission, and the
-      # connection dies as "Nix daemon disconnected unexpectedly".
-      #
-      # NIX_REMOTE=daemon sends it to the daemon instead, which is the whole
-      # point of it being a daemon. sshd's SetEnv reaches non-interactive
-      # commands, which /etc/profile would not.
-      services.openssh.extraConfig = "SetEnv NIX_REMOTE=daemon";
+      # `%` doubled because this lands in a systemd unit, where a single `%`
+      # starts a specifier. An un-doubled `%3F` makes systemd fail to parse the
+      # unit, so the daemon never starts and every client reports "cannot
+      # connect to socket at /nix/var/nix/daemon-socket/socket" -- which looks
+      # nothing like an escaping bug.
+      systemd.services.nix-daemon.serviceConfig.ExecStart = [
+        "" # clear the inherited definition rather than add a second one
+        "@${config.nix.package}/bin/nix-daemon nix-daemon --daemon --store ${
+          lib.replaceStrings [ "%" ] [ "%%" ] overlayStoreUri
+        }"
+      ];
 
       # neededForBoot on both halves, and for different reasons.
       #

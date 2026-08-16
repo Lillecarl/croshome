@@ -193,36 +193,35 @@ in
         "substituter"
         "overlay"
       ];
-      default = "substituter";
+      default = "overlay";
       description = ''
         Whether and how to share this Mac's /nix/store into the builder. See
         ./guest.nix for what each value means.
 
-        `overlay` is implemented but NOT WORKING, and is not the default for
-        that reason alone. What it is blocked on, precisely, so the next
-        attempt does not re-derive it:
+        `overlay` is the default and is what you want. Inputs the Mac already
+        has are read where they lie, so an x86_64-linux build that used to
+        fetch its whole stdenv from cache.nixos.org now starts in under two
+        seconds and copies nothing.
 
-        Working: the guest boots with the host store as its only lower layer
-        (its own closure is in there, having been built on this Mac, so the
-        squashfs is unnecessary); the lower store opens and answers queries --
-        `nix path-info --store '/host-nix?read-only=true' <path>` returns valid
-        inside the guest; `read-only=true` needs the `read-only-local-store`
-        experimental feature on top of `local-overlay-store`; and check-mount
-        must be off, because stage 1 mounts under /sysroot and the kernel keeps
-        recording `lowerdir=/sysroot/...` after the pivot.
+        Four things it needs, none of them obvious, all of them load-bearing:
 
-        Blocked: ssh-ng runs `nix-daemon --stdio` as the unprivileged `builder`
-        user. It reads the same nix.conf, tries to open the overlay store
-        itself, cannot write the upper layer, and the connection dies as "Nix
-        daemon disconnected unexpectedly". Passing --store to nix-daemon
-        instead is rejected by the legacy entry point and the daemon does not
-        start at all; sshd SetEnv NIX_REMOTE=daemon did not take effect either.
-        The fix is to make that unprivileged process proxy to the daemon rather
-        than open the store.
+        - the host store as the *only* lower layer. The guest's own closure was
+          built on this Mac, so it is already in there -- netboot's squashfs is
+          redundant rather than an obstacle, which matters because Nix requires
+          exactly one lower dir equal to the lower store's realStoreDir.
+        - `read-only-local-store`, a second experimental feature on top of
+          `local-overlay-store`, because the lower store is on a read-only
+          mount and Nix opens store databases read-write even to query them.
+        - `check-mount=false`. Stage 1 mounts under /sysroot and the kernel
+          goes on recording `lowerdir=/sysroot/...` after the pivot, so the
+          check compares against a stale string and can never pass.
+        - the store URI on the daemon's command line only, with `store =
+          daemon` in nix.conf. See ./guest.nix -- this is the part that took
+          longest to get right.
 
-        `substituter` gets most of the benefit -- inputs come from this Mac
-        rather than the network -- and costs only a copy into the guest's
-        tmpfs, which `overlay` would have avoided.
+        `substituter` is the fallback if any of that regresses: inputs still
+        come from this Mac rather than the network, but they are copied into
+        the guest's tmpfs instead of referenced in place.
       '';
     };
 
