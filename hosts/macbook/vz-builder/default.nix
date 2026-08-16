@@ -33,6 +33,7 @@ let
         virtualisation.linux-vz-builder = {
           inherit (cfg) hostStore debugAccess;
           swap = cfg.swapSize > 0;
+          nixpkgsSource = hostNixpkgs;
         };
       }
     ]
@@ -75,6 +76,34 @@ let
   # activation check already proves is case-sensitive.
   storeDisk = "/nix/var/vz-store.img";
   swapDisk = "/nix/var/vz-swap.img";
+
+  # Where this Mac says `nixpkgs` is, so the guest can agree with it instead of
+  # being told separately and drifting.
+  #
+  # Taken from the registry rather than from nix.nixPath, because nixPath holds
+  # the host's *spelling* -- `nixpkgs=/etc/nixpkgs` -- and /etc in the guest is
+  # the guest's own, so copying it verbatim gives a dangling path. The registry
+  # holds what that spelling resolves to: a store path, which the guest sees
+  # through the overlay at the same location.
+  #
+  # A string, and that is load-bearing. Interpolating a path *value* re-adds it
+  # to the store, and the guest ended up with a nixpkgs at
+  # bpq5xzw3...-4g6m60kii...-02ypmav2...-source -- the same content at a
+  # different path, so every derivation evaluated through it hashed differently
+  # from the host's and missed the cache.
+  #
+  # The whole `config.nix.registry` cannot be copied across: it is an evaluated
+  # submodule, so it carries `to` (which NixOS sets internally with mkIf from
+  # `flake`) alongside `flake` itself, and assigning both back is a conflict
+  # rather than a merge.
+  hostNixpkgs =
+    let
+      entry = config.nix.registry.nixpkgs or null;
+    in
+    if entry != null && (entry.flake or null) != null then
+      "${entry.flake}"
+    else
+      "${cfg.nixpkgs}";
 
   # The guest publishes this over mDNS and mDNSResponder answers it natively,
   # so nothing here has to discover an IP.
@@ -213,6 +242,7 @@ let
         --memory ${toString cfg.memory} \
         --bootloader "linux,kernel=${kernel}/Image,initrd=${netbootRamdisk}/initrd,cmdline=\"console=hvc0 init=${toplevel}/init\"" \
         --device virtio-rng \
+        --device virtio-balloon \
         --device "virtio-net,nat" \
         --device "virtio-fs,sharedDir=${keyDir},mountTag=keys" \
         "''${disks[@]}" \

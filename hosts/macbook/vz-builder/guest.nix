@@ -49,6 +49,20 @@ in
     '';
   };
 
+  options.virtualisation.linux-vz-builder.nixpkgsSource = lib.mkOption {
+    type = lib.types.str;
+    default = "";
+    description = ''
+      Store path of the nixpkgs the host resolves `nixpkgs` to. The guest
+      points both its NIX_PATH and its flake registry at it, so `<nixpkgs>`
+      and `nixpkgs#foo` mean the same thing on both sides of the VM boundary.
+
+      A string rather than a path, so interpolating it does not re-add it to
+      the store under a fresh hash. Empty leaves the NixOS defaults, which in
+      this guest point at a channel profile that does not exist.
+    '';
+  };
+
   options.virtualisation.linux-vz-builder.swap = lib.mkOption {
     type = lib.types.bool;
     default = false;
@@ -380,6 +394,27 @@ in
         # for "all of them": the builder passes NIX_BUILD_CORES = buildCores,
         # falling back to getDefaultCores() when that is 0.
         cores = 0;
+      };
+
+      # The same nixpkgs the Mac resolves, so `<nixpkgs>` and `nixpkgs#foo`
+      # mean in here what they mean out there.
+      #
+      # Without this the guest keeps the NixOS defaults, which point at root's
+      # channel profile -- a path that does not exist in this VM -- and carries
+      # no `nixpkgs` registry entry at all. So `nix run nixpkgs#jq` in the
+      # guest would go to GitHub for a nixpkgs the host already has on disk.
+      #
+      # Inherited from the host rather than resolved again here. ./default.nix
+      # reads it out of the host's own registry, so the two cannot drift, and
+      # so the guest names the *same store path* -- evaluating identical
+      # content at a different path would hash every derivation differently
+      # and miss the cache. `pkgs.path` did exactly that.
+      nix.nixPath = lib.mkIf (cfg.nixpkgsSource != "") [ "nixpkgs=${cfg.nixpkgsSource}" ];
+      nix.registry.nixpkgs = lib.mkIf (cfg.nixpkgsSource != "") {
+        to = {
+          type = "path";
+          path = cfg.nixpkgsSource;
+        };
       };
 
       # A builder evaluates nothing, so it needs no docs.
