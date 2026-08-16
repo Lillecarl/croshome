@@ -48,6 +48,39 @@ Three rules to keep in mind when you edit this repo:
   and both run on macOS. Check the upstream release assets too: `opencode`
   publishes a macOS CLI, and the comment claiming otherwise was wrong.
 
+## The two Linux builders on the MacBook
+
+| | `nix.linux-builder` | `local.vzBuilder` |
+| --- | --- | --- |
+| Hypervisor | QEMU + HVF | Virtualization.framework (vfkit) |
+| Systems | aarch64-linux | aarch64-linux, **x86_64-linux** |
+| Lifetime | always on | socket-activated, exits after 10 idle minutes |
+| Disk | qcow2 image | none; squashfs + tmpfs |
+
+x86_64-linux only works on the second one. Rosetta-for-Linux is a
+Virtualization.framework feature, so no amount of QEMU configuration reaches
+it.
+
+Both are kept because the QEMU builder is what builds the other one's guest
+image. Do not remove it while `local.vzBuilder` is the only Linux builder, or
+the next guest change has nothing to build it.
+
+To use the VZ builder, just build something: connecting to its port is what
+starts it. `hosts/macbook/vz-builder/guest.nix` is a whole NixOS system, so
+changing it means an aarch64-linux rebuild.
+
+Three things there were measured rather than read, and are easy to get wrong:
+
+- macOS **bootpd serves no DNS**. The DHCP hostname lands in
+  `/var/db/dhcpd_leases` and resolves nowhere. mDNS is what works, which is why
+  the guest runs avahi and is reached at `vzbuilder.local`.
+- A macOS **unix socket path cannot exceed 104 bytes**, which the scratchpad
+  directory alone can exceed.
+- `unix://` **cannot retrieve build results** from a daemon in a VM. It asks
+  the daemon whether a path is valid, then reads the contents off the *local*
+  filesystem, so builds succeed and nothing can be read back. Use `ssh-ng://`.
+  Reported as Lillecarl/nix#307.
+
 ## Reading a change before activating it
 
 Never activate without reading the diff first.
