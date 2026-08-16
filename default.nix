@@ -1,35 +1,58 @@
 let
-  # A checkout next door wins over the locked input. These paths only exist on
-  # the Linux workstation; on the MacBook there is nothing at them, and an
-  # override pointing at a path that is not there fails the whole evaluation.
-  # So state the candidates and keep the ones that exist.
-  localCheckouts = {
-    acpcli = /home/lillecarl/Code/acpcli;
-    nanopynix = /home/lillecarl/Code/nanopynix;
-  };
-
-  presentCheckouts = builtins.listToAttrs (
-    builtins.filter (entry: builtins.pathExists entry.value) (
-      builtins.attrValues (
-        builtins.mapAttrs (name: value: {
-          inherit name value;
-        }) localCheckouts
-      )
-    )
-  );
-
   inputs =
     (
       let
         lockAttrs = builtins.fromJSON (builtins.readFile ./flake.lock);
-        flake-compatish = import (fetchTree lockAttrs.nodes.flake-compatish.locked);
+
+        # Look the node up through the root's own input map rather than by the
+        # name `flake-compatish`. A lock file names nodes uniquely, so as soon
+        # as another input depends on flake-compatish too, the two get
+        # `flake-compatish` and `flake-compatish_2` and which one is ours is
+        # not decided by the name. Reading the name directly silently pinned
+        # this to whichever revision the *other* input wanted.
+        nodeName = lockAttrs.nodes.${lockAttrs.root}.inputs.flake-compatish;
+        flake-compatish = import (fetchTree lockAttrs.nodes.${nodeName}.locked);
       in
       flake-compatish {
         source = ./.;
+
+        # Point an input at a checkout next door in ./overrides.nix, NOT here.
+        # flake-compatish reads that file next to `source` on its own, it is
+        # gitignored, and a value in it beats anything passed to this argument
+        # -- so every machine states its own development paths and none of them
+        # reach the repository.
+        #
+        # That file is also the only place where a path may be absent: an
+        # override naming a path that is not there falls back to the lockfile
+        # rather than failing, which is what makes one gitignored file per
+        # machine work. It is read in impure evaluation only, so a pure
+        # `nix build` of this repo ignores it.
+        #
+        # `self` stays here because it is not machine-local. Without it
+        # flake-compatish copies this whole tree into the store on every
+        # evaluation to answer `self`; naming the path uses the working copy
+        # directly. A fresh clone with no ./overrides.nix still gets that.
         overrides = {
           self = ./.;
-        }
-        // presentCheckouts;
+
+          # These two were here until the move to ./overrides.nix, and they
+          # only ever resolved on hetztop. Left as a record of what that
+          # machine was building against, so whoever is next on it can decide
+          # rather than guess.
+          #
+          # To restore them, write them to ./overrides.nix on hetztop -- that
+          # file is gitignored, so they stay on the machine they describe.
+          # Uncommenting them here puts a path that exists on one machine into
+          # a repository shared by three, which is what the move undid.
+          #
+          #   acpcli = /home/lillecarl/Code/acpcli;
+          #   nanopynix = /home/lillecarl/Code/nanopynix;
+          #
+          # Check before restoring nanopynix: it was pinned to a local checkout
+          # because the locked input had no pynixd/nix/nixos for hosts/hetztop
+          # to import. The input has since moved to a revision that has it, so
+          # the override may now be doing nothing but hiding upstream.
+        };
       }
     ).inputs;
 in
