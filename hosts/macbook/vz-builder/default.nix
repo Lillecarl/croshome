@@ -28,7 +28,10 @@ let
     system = "aarch64-linux";
     modules = [
       ./guest.nix
-      { vzBuilder.hostStore = cfg.hostStore; }
+      {
+        vzBuilder.hostStore = cfg.hostStore;
+        vzBuilder.debugAccess = cfg.debugAccess;
+      }
     ];
   };
 
@@ -38,6 +41,10 @@ let
   # public half: /etc/nix holds the private key too, and the guest has no
   # business seeing that directory.
   keyDir = "/var/lib/vz-builder/keys";
+
+  # What the running VM was started from, so activation can tell a stale one
+  # from a current one. Holds the guest's toplevel and the vfkit pid.
+  runningFile = "/var/lib/vz-builder/running";
 
   # The guest publishes this over mDNS and mDNSResponder answers it natively,
   # so nothing here has to discover an IP.
@@ -88,6 +95,11 @@ let
         ${lib.optionalString (cfg.hostStore != "off") ''"''${hostStore[@]}" \''}
         --device "virtio-serial,logFilePath=/var/log/vz-builder.log" &
       vm=$!
+
+      # Recorded for the activation check in ./default.nix, and cleared on the
+      # way out so a dead VM never looks live.
+      printf '%s\n%s\n' ${lib.escapeShellArg toplevel} "$vm" > ${lib.escapeShellArg runningFile}
+      trap 'rm -f ${lib.escapeShellArg runningFile}' EXIT
 
       # Idle shutdown. A connection is live exactly while its handler runs, so
       # counting handlers is an accurate idle test and needs nothing from the
@@ -190,6 +202,16 @@ in
       '';
     };
 
+    debugAccess = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Let the guest be logged into for profiling. See ./guest.nix -- it
+        authorises a publicly-known key, so it is off by default and meant to
+        be switched on for a session rather than left on.
+      '';
+    };
+
     hostStore = lib.mkOption {
       type = lib.types.enum [
         "off"
@@ -276,6 +298,29 @@ in
         StandardErrorPath = "/var/log/vz-builder.log";
       };
     };
+
+    # Stop a VM that is running an older guest than the one just activated.
+    #
+    # Without this the change is not live until the VM next idles out, and it
+    # is invisible: the builder answers, builds, and behaves exactly as before,
+    # because it is still the previous generation. That cost real debugging
+    # time -- two boot-time measurements of a networkd change were taken
+    # against a VM that predated it, and read as confirmation that it worked.
+    #
+    # This does interrupt a build in flight, on purpose. The alternative is
+    # serving results from a guest the configuration no longer describes.
+    system.activationScripts.postActivation.text = ''
+      running=${lib.escapeShellArg runningFile}
+      if [ -e "$running" ]; then
+        gen=$(head -1 "$running")
+        pid=$(sed -n 2p "$running")
+        if [ "$gen" != ${lib.escapeShellArg toplevel} ]; then
+          echo "vz-builder: guest changed, stopping the stale VM (pid $pid)"
+          kill "$pid" 2>/dev/null || true
+          rm -f "$running"
+        fi
+      fi
+    '';
 
     environment.etc."ssh/ssh_config.d/101-vz-builder.conf".text = ''
       Host vz-builder

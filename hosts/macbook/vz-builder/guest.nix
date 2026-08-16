@@ -31,6 +31,23 @@ in
 {
   imports = [ "${modulesPath}/installer/netboot/netboot.nix" ];
 
+  options.vzBuilder.debugAccess = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = ''
+      Authorise the keypair nixpkgs ships for its own builder VM, so the guest
+      can be logged into for profiling:
+
+        ssh -i "$(nix eval --raw -f . inputs.nixpkgs)/nixos/modules/profiles/keys/ssh_host_ed25519_key" \
+            builder@vzbuilder.local systemd-analyze blame
+
+      Both halves of that key are world-readable in the store, so this
+      authorises an already-public key: anyone who can reach this VM on the
+      NAT can then log in as a trusted user. Off by default. Turn it on for a
+      session and turn it back off, rather than leaving it.
+    '';
+  };
+
   options.vzBuilder.hostStore = lib.mkOption {
     type = lib.types.enum [
       "off"
@@ -91,7 +108,9 @@ in
         enable = true;
         startWhenNeeded = true;
         settings.PasswordAuthentication = false;
-        authorizedKeysFiles = lib.mkForce [ "/var/keys/builder_ed25519.pub" ];
+        authorizedKeysFiles = lib.mkForce (
+          [ "/var/keys/builder_ed25519.pub" ] ++ lib.optional cfg.debugAccess "/etc/ssh/authorized_keys.d/%u"
+        );
       };
 
       # The fixed keypair nixpkgs ships for its own builder VM. nix-darwin
@@ -109,6 +128,10 @@ in
       users.users.builder = {
         isNormalUser = true;
         group = "builder";
+        openssh.authorizedKeys.keyFiles = lib.optional cfg.debugAccess "${modulesPath}/profiles/keys/ssh_host_ed25519_key.pub";
+        # Reading the *system* journal is the point of logging in: the console
+        # is at log_level=warning, so it says nothing about the initrd.
+        extraGroups = lib.optional cfg.debugAccess "systemd-journal";
       };
       users.groups.builder = { };
 
