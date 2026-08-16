@@ -218,7 +218,23 @@ in
       # The read-only store share is left as the only virtiofs in a build's
       # path, and it cannot skew anything: Nix normalises store timestamps to
       # the epoch, so nothing there is ever in the future.
-      systemd.tmpfiles.rules = [ "d /nix/.rw-store/build 0755 root root -" ];
+      systemd.tmpfiles.rules = [
+        # Nix's build directory. Root-owned: the daemon builds here, not users.
+        "d /nix/.rw-store/build 0755 root root -"
+
+        # Writable space for people, not just for the daemon. Without this the
+        # disk is root-owned throughout, so an unprivileged session has nothing
+        # but the tmpfs root -- /tmp, /var/tmp and $HOME all being 3.9 GiB of
+        # RAM. That is the very limit this disk exists to remove, and it is
+        # easy to miss, because builds work fine while interactive work does
+        # not.
+        #
+        # A symlink rather than a bind mount, deliberately. /scratch has to be
+        # short to be worth typing, and the root filesystem is a tmpfs, so a
+        # symlink there is free and has no mount ordering to get wrong.
+        "d /nix/.rw-store/scratch 1777 root root -"
+        "L /scratch - - - - /nix/.rw-store/scratch"
+      ];
 
       # Socket activation, on TCP. systemd accepts any SOCK_STREAM so vsock
       # would work identically, but vsock needs a ProxyCommand in root's ssh
@@ -275,6 +291,12 @@ in
       users.users.builder = {
         isNormalUser = true;
         group = "builder";
+        # Home on the disk, not on the root tmpfs. Anything an interactive
+        # session leaves in $HOME would otherwise be charged to RAM and capped
+        # at half of it. The mount is neededForBoot, so it is present well
+        # before user activation creates this.
+        home = "/nix/.rw-store/home";
+        createHome = true;
         openssh.authorizedKeys.keyFiles = lib.optional cfg.debugAccess "${modulesPath}/profiles/keys/ssh_host_ed25519_key.pub";
         # Reading the *system* journal is the point of logging in: the console
         # is at log_level=warning, so it says nothing about the initrd.

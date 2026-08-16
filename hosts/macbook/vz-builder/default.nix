@@ -142,9 +142,10 @@ let
       # often does, and that is the point: /nix/store in the guest is this
       # Mac's store through the overlay, so a store path you are standing in
       # here is the same path there. `nix build` something for Linux, then run
-      # ./result/bin/x under vzrun. Otherwise fall back to the guest's disk,
-      # the only large writable place it has.
-      cd_to="cd $(printf '%q' "$PWD") 2>/dev/null || cd /nix/.rw-store/build"
+      # ./result/bin/x under vzrun. Otherwise fall back to /scratch, which is
+      # on the guest's disk and writable by anyone -- unlike Nix's build
+      # directory, which is root-owned and was where this used to land.
+      cd_to="cd $(printf '%q' "$PWD") 2>/dev/null || cd /scratch"
 
       if [ "$#" -eq 0 ]; then
         remote="$cd_to; exec \"\$SHELL\""
