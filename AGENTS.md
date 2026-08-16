@@ -157,6 +157,11 @@ Four things there were measured rather than read, and are easy to get wrong:
   the daemon whether a path is valid, then reads the contents off the *local*
   filesystem, so builds succeed and nothing can be read back. Use `ssh-ng://`.
   Reported as Lillecarl/nix#307.
+- **`--cores` from a host client does not reach the guest daemon.** Passing
+  `--cores 3` to a build farmed out to the VM still produced `build flags:
+  -j15` in the log. Only `nix.settings.cores` in `guest.nix` changes it. This
+  cost a wrong hypothesis while chasing an OOM in `cc1plus` building `eval.cc`
+  under `-flto`; the fix there was swap, not parallelism.
 - A guest change is not in effect until the VM has **restarted onto it**.
   Measuring a still-resident VM after a rebuild reads as confirmation and is
   not. Activation now stops a stale VM for this reason.

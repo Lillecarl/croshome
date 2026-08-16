@@ -30,6 +30,20 @@ let
       ./guest.nix
       {
         nixpkgs.hostPlatform = "aarch64-linux";
+
+        # The host's flake registry, verbatim, so the two cannot drift.
+        #
+        # Copying an *evaluated* submodule back in as a definition is usually a
+        # mistake, and it is safe here for a specific reason: nix-flakes.nix
+        # defines `to` as `mkIf (flake != null) (mkDefault {...})`, and
+        # nix-darwin's module matches. mkDefault is priority 1000, so the
+        # explicit `to` we hand over at priority 100 overrides it instead of
+        # colliding with it. Verified by evaluation before relying on it.
+        #
+        # Doing it this way rather than rebuilding the entry from a path also
+        # keeps narHash, rev and lastModified, so the guest's registry is
+        # locked exactly as the host's is.
+        nix.registry = config.nix.registry;
         virtualisation.linux-vz-builder = {
           inherit (cfg) hostStore debugAccess;
           swap = cfg.swapSize > 0;

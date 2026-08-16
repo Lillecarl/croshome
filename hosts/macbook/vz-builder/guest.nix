@@ -409,13 +409,12 @@ in
       # so the guest names the *same store path* -- evaluating identical
       # content at a different path would hash every derivation differently
       # and miss the cache. `pkgs.path` did exactly that.
+      # Only nixPath is respelled here. The registry comes over verbatim from
+      # ./default.nix, because its entries resolve to store paths the guest
+      # already sees. nixPath cannot: the host spells it `nixpkgs=/etc/nixpkgs`
+      # and /etc in the guest is the guest's own, so the entry would dangle.
+      # Same source either way -- ./default.nix reads it out of that registry.
       nix.nixPath = lib.mkIf (cfg.nixpkgsSource != "") [ "nixpkgs=${cfg.nixpkgsSource}" ];
-      nix.registry.nixpkgs = lib.mkIf (cfg.nixpkgsSource != "") {
-        to = {
-          type = "path";
-          path = cfg.nixpkgsSource;
-        };
-      };
 
       # A builder evaluates nothing, so it needs no docs.
       documentation.enable = false;
