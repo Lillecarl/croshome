@@ -9,6 +9,7 @@
     inputs.home-manager.darwinModules.home-manager
     ./ai-rebuild.nix
     ./linux-builder.nix
+    ./vz-builder
     ./cocoa-way.nix
     ./aerospace.nix
     ./borders.nix
@@ -19,6 +20,12 @@
 
   system.stateVersion = 7;
   system.primaryUser = "lillecarl";
+
+  # The second builder, on Apple's hypervisor. It runs only while a build needs
+  # it, so it sits alongside the always-on QEMU one rather than replacing it --
+  # and the QEMU one is also what builds this one's guest image, which is why
+  # removing it is a later step and not this one.
+  local.vzBuilder.enable = true;
 
   # HostName is unset out of the box, which lets macOS derive `hostname`
   # dynamically -- currently to garbage bytes.
