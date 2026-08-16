@@ -24,14 +24,6 @@
     waypipe
     wl-clipboard
 
-    # `import`, and not a flake output: nanopynix is a `flake = false` input,
-    # so this reads its `default.nix` and no flake of it is evaluated. That
-    # file takes the package set that builds it, and this one carries the
-    # overlays of this configuration, so there is no second nixpkgs.
-    #
-    # It does not evaluate for darwin, which is why it is here.
-    (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
-
     # Builds on darwin but then fails its own --version check, so the binary
     # upstream ships for macOS is not the one this expects.
     inputs.llm-agents.packages.${system}.kilocode-cli

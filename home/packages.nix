@@ -88,6 +88,17 @@
     nixd
     nixfmt
     statix
+
+    # `import`, and not a flake output: nanopynix is a `flake = false` input,
+    # so this reads its `default.nix` and no flake of it is evaluated. That
+    # file takes the package set that builds it, and this one carries the
+    # overlays of this configuration, so there is no second nixpkgs.
+    #
+    # macOS needs a nanopynix newer than the lock. Until Lillecarl/nanopynix#148
+    # reaches develop, this machine gets it from ../overrides.nix -- so a macOS
+    # clone without that file stops here, on nanopynix-store-exec being
+    # lib.platforms.linux. Linux builds from the lock and needs nothing.
+    (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
     # Nix diagnostics, for machines that rebuild this much. ../../rebuild uses
     # both: nvd lists the packages a switch would move, nix-diff says why a
     # derivation differs when no version moved at all.
