@@ -8,6 +8,7 @@
   imports = [
     inputs.home-manager.darwinModules.home-manager
     ./ai-rebuild.nix
+    ./linux-builder.nix
     ./cocoa-way.nix
     ./aerospace.nix
     ./borders.nix
@@ -84,6 +85,14 @@
       "dynamic-derivations"
     ];
     trusted-users = [ "@admin" ];
+
+    # NixOS marks its small generated files -- unit files, /etc fragments --
+    # `allowSubstitutes = false`, because building them is cheaper than a round
+    # trip. That reasoning holds only where they can be built. On a Mac they
+    # are aarch64-linux and cannot be, so the flag turns a fetch into a hard
+    # platform mismatch: it is what made the Linux builder need 215 local
+    # builds instead of 21. Fetching them costs a couple of MiB.
+    always-allow-substitutes = true;
 
     # extra-* rather than plain substituters/trusted-public-keys, which are
     # lists that replace rather than append -- assigning them here would drop

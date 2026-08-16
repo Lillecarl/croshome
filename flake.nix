@@ -15,6 +15,12 @@
       url = "github:nix-darwin/nix-darwin";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # Only ./hosts/macbook/linux-builder.nix reads this, and it deliberately
+    # does not follow nixpkgs. Hydra builds darwin.linux-builder for the
+    # release channels and not for unstable, so taking the VM from unstable
+    # leaves 21 aarch64-linux derivations that nothing has built and that a Mac
+    # cannot build -- which is the exact bootstrap the builder exists to break.
+    nixpkgs-stable.url = "https://channels.nixos.org/nixos-25.11/nixexprs.tar.xz";
     disko = {
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
