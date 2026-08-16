@@ -68,6 +68,18 @@ let
         environment.etc = lib.optionalAttrs (config.environment.etc ? nixpkgs) {
           nixpkgs.source = config.environment.etc.nixpkgs.source;
         };
+        # Experimental features from the host, so one list governs both. A
+        # derivation that needs `dynamic-derivations` to evaluate on this Mac
+        # needs it to build in here as well, and the guest had no way to learn
+        # that. `nix.settings.experimental-features` is a list, and NixOS
+        # merges list definitions by concatenation, so this adds to what
+        # ./guest.nix states for its own store topology rather than replacing
+        # it. Duplicates in that list are harmless.
+        #
+        # This is inheritance, not replication: the host list is the only place
+        # a feature is named for both machines.
+        nix.settings.experimental-features = config.nix.settings.experimental-features;
+
         virtualisation.linux-vz-builder = {
           inherit (cfg) hostStore debugAccess;
           swap = cfg.swapSize > 0;

@@ -245,6 +245,21 @@ in
         startWhenNeeded = true;
         settings.PasswordAuthentication = false;
 
+        # sshd allows 10 channels on one connection by default, and that is
+        # too few for a client that opens many at once over a single link.
+        # pynixd probes this guest by asking it about one system feature per
+        # channel, all started together (`_probe_features` in
+        # pynixd/store/daemon.py), so two systems and nine candidate features
+        # is 18 channels at the same instant. sshd refused the last eight with
+        # "Session request failed", and pynixd read that as a store that
+        # failed to start: 18 consecutive failures and a 300s cooldown.
+        # Reported as Lillecarl/nanopynix#167.
+        #
+        # 128 rather than 20, because the same limit applies to a build. This
+        # is a single-tenant machine that exists only while a build runs, so
+        # there is nothing here for the default to protect.
+        settings.MaxSessions = 128;
+
         # Off because the key files arrive over virtiofs, and Virtualization.
         # framework does not pass ownership through: /var/lib/vz-builder/keys
         # is 0:0 on the Mac and shows up as 1000:1000 -- `builder` -- in here.
@@ -357,10 +372,13 @@ in
 
       nix.settings = {
         trusted-users = [ "builder" ];
-        experimental-features = [
-          "nix-command"
-          "flakes"
-        ];
+        # No experimental-features here. ../default.nix hands the host's list
+        # over, and that list is the authority for both machines. This block
+        # used to name `nix-command` and `flakes`, which made the guest quietly
+        # disagree with the host about anything else -- `dynamic-derivations`,
+        # for one. The `mkIf` branch further down still names two, because
+        # those describe this guest's own store topology and mean nothing on
+        # the host.
         # Two different knobs, both set to "use everything", because this VM
         # exists only while a build runs and has nothing to hold capacity back
         # for.
