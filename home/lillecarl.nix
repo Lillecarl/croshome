@@ -30,8 +30,11 @@
     programs.ssh = {
       enable = true;
       enableDefaultConfig = false;
-      matchBlocks."*" = {
-        extraOptions.WarnWeakCrypto = "no";
+      # An attribute name that is not already a `Host`/`Match` line becomes
+      # `Host <name>`, and the block takes OpenSSH directive names directly --
+      # so this is the whole of what `matchBlocks."*".extraOptions` used to say.
+      settings."*" = {
+        WarnWeakCrypto = "no";
       };
     };
     lib.packages = {
