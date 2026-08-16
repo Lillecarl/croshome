@@ -79,11 +79,52 @@ in
         "systemd.log_level=warning"
       ];
 
-      boot.initrd.availableKernelModules = [ "virtiofs" ];
+      # Stage 1 is where the remaining boot time is, and at its default level
+      # it says nothing about why it waits. `rd.systemd.log_level=debug` on the
+      # kernel command line does not reach it -- this does.
+      boot.initrd.systemd.settings.Manager.LogLevel = lib.mkIf cfg.debugAccess "debug";
+
+      # Shutting the VM down between measurements beats waiting out the idle
+      # timer:
+      #
+      #   ssh -p 31122 root@127.0.0.1 systemctl poweroff
+      #
+      # As `builder` that is refused -- "Call to PowerOff failed: Access
+      # denied" -- because the session is neither local nor root. Authorising
+      # root is lighter than the alternative: polkit is not enabled in this
+      # guest at all, so a polkit rule is inert, and pulling polkit in costs a
+      # service on every boot for a debugging convenience.
+      users.users.root.openssh.authorizedKeys.keyFiles =
+        lib.optional cfg.debugAccess "${modulesPath}/profiles/keys/ssh_host_ed25519_key.pub";
+
+      # This VM has four device classes and no disk: virtio-net, virtiofs (the
+      # key share, the host store, the host database and Rosetta), virtio-rng
+      # and virtio-serial. NixOS's default initrd module set is sized for real
+      # hardware -- SATA, NVMe, USB, SD, the lot -- and every one of those is a
+      # module to load and a bus for udev to walk before the mounts can
+      # proceed. Two waits of ~0.8s each sat in front of Mounting /sysroot and
+      # Mounting /sysroot/nix/store because of it.
+      #
+      # If the guest ever stops booting after a device change, this list is the
+      # first place to look, and `includeDefaultModules = true` is the way to
+      # rule it out.
+      boot.initrd.includeDefaultModules = false;
+      boot.initrd.availableKernelModules = [
+        "virtio_pci" # how every device below is discovered
+        "virtio_net"
+        "virtio_console" # hvc0, which the console= parameter names
+        "virtio_rng"
+        "fuse" # virtiofs is built on it
+        "virtiofs"
+        "overlay"
+      ];
       boot.kernelModules = [
         "virtiofs"
         "overlay"
       ];
+
+      # Nothing here has, or emulates, a TPM.
+      boot.initrd.systemd.tpm2.enable = false;
 
       # x86_64-linux through Rosetta. The module mounts the virtiofs share the
       # host exposes, registers the binfmt handler with Apple's documented
@@ -205,16 +246,20 @@ in
     # The host store and the host's Nix database. Both are needed: a path on
     # disk that no database knows about is invisible to Nix.
     (lib.mkIf sharingHostStore {
-      fileSystems."/host-nix/nix/store" = {
-        device = "hoststore";
-        fsType = "virtiofs";
-        options = [
-          "nofail"
-          "ro"
-        ];
-      };
-      fileSystems."/host-nix/nix/var/nix/db" = {
-        device = "hostdb";
+      # One share for the whole of /nix, not one for the store and one for the
+      # database. Both are needed and both live under it, so this is simply
+      # less to configure.
+      #
+      # It was tried as a boot-time optimisation and is not one. systemd
+      # rate-limits its mount monitor at five events per second and then backs
+      # off for about a second; stage 1 trips that twice, which is ~1.6s of
+      # this boot and the largest remaining cost. Dropping one mount did not
+      # get under the threshold and changed nothing measurable. It is a known
+      # systemd problem, systemd/systemd#28264, semi-fixed in later versions --
+      # so it is worth re-measuring after a systemd bump, and not worth
+      # attacking from here.
+      fileSystems."/host-nix/nix" = {
+        device = "hostnix";
         fsType = "virtiofs";
         options = [
           "nofail"
@@ -361,13 +406,9 @@ in
       # believes every lower path is invalid, so it refetches the whole world
       # from the network. That failure is silent, which is what makes it worth
       # a comment. RequiresMountsFor below is the belt to this braces.
-      fileSystems."/host-nix/nix/store".neededForBoot = true;
-      fileSystems."/host-nix/nix/var/nix/db".neededForBoot = true;
+      fileSystems."/host-nix/nix".neededForBoot = true;
 
-      systemd.services.nix-daemon.unitConfig.RequiresMountsFor = [
-        "/host-nix/nix/store"
-        "/host-nix/nix/var/nix/db"
-      ];
+      systemd.services.nix-daemon.unitConfig.RequiresMountsFor = [ "/host-nix/nix" ];
 
       fileSystems."/nix/store" = lib.mkForce {
         overlay = {

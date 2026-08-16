@@ -78,10 +78,7 @@ let
       ${lib.optionalString (cfg.hostStore != "off") ''
         # Read-only, and both halves: a store path that no database knows about
         # is invisible to Nix, so the store alone would buy nothing.
-        hostStore=(
-          --device "virtio-fs,sharedDir=/nix/store,mountTag=hoststore"
-          --device "virtio-fs,sharedDir=/nix/var/nix/db,mountTag=hostdb"
-        )
+        hostStore=(--device "virtio-fs,sharedDir=/nix,mountTag=hostnix")
       ''}
 
       vfkit \
