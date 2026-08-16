@@ -55,7 +55,9 @@ Three rules to keep in mind when you edit this repo:
 | Hypervisor | Virtualization.framework (vfkit) | QEMU + HVF |
 | Systems | aarch64-linux, **x86_64-linux** | aarch64-linux |
 | Lifetime | socket-activated, exits after 60s idle | always on |
-| Disk | none; the host store is the lower layer | qcow2 image |
+| Disk | ephemeral raw images, recreated per start | qcow2 image |
+| Store writes | 128G ext4 on /dev/vda | in the image |
+| Swap | 16G on /dev/vdb | none |
 | State | **in use** | kept, `enable = false` |
 
 x86_64-linux only works on the VZ one. Rosetta-for-Linux is a

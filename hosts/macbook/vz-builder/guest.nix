@@ -9,6 +9,7 @@
   modulesPath,
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -45,6 +46,15 @@ in
       authorises an already-public key: anyone who can reach this VM on the
       NAT can then log in as a trusted user. Off by default. Turn it on for a
       session and turn it back off, rather than leaving it.
+    '';
+  };
+
+  options.virtualisation.linux-vz-builder.swap = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = ''
+      Format /dev/vdb as swap and enable it at boot. The host attaches that
+      disk when `swapSize` is non-zero; see ./default.nix.
     '';
   };
 
@@ -116,6 +126,7 @@ in
         "virtio_rng"
         "fuse" # virtiofs is built on it
         "virtiofs"
+        "virtio_blk" # the store disk, and the swap disk beside it
         "overlay"
       ];
       boot.kernelModules = [
@@ -139,6 +150,58 @@ in
         device = "keys";
         fsType = "virtiofs";
         options = [ "ro" ];
+      };
+
+      # Build outputs, on a real disk instead of RAM.
+      #
+      # netboot puts the overlay's upper layer on a tmpfs, so every output a
+      # build produced was charged to guest memory and capped at half of it --
+      # 3.9 GiB of 8. A build bigger than that died, and the failure looked
+      # like an ordinary out-of-space rather than a design limit.
+      #
+      # autoFormat becomes `x-systemd.makefs`, which systemd stage 1 handles;
+      # the host hands over a freshly truncated image on every start, so blkid
+      # finds no signature and it is formatted each boot. `formatOptions` no
+      # longer exists in NixOS -- systemd-makefs takes none -- so the mkfs
+      # defaults have to be acceptable as they are. They are: measured at
+      # ~95ms, leaving the image sparse, because ext4 initialises its inode
+      # tables lazily.
+      #
+      # supportedFilesystems is what puts mkfs.ext4 in the initrd at all. See
+      # nixos/modules/tasks/filesystems/ext.nix -- it keys off this option and
+      # not off the fileSystems entry below, so leaving it out gives a guest
+      # that boots to a stage-1 failure.
+      boot.initrd.supportedFilesystems = [ "ext4" ];
+      fileSystems."/nix/.rw-store" = lib.mkForce {
+        device = "/dev/vda";
+        fsType = "ext4";
+        autoFormat = true;
+        neededForBoot = true;
+        options = [ "noatime" ];
+      };
+
+      # Swap, on its own ephemeral disk. Nothing returns memory to the host
+      # short of the VM exiting, so this is not about the host: it turns a
+      # build that spikes past `memory` from an OOM kill into a slow build,
+      # and it makes the root tmpfs evictable, tmpfs pages being swap-backed.
+      #
+      # Not `swapDevices`: NixOS only runs mkswap for that when a `size` is
+      # set, which is the swapfile path and writes the whole file with dd on
+      # every boot. On a raw device mkswap writes a header and returns.
+      systemd.services.vz-builder-swap = lib.mkIf cfg.swap {
+        description = "Format and enable the ephemeral swap disk";
+        wantedBy = [ "multi-user.target" ];
+        before = [ "nix-daemon.service" ];
+        after = [ "systemd-modules-load.service" ];
+        path = [ pkgs.util-linux ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          mkswap -L vzswap /dev/vdb
+          swapon /dev/vdb
+        '';
       };
 
       # Build scratch, read-write, on the host's disk.

@@ -32,6 +32,7 @@ let
         nixpkgs.hostPlatform = "aarch64-linux";
         virtualisation.linux-vz-builder = {
           inherit (cfg) hostStore debugAccess;
+          swap = cfg.swapSize > 0;
         };
       }
     ]
@@ -62,6 +63,19 @@ let
   # below does. Cleared on every VM start, which is stricter than "cleared on
   # reboot".
   buildScratch = "/nix/var/vz-tmp";
+
+  # Build outputs and swap, on real disks rather than in RAM.
+  #
+  # netboot puts the overlay's upper layer on a tmpfs, so every build *output*
+  # was charged to guest RAM and capped at half of it -- 3.9 GiB of the 8. A
+  # build large enough to exceed that died, which is what these two images fix.
+  #
+  # Recreated on every start, like buildScratch, so they are ephemeral in the
+  # same sense. That costs nothing: `truncate` writes no data, the guest's
+  # mkfs.ext4 leaves the image sparse, and it is the same /nix volume the
+  # activation check already proves is case-sensitive.
+  storeDisk = "/nix/var/vz-store.img";
+  swapDisk = "/nix/var/vz-swap.img";
 
   # The guest publishes this over mDNS and mDNSResponder answers it natively,
   # so nothing here has to discover an IP.
@@ -163,6 +177,22 @@ let
       rm -rf ${lib.escapeShellArg buildScratch}
       install -d -m 0755 ${lib.escapeShellArg buildScratch}
 
+      # Sparse and fresh every start. A 128 GiB store disk occupies about 6 MiB
+      # once formatted, and the guest's mkfs.ext4 takes ~95ms at any size
+      # between 32 and 256 GiB -- measured, because `fileSystems.autoFormat`
+      # gives no way to pass mkfs options and a filesystem that wrote its inode
+      # tables eagerly would have cost seconds on a seven-second boot.
+      #
+      # Order matters below: the store disk is added first, so it is /dev/vda
+      # in the guest and swap is /dev/vdb.
+      rm -f ${lib.escapeShellArg storeDisk} ${lib.escapeShellArg swapDisk}
+      truncate -s ${toString cfg.diskSize}M ${lib.escapeShellArg storeDisk}
+      disks=(--device "virtio-blk,path=${storeDisk}")
+      ${lib.optionalString (cfg.swapSize > 0) ''
+        truncate -s ${toString cfg.swapSize}M ${lib.escapeShellArg swapDisk}
+        disks+=(--device "virtio-blk,path=${swapDisk}")
+      ''}
+
       install -d -m 0755 ${lib.escapeShellArg keyDir}
       install -m 0444 /etc/nix/builder_ed25519.pub ${lib.escapeShellArg keyDir}/builder_ed25519.pub
       install -m 0444 ${authorizedKeysFile} ${lib.escapeShellArg keyDir}/authorized_keys
@@ -191,6 +221,7 @@ let
         --device "virtio-net,nat" \
         --device "virtio-fs,sharedDir=${keyDir},mountTag=keys" \
         --device "virtio-fs,sharedDir=${buildScratch},mountTag=buildscratch" \
+        "''${disks[@]}" \
         "''${rosetta[@]}" \
         ${lib.optionalString (cfg.hostStore != "off") ''"''${hostStore[@]}" \''}
         --device "virtio-serial,logFilePath=/var/log/vz-builder.log" &
@@ -315,8 +346,52 @@ in
       type = lib.types.int;
       default = 8192;
       description = ''
-        Guest RAM in MiB. The guest store is a tmpfs, so this also bounds how
-        large a single build can be -- there is no disk to spill to.
+        Guest RAM in MiB.
+
+        Virtualization.framework backs guest memory lazily, so this is a
+        ceiling rather than a reservation -- but it is a ceiling the host never
+        gets back below. A guest frees memory internally and the host keeps it:
+        measured, a guest that released 3 GiB and dropped its caches returned
+        244 MiB to macOS. The VM exiting is what returns the rest, which is why
+        `idleTimeout` is short.
+      '';
+    };
+
+    diskSize = lib.mkOption {
+      type = lib.types.int;
+      default = 131072; # 128 GiB
+      description = ''
+        Size in MiB of the ephemeral disk holding build outputs.
+
+        This is the store's writable layer, which netboot would otherwise put
+        on a tmpfs -- charging every build output to guest RAM and capping it
+        at half of `memory`. Builds larger than that died.
+
+        Generous by default because it costs almost nothing. The image is
+        sparse and recreated on each start, so it occupies about 6 MiB until
+        the guest writes to it, and the guest's mkfs takes ~95ms at any size
+        from 32 to 256 GiB. Size it against free space on the /nix volume,
+        which is the real limit.
+      '';
+    };
+
+    swapSize = lib.mkOption {
+      type = lib.types.int;
+      default = 16384; # 16 GiB
+      description = ''
+        Size in MiB of the ephemeral swap disk, or 0 for no swap.
+
+        Twice `memory` by default. The image is sparse and recreated on each
+        start, so unused swap costs nothing but the header mkswap writes.
+
+        A second disk rather than a swapfile: NixOS builds a swapfile with
+        `dd`, which would write the whole thing on every boot, while `mkswap`
+        on a raw device writes only a header.
+
+        This does not give memory back to the host -- nothing does, short of
+        the VM exiting. What it buys is that a build spiking past `memory` is
+        slow instead of OOM-killed, and that the root tmpfs becomes evictable,
+        since tmpfs pages are swap-backed.
       '';
     };
 
