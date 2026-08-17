@@ -38,7 +38,11 @@
       url = "github:lillecarl/acpcli";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # The `nix` branch, not master: the packaging lives only there.
+    # The `develop` branch. The packaging used to live only on a `nix` branch,
+    # which is what this tracked; that branch has since been merged into
+    # develop, so following it now gets the packaging and the actual
+    # development of the tool together rather than a packaging branch frozen
+    # against an older tree.
     #
     # A source tree, and not a flake, for the same reason as nanopynix below.
     # Its `default.nix` takes `pkgs`, so this configuration's package set
@@ -49,7 +53,7 @@
     # is public, so this needs no key -- which matters for hetztop, and for any
     # clone of this configuration that is not on a machine holding one.
     phabfive = {
-      url = "github:Lillecarl/phabfive/nix";
+      url = "github:Lillecarl/phabfive/develop";
       flake = false;
     };
     # A source tree, and not a flake, for the same reason as nanopynix below --

@@ -332,16 +332,16 @@
     "phabfive": {
       "flake": false,
       "locked": {
-        "lastModified": 1784122059,
-        "narHash": "sha256-uwOW+JCvRmal6sy+8bl7pxyMBWYMpQKR1WF8LMqMXn8=",
+        "lastModified": 1786961091,
+        "narHash": "sha256-7ibGePYb8oK/v0efWQLGkmJmyFAGFulr2dT71zeenzI=",
         "owner": "Lillecarl",
         "repo": "phabfive",
-        "rev": "df86bbb473313476e1d3fac53d783164538dd19c",
+        "rev": "ae65a0197fcebdd4f040ea112aebe0d2c1c2db1c",
         "type": "github"
       },
       "original": {
         "owner": "Lillecarl",
-        "ref": "nix",
+        "ref": "develop",
         "repo": "phabfive",
         "type": "github"
       }
