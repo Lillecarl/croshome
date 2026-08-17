@@ -43,6 +43,8 @@ inputs: final: prev: {
 
   toad = final.python314.pkgs.callPackage ./toad.nix { };
 
+  wrapty = final.python314.pkgs.callPackage ./wrapty { };
+
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
   # vfkit with the memory balloon reachable over its REST API. Darwin only: it

@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "wrapty": {
+      "type": "stdio",
+      "command": "wrapty-mcp",
+      "args": [],
+      "env": {}
+    }
+  }
+}

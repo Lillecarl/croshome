@@ -1,0 +1,1 @@
+You've now stopped {{ count }} {{ "time" if count == 1 else "times" }} in a row without calling need_user. If you've finished everything you can do autonomously, call need_user. Otherwise keep going.{% if can_compact %} Context usage is {{ "%.0f"|format(used_pct) }}%. If this is a good point to compact before you start the next thing, you may call the compact tool now.{% endif %}

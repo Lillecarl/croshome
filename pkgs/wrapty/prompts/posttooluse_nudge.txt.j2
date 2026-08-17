@@ -1,0 +1,1 @@
+We're using {{ "%.0f"|format(used_pct) }}% of the maximum context window (pressure starts at {{ "%.0f"|format(low_watermark_pct) }}%, forced compaction kicks in around {{ "%.0f"|format(max_context_pct) }}%). Once you reach a good checkpoint, call the compact tool with instructions on what to preserve.

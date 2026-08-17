@@ -26,6 +26,10 @@ in
   home.file.".homebrew/trust.json".source = brewTrust;
   xdg.configFile."homebrew/trust.json".source = brewTrust;
 
+  # See ../../home/wrapty.nix -- puts wrapty on PATH for the Claude Code
+  # plugin under home/claude/skills/wrapty. Not enabled on hetztop/cros.
+  programs.wrapty.enable = true;
+
   home.packages = [
     # The CLI only. Pulling from lillecarl.cachix.org is already set up as a
     # substituter in ./default.nix; this is for pushing, and it keeps its auth

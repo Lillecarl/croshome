@@ -1,0 +1,8 @@
+{
+  "name": "wrapty",
+  "displayName": "wrapty",
+  "version": "0.1.0",
+  "description": "PTY wrapper with a JSON-RPC control socket, context-pressure nudges, and a compact tool.",
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json"
+}

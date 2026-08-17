@@ -27,6 +27,7 @@
     ./packages.nix
     ./tmux.nix
     ./vcs.nix
+    ./wrapty.nix
     ./yazi.nix
   ]
   ++ lib.optional platform.isDarwin ./darwin

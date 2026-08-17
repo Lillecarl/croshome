@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "wrapty"
+version = "0.1.0"
+description = "Minimal PTY wrapper that forwards stdin to a wrapped process"
+requires-python = ">=3.9"
+dependencies = ["mcp", "json-rpc", "jinja2"]
+
+[project.scripts]
+wrapty = "wrapty:main"
+wrapty-mcp = "wrapty_mcp:main"
+wrapty-statusline = "wrapty_statusline:main"
+wrapty-hook-stop = "wrapty_hooks:main_stop"
+wrapty-hook-posttooluse = "wrapty_hooks:main_posttooluse"
+
+[tool.hatch.build]
+ignore-vcs = true
+
+[tool.hatch.build.targets.wheel]
+only-include = ["wrapty.py", "wrapty_mcp.py", "wrapty_client.py", "wrapty_statusline.py", "wrapty_hooks.py", "prompts"]
