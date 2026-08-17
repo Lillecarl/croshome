@@ -21,6 +21,7 @@
     # tree and no second flake is evaluated.
     "${inputs.nanopynix}/pynixd/nix/darwin"
     ./pynixd.nix
+    ../../secrets
   ];
 
   system.stateVersion = 7;

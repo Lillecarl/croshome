@@ -38,6 +38,19 @@
       url = "github:lillecarl/acpcli";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # A source tree, and not a flake, for the same reason as nanopynix below --
+    # and here the reason is sharper. agenix pins its own `nixpkgs` to
+    # nixos-25.05 and does not follow ours, so evaluating its outputs would
+    # instantiate a second package set on a different release.
+    #
+    # Nothing is lost by it. Its flake states `nixosModules.age` and
+    # `darwinModules.age` as the same plain path, ./modules/age.nix, and builds
+    # its CLI with a bare `callPackage ./pkgs/agenix.nix`. ../secrets/default.nix
+    # reaches both directly.
+    agenix = {
+      url = "github:ryantm/agenix";
+      flake = false;
+    };
     # A source tree, and not a flake. `default.nix` of nanopynix takes `pkgs`,
     # so this package set builds it and no second nixpkgs is instantiated.
     # `flake = false` is what keeps the outputs of nanopynix unevaluated:

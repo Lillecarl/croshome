@@ -25,6 +25,7 @@
     ./btrfs.nix
     ./nix-gc.nix
     ./terminfo.nix
+    ../../secrets
   ];
   config = {
     # The account and the home-manager wiring used to live in ../home, next to
