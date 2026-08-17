@@ -6,6 +6,12 @@
       settings = {
         main = {
           shell = lib.getExe config.programs.fish.package;
+          # foot defaults to `monospace`, which ./fonts.nix now maps onto this
+          # same font. Naming it here as well means foot keeps the font even if
+          # another fontconfig rule ever wins the alias.
+          #
+          # No size, so foot keeps its own default of 8.
+          font = "Hack Nerd Font Mono";
         };
         url = {
           launch = "xdg-open \${url}";

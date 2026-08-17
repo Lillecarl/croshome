@@ -123,6 +123,12 @@
     pkgs.firefox-bin # pkgs.firefox is a source build on darwin and is not cached
   ];
 
+  # Symlinked into /Library/Fonts/Nix Fonts, so every user and every
+  # application sees the font, and it is there before home-manager activates.
+  # ../../home/fonts.nix holds the Linux half and installs nothing here, to
+  # keep macOS from registering the same three families twice.
+  fonts.packages = [ pkgs.nerd-fonts.hack ];
+
   # nixpkgs' default `nix` tracks the conservative release; take the newest one
   # nixpkgs ships instead.
   nix.package = pkgs.nixVersions.latest;

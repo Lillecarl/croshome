@@ -12,6 +12,16 @@
     enable = true;
     package = null;
     settings = {
+      # kitty defaults to `monospace`, which on macOS resolves to Menlo. macOS
+      # has no system-wide default monospace font to set instead, and
+      # nix-darwin has no option for one, so the terminal has to name the font
+      # itself. ../fonts.nix only installs it.
+      #
+      # The plain family, not "Hack Nerd Font Mono": kitty measures wide glyphs
+      # and gives them two cells, so it does not need the variant that squeezes
+      # every icon into one.
+      font_family = "Hack Nerd Font";
+
       scrollback_lines = 10000;
       # macOS has no global way to drop window chrome; each app has to offer it.
       # titlebar-and-corners also squares off the rounded corners, which tile
