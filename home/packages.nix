@@ -105,6 +105,15 @@
     nix-diff
     nvd
 
+    # Phabricator and Phorge from the shell. Imported the same way as pynix
+    # above, and for the same reason: `flake = false`, its `default.nix` takes
+    # the package set that builds it, so there is no second nixpkgs.
+    #
+    # Pure Python and unrestricted, so both machines get it. It carries its own
+    # `phabricator` dependency, which nixpkgs does not have, and it installs
+    # fish completions that ../home/fish.nix picks up without being told.
+    (import "${inputs.phabfive}" { inherit pkgs; }).phabfive
+
     # Kubernetes
     kubectl
     kubectl-explore

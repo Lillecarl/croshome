@@ -329,6 +329,23 @@
         "url": "https://channels.nixos.org/nixos-25.11/nixexprs.tar.xz"
       }
     },
+    "phabfive": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784122059,
+        "narHash": "sha256-uwOW+JCvRmal6sy+8bl7pxyMBWYMpQKR1WF8LMqMXn8=",
+        "owner": "Lillecarl",
+        "repo": "phabfive",
+        "rev": "df86bbb473313476e1d3fac53d783164538dd19c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "ref": "nix",
+        "repo": "phabfive",
+        "type": "github"
+      }
+    },
     "pyproject-nix": {
       "inputs": {
         "nixpkgs": [
@@ -364,7 +381,8 @@
         "nanopynix": "nanopynix",
         "nix-darwin": "nix-darwin",
         "nixpkgs": "nixpkgs",
-        "nixpkgs-stable": "nixpkgs-stable"
+        "nixpkgs-stable": "nixpkgs-stable",
+        "phabfive": "phabfive"
       }
     },
     "systems": {

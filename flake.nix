@@ -38,6 +38,20 @@
       url = "github:lillecarl/acpcli";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # The `nix` branch, not master: the packaging lives only there.
+    #
+    # A source tree, and not a flake, for the same reason as nanopynix below.
+    # Its `default.nix` takes `pkgs`, so this configuration's package set
+    # builds it and no second nixpkgs is instantiated. Its own flake exists to
+    # wrap that same file for people who want a flake.
+    #
+    # `github:` and not the `git@` SSH remote it is cloned from. The repository
+    # is public, so this needs no key -- which matters for hetztop, and for any
+    # clone of this configuration that is not on a machine holding one.
+    phabfive = {
+      url = "github:Lillecarl/phabfive/nix";
+      flake = false;
+    };
     # A source tree, and not a flake, for the same reason as nanopynix below --
     # and here the reason is sharper. agenix pins its own `nixpkgs` to
     # nixos-25.05 and does not follow ours, so evaluating its outputs would
