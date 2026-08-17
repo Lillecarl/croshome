@@ -27,6 +27,30 @@
   system.stateVersion = 7;
   system.primaryUser = "lillecarl";
 
+  # The `dc1` WireGuard key, carried off `nub` before that machine was
+  # decommissioned. ../../secrets/secrets.nix says who may decrypt it and why
+  # it was moved rather than reissued.
+  #
+  # Here and not in ../../secrets/default.nix, which is the file that documents
+  # the shape of these entries. Both this host and hetztop import that file, so
+  # an entry there is an entry on both, and hetztop has no use for this key --
+  # it would decrypt it every activation and place it for nothing.
+  #
+  # No `path`, so it lands at /run/agenix/wg-dc1-key, and that is where it
+  # should stay. There is no nix-darwin counterpart to `networking.wireguard`;
+  # the darwin option is `networking.wg-quick.interfaces`, which never writes
+  # the key into its world-readable /etc/wireguard/dc1.conf -- it applies
+  # `privateKeyFile` at runtime through a generated PostUp calling `wg set`. So
+  # pointing that at `config.age.secrets.wg-dc1-key.path` is enough and a
+  # custom location buys nothing.
+  #
+  # Nothing brings the tunnel up yet. When something does, expect an ordering
+  # hazard: wg-quick's launchd daemon and agenix's activate-agenix daemon are
+  # both RunAtLoad with nothing sequencing them, so on a cold boot wg-quick can
+  # start before the secret is on the ramdisk. Its KeepAlive should retry it
+  # into success -- worth confirming with a real reboot rather than assuming.
+  age.secrets.wg-dc1-key.file = ../../secrets/wg-dc1.key.age;
+
   # The second builder, on Apple's hypervisor. It runs only while a build needs
   # it, so it sits alongside the always-on QEMU one rather than replacing it --
   # and the QEMU one is also what builds this one's guest image, which is why

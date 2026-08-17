@@ -1,4 +1,26 @@
-final: prev: {
+### `inputs` ahead of `final: prev:`, which one package below needs and the
+### rest do not. Two consequences, neither obvious from the line itself:
+###
+###   * This overlay is no longer applicable to a bare nixpkgs. It closes over
+###     ../flake.lock through `inputs`, so it belongs to this repository rather
+###     than being a file that can be lifted out of it.
+###   * It is applied by `pkgsFor` in ../default.nix, so every attribute here
+###     exists on all three hosts -- cros included, which is otherwise kept
+###     deliberately thin. Nix is lazy, so an attribute nothing references
+###     costs nothing; `agenix` is referenced only by the two system hosts.
+inputs: final: prev: {
+  # The agenix CLI, for `agenix -e` and `agenix -r`. Built from the input
+  # source tree rather than from nixpkgs, which has no `agenix` -- only
+  # `ragenix`, a separate Rust reimplementation with its own file format
+  # quirks. See ../flake.nix for why the input is `flake = false`.
+  #
+  # Here in the overlay and not inline in ../secrets/default.nix, so that
+  # `nix run --file . pkgs.agenix` resolves without evaluating a host -- which
+  # is what makes it reachable on a machine this configuration has never
+  # activated. It is the same derivation either way: `callPackage` against
+  # this package set, so it links the same `age` the module runs.
+  agenix = final.callPackage "${inputs.agenix}/pkgs/agenix.nix" { };
+
   claude-code =
     let
       baseUrl = "https://downloads.claude.ai/claude-code-releases";

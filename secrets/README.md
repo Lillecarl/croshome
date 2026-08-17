@@ -146,14 +146,22 @@ $EDITOR secrets/secrets.nix
 # 2. create it, using the encrypted identity directly
 cd secrets && agenix -e foo.age -i identity.age
 
-# 3. tell the host to decrypt it
-$EDITOR secrets/default.nix
-#   age.secrets.foo.file = ./foo.age;
+# 3. tell the host to decrypt it -- in the *host's* file, not this one
+$EDITOR hosts/macbook/default.nix
+#   age.secrets.foo.file = ../../secrets/foo.age;
 ```
 
 Step 1 decides who *can* decrypt. Step 3 decides what actually gets decrypted
 and where it lands. Doing one without the other is the usual way to lose an
 hour.
+
+Step 3 goes in `./default.nix` only when **both** system hosts read the same
+secret. Both `hosts/macbook` and `hosts/hetztop` import `../../secrets`, so an
+`age.secrets` entry there is an entry on both -- the other host then decrypts
+and places a file it has no use for on every activation, and pulls in the whole
+ramdisk and daemon apparatus that `mkIf (cfg.secrets != { })` otherwise spares
+it. A secret one host reads belongs in that host's file. `./default.nix` keeps
+an index of which file owns what.
 
 `-i identity.age` in step 2 is deliberate: age accepts a passphrase-encrypted
 file as an identity and prompts for the passphrase. Editing therefore needs no
@@ -164,6 +172,55 @@ After changing who may decrypt anything, re-encrypt everything:
 ```sh
 cd secrets && agenix -r -i identity.age
 ```
+
+`agenix` here is `pkgs.agenix`, defined in `../pkgs/default.nix`. On a machine
+this configuration has never activated it is still one command away, and no
+`age`, `agenix` or nix profile install is needed:
+
+```sh
+nix run --file . pkgs.agenix -- -e foo.age -i secrets/identity.age
+```
+
+## Creating a secret without an editor
+
+An agenix `.age` file is an ordinary age file encrypted to the recipients that
+`./secrets.nix` lists for it. Nothing about the format comes from agenix, so a
+file written with plain `age -r` is read by `agenix -d`, rekeyed by `agenix -r`,
+and decrypted at activation like any other.
+
+That matters when the plaintext already exists and should not be routed through
+an editor and a temporary directory -- lifting a key off a machine being
+decommissioned, most of all:
+
+```sh
+sudo cat /etc/wireguard/dc1.key |
+  nix run --file . pkgs.age -- \
+    -r "age1gpep8sqp2ze8kyl82tlt2mkh58e0x933a650al2x9uavj8gnmpdq8zqdmz" \
+    -r "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA3g8vwXRMHonL65HEEzxJM0B7LiUMSRyJwYdKNNn16L" \
+    -a -o secrets/wg-dc1.key.age
+```
+
+The plaintext exists only in the pipe: no `mktemp -d` to trust the cleanup of,
+no editor and so no swap or undo files, and nothing to remember to delete.
+
+Two things have to agree with `./secrets.nix`, or the next `agenix -r` silently
+rewrites the file:
+
+- **the recipient list**, exactly -- order does not matter, membership does
+- **`-a`**, which must match `armor = true` on that secret's rule. agenix omits
+  `--armor` unless the rule sets it, so an armoured file under a rule without
+  the attribute is rewritten as binary.
+
+Then verify it before trusting it, especially if the source machine is about to
+be wiped -- an unreadable file is not discovered later, it is discovered never:
+
+```sh
+cd secrets && agenix -d wg-dc1.key.age -i identity.age | wg pubkey
+```
+
+That asks for the passphrase, and its output should equal the public key the
+live interface reports (`sudo wg show dc1 public-key`). Comparing public halves
+proves the right key is inside without putting the private one on a terminal.
 
 ## Authoring a secret on a machine you will then destroy
 
@@ -178,8 +235,17 @@ git clone https://github.com/Lillecarl/croshome
 cd croshome/secrets
 
 # no agenix or age installed? neither is needed on the machine itself
-nix run github:ryantm/agenix -- -e wg0.age -i identity.age
+nix run --file . pkgs.agenix -- -e secrets/wg0.age -i secrets/identity.age
 ```
+
+`--file .` and not `github:ryantm/agenix`: this repository pins the version and
+builds it against its own package set, so the CLI matches the module that will
+decrypt the file. It also works with no network beyond what the lock already
+names.
+
+If the plaintext is already on the machine -- which is the usual case here --
+skip the editor entirely and use the `age -r` form above. It is fewer moving
+parts precisely where the machine is about to be destroyed.
 
 You are asked for the passphrase, you edit the cleartext in `$EDITOR`, and
 agenix re-encrypts. Then add the entry to `./secrets.nix`, commit and push.
@@ -199,9 +265,16 @@ plaintext before you hand the machine on.
 
 ## Notes
 
-- Piping a secret in does not work on macOS. agenix replaces `$EDITOR` with
-  `cp -- /dev/stdin` when stdin is not a tty, and GNU `cp` then refuses the
-  pipe. Interactively it is fine; this only bites scripts.
+- **agenix discards `$EDITOR` when stdin is not a tty.** `pkgs/agenix.sh` has
+  `[ -t 0 ] || EDITOR='cp -- /dev/stdin'`, unconditionally and on every
+  platform. So `EDITOR='cp somefile' agenix -e foo.age` does what it says
+  interactively and something else entirely from a script or an agent's shell:
+  the override wins and agenix reads the secret from stdin instead. Do not set
+  `EDITOR` to load a file non-interactively -- use the `age -r` form under
+  "Creating a secret without an editor" below, which has no such surprise.
+- Piping a secret in does not work on macOS: the `cp -- /dev/stdin` that the
+  override installs is BSD `cp` there, which refuses it. Interactively it is
+  fine; this only bites scripts.
 - The `hetztop` host key in `./secrets.nix` came from `known_hosts`, not from
   the machine. Confirm it before trusting a real secret to that host:
   `ssh 65.108.150.98 cat /etc/ssh/ssh_host_ed25519_key.pub`

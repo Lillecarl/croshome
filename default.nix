@@ -68,12 +68,18 @@ rec {
   # This is also what gives the standalone home-manager configuration the
   # overlay: passing `pkgs` to `homeManagerConfiguration` makes it ignore the
   # `nixpkgs.*` options, so an overlay stated there would silently do nothing.
+  #
+  # `./pkgs` takes `inputs` before `final: prev:`. Only one package in it needs
+  # them -- agenix, which is built from a `flake = false` source tree -- but the
+  # alternative was building that one somewhere else, and then `pkgs.agenix`
+  # would not exist. It has to be in the overlay for `nix run --file . pkgs.agenix`
+  # to resolve, and nixpkgs has no `agenix` of its own to fall back on.
   pkgsFor =
     system:
     import inputs.nixpkgs {
       inherit system;
       config.allowUnfree = true;
-      overlays = [ (import ./pkgs) ];
+      overlays = [ (import ./pkgs inputs) ];
     };
 
   # `imports` is resolved before `config` exists. A module list chosen from

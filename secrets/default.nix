@@ -11,14 +11,16 @@
   # group `keys`.
   imports = [ "${inputs.agenix}/modules/age.nix" ];
 
-  # The CLI, for `agenix -e` and `agenix -r`. `callPackage` against this repo's
-  # own package set, so it links the same `age` the module runs.
+  # The CLI, for `agenix -e` and `agenix -r`. Defined in ../pkgs so that
+  # `nix run --file . pkgs.agenix` reaches it on a machine this configuration
+  # has never activated; the same derivation either way, built against this
+  # repo's own package set so it links the same `age` the module runs.
   #
   # It reads ./secrets.nix through the `RULES` variable, which defaults to
   # ./secrets.nix relative to the working directory. So run it from this
   # directory, or set RULES.
   environment.systemPackages = [
-    (pkgs.callPackage "${inputs.agenix}/pkgs/agenix.nix" { })
+    pkgs.agenix
 
     # `age` itself, which agenix does not put on the PATH. It references the
     # binary by store path through `ageBin`, so age lands in the closure and
@@ -55,9 +57,20 @@
     "/etc/ssh/ssh_host_rsa_key"
   ];
 
-  # No secrets yet, and while this is empty the module adds nothing at all:
-  # its whole `config` sits behind `mkIf (cfg.secrets != { })`. No launchd
-  # daemon, no ramdisk, no activation step. Only the CLI above is installed.
+  # Empty here on purpose, and not because there are no secrets. Both hosts
+  # that import this file get whatever it names, so a secret only one of them
+  # uses belongs in that host's own file instead. An entry belongs in *this*
+  # file only when both hosts read the same secret.
+  #
+  # Every secret in the repository, and who declares it. Keep this list current:
+  # it is the one place to read to see what exists, which is the property that
+  # moving entries into host files would otherwise cost.
+  #
+  #   wg-dc1.key.age   ../hosts/macbook/default.nix   age.secrets.wg-dc1-key
+  #
+  # While this stays empty the module adds nothing on a host that declares none
+  # of its own: its whole `config` sits behind `mkIf (cfg.secrets != { })`, so
+  # no launchd daemon, no ramdisk, no activation step -- which is hetztop today.
   #
   # The shape of an entry:
   #
