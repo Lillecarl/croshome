@@ -232,6 +232,20 @@ in
         # A symlink rather than a bind mount, deliberately. /scratch has to be
         # short to be worth typing, and the root filesystem is a tmpfs, so a
         # symlink there is free and has no mount ordering to get wrong.
+        #
+        # 1777 matters as much as the path: this is where sandboxed builds
+        # need to reach, and they run as nixbld1..N (uid 30001+, group
+        # nixbld), not as builder. builder's own $HOME on the disk beside
+        # this (below) is 0700 -- correct for a home directory, and exactly
+        # wrong for anything a build has to traverse into, since a build
+        # user is "other" there and 0700 gives other no execute bit at all.
+        #
+        # Confirmed the hard way: a session putting its work directory under
+        # $HOME got seven silent build-shaped test failures -- not "denied",
+        # just builds that never happened -- and two of them were in the
+        # *control* run, which is the one report that is supposed to prove a
+        # regression isn't there. Put working directories under /scratch, or
+        # anywhere else world-traversable on this disk; never under $HOME.
         "d /nix/.rw-store/scratch 1777 root root -"
         "L /scratch - - - - /nix/.rw-store/scratch"
       ];

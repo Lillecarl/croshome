@@ -314,6 +314,33 @@ let
           idle=$((idle + 15))
           if [ "$idle" -ge ${toString cfg.idleTimeout} ]; then
             echo "vz-builder: idle for ${toString cfg.idleTimeout}s, shutting down" >&2
+            # Plain SIGTERM, deliberately, and it is already the ACPI-request-
+            # then-hard-kill sequence this looks like it is missing: vfkit's
+            # own signal handler (cmd/vfkit/main.go's shutdownFunc) answers
+            # SIGTERM by calling the guest's requestStop, waiting up to 5s for
+            # VirtualMachineStateStopped, and force-`Stop()`ing only if that
+            # does not land. Nothing here needs to reimplement that.
+            #
+            # It cannot land on this guest, though, and that is a fact about
+            # this VM, not a bug in vfkit. Virtualization.framework's
+            # requestStop is an ACPI power-button event, and ACPI tables are
+            # an EFI-boot thing; this guest boots straight from a kernel and
+            # initrd (the --bootloader "linux,..." line in runVm below, with
+            # no ACPI in guest.nix's kernel modules to match), so there is
+            # nothing on the guest side to receive the request. `stopped`
+            # comes back false, the 5s wait always elapses, and every idle
+            # shutdown is a hard stop in practice -- indistinguishable from
+            # pulling power.
+            #
+            # That is why systemd inside the guest never runs its shutdown
+            # targets and avahi never sends an mDNS goodbye for
+            # ${guestHost}.local, which is what let a stale registration
+            # squat that name across a restart and hang every `vzrun` dialing
+            # it -- ../default.nix's `connect` timeout exists to bound
+            # exactly that failure rather than assume it cannot recur. Fixing
+            # it at the source would mean booting this guest through EFI, a
+            # bigger change than this comment. Reported as Lillecarl/
+            # nanopynix's pynixd session hitting a `vzrun` hang, 2026-08-17.
             kill $vm 2>/dev/null || true
             break
           fi
@@ -339,12 +366,44 @@ let
       # four times a second rather than once: a whole-second granularity adds
       # half a second on average to every cold build, which is real next to a
       # boot measured in single digits.
-      for _ in $(seq 1 $(( ${toString cfg.bootTimeout} * 4 ))); do
-        if socat -u OPEN:/dev/null TCP:${guestHost}:22,connect-timeout=1 2>/dev/null; then
+      #
+      # Each probe is wrapped in `timeout`, not just socat's own
+      # connect-timeout=1. That option only bounds the connect() call; a name
+      # that will never resolve blocks inside getaddrinfo before socat's own
+      # alarm gets a chance to matter, and connect-timeout does not cover it.
+      # Measured directly: with a stale mDNS registration squatting
+      # ${guestHost} (see ../default.nix's runVm for why that happens), a
+      # single probe hung for minutes, not the 1s the option promised.
+      # `timeout` kills the whole process by wall clock regardless of which
+      # syscall it is stuck in, which is the only bound that held.
+      #
+      # A wall-clock deadline (`$SECONDS`) rather than a fixed iteration
+      # count, for the same reason: a fixed count of assumed-fast iterations
+      # only bounds the total wait if every iteration is fast, which is
+      # exactly what a hung probe disproves.
+      ready=0
+      deadline=$(( SECONDS + ${toString cfg.bootTimeout} ))
+      while [ "$SECONDS" -lt "$deadline" ]; do
+        if timeout 1 socat -u OPEN:/dev/null TCP:${guestHost}:22,connect-timeout=1 2>/dev/null; then
+          ready=1
           break
         fi
         sleep 0.25
       done
+
+      # Fail loudly here rather than fall through to the unbounded connect
+      # below. Without this, exhausting the loop above and still trying the
+      # real proxy turns "the guest never answered" into the exact hang this
+      # whole probe loop exists to prevent -- which is what happened before
+      # this check existed: a name that never resolves left `vzrun` blocked
+      # indefinitely, and every such call leaked one stuck process here,
+      # which in turn kept the idle watchdog in runVm from ever seeing this
+      # VM as idle. Reported as Lillecarl/nanopynix's pynixd session hitting
+      # a `vzrun` hang, 2026-08-17.
+      if [ "$ready" -ne 1 ]; then
+        echo "vz-builder-connect: ${guestHost}:22 did not answer within ${toString cfg.bootTimeout}s" >&2
+        exit 1
+      fi
 
       # Deliberately not `exec socat`. The idle watchdog in runVm above finds a
       # live connection with `pgrep -f vz-builder-connect`, and exec replaces
@@ -355,7 +414,12 @@ let
       # at the guest and not at the host that killed it. Keeping the wrapper
       # process alive costs one shell per open connection and makes the
       # watchdog's "counting handlers" comment true.
-      socat STDIO TCP:${guestHost}:22
+      #
+      # connect-timeout=5 here too, purely as a backstop: the probe loop above
+      # already proved ${guestHost} answers, so this should resolve from cache
+      # and connect at once. If it does not, this bounds the wait instead of
+      # repeating the unbounded hang the probe loop was added to prevent.
+      socat STDIO TCP:${guestHost}:22,connect-timeout=5
     '';
   };
 in
