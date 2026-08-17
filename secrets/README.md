@@ -97,7 +97,7 @@ file was short-lived. Do not reach for a tool that only feels safer.
 `.gitignore` already covers `identity.txt`, so a slip does not become a commit.
 Only `identity.age` is committed.
 
-**4. Add the public key to `./secrets.nix`.**
+**5. Add the public key to `./secrets.nix`.**
 
 Paste what `age-keygen` printed:
 
