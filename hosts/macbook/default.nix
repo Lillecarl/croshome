@@ -49,7 +49,28 @@
   # both RunAtLoad with nothing sequencing them, so on a cold boot wg-quick can
   # start before the secret is on the ramdisk. Its KeepAlive should retry it
   # into success -- worth confirming with a real reboot rather than assuming.
-  age.secrets.wg-dc1-key.file = ../../secrets/wg-dc1.key.age;
+  # Commented out until ../../secrets/wg-dc1.key.age exists. `file` is a path,
+  # which Nix resolves at evaluation time, so naming a file that is not there
+  # yet does not fail later at activation -- it stops this whole host from
+  # evaluating, and `sudo ai-rebuild` fails on a font change with an error
+  # about WireGuard.
+  #
+  # Uncomment in the same commit that adds the file. To create it, on nub while
+  # that machine still boots:
+  #
+  #   sudo cat /etc/wireguard/dc1.key |
+  #     nix run --file . pkgs.age -- \
+  #       -r "age1gpep8sqp2ze8kyl82tlt2mkh58e0x933a650al2x9uavj8gnmpdq8zqdmz" \
+  #       -r "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA3g8vwXRMHonL65HEEzxJM0B7LiUMSRyJwYdKNNn16L" \
+  #       -a -o secrets/wg-dc1.key.age
+  #
+  # Then check it against the running tunnel before nub is wiped:
+  #
+  #   nix run --file . pkgs.agenix -- -d secrets/wg-dc1.key.age \
+  #     -i secrets/identity.age | wg pubkey     # must equal
+  #   sudo wg show dc1 public-key               # this
+  #
+  # age.secrets.wg-dc1-key.file = ../../secrets/wg-dc1.key.age;
 
   # The second builder, on Apple's hypervisor. It runs only while a build needs
   # it, so it sits alongside the always-on QEMU one rather than replacing it --
