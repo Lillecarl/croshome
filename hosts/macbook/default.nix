@@ -1,4 +1,5 @@
 {
+  config,
   inputs,
   pkgs,
   homeArgs,
@@ -55,6 +56,52 @@
   # three was perishable and is now unrepeatable.
   age.secrets.wg-dc1-key.file = ../../secrets/wg-dc1.key.age;
 
+  # The dc1 tunnel, rewritten rather than copied. nub used
+  # `networking.wireguard.interfaces.dc1`, which nix-darwin does not have --
+  # `networking.wg-quick.interfaces` is the only WireGuard option here. The
+  # values were recorded off nub in ../../secrets/secrets.nix before that
+  # machine lost the tunnel.
+  #
+  # This runs wireguard-go in userspace over a utun device, because macOS has
+  # no in-kernel WireGuard. Expect worse throughput and more CPU than nub had.
+  networking.wg-quick.interfaces.dc1 = {
+    address = [ "10.0.250.129/24" ];
+
+    # Read at runtime and never written into the config file: the module
+    # applies it through a generated PostUp calling `wg set`, so the key stays
+    # out of /etc/wireguard/dc1.conf, which is world readable.
+    privateKeyFile = config.age.secrets.wg-dc1-key.path;
+
+    # Deliberately unset. See the resolver entry below for what replaces it.
+    dns = [ ];
+
+    peers = [
+      {
+        publicKey = "3dPS9vn68QIXobuU8HG7u/GlUlY0Hjs3LbH6jeq0wUc=";
+        endpoint = "155.4.106.42:51820";
+        # 30, as nub had it, and not the 25 that is the usual reflex.
+        persistentKeepalive = 30;
+        # All twelve of nub's ranges. The tunnel subnet alone would come up
+        # clean and reach nothing -- no office ranges, no 100.64/22, no
+        # 10.240/16 -- which is the failure mode that looks like success.
+        allowedIPs = [
+          "10.0.250.1/32"
+          "10.0.4.0/24"
+          "10.0.5.0/24"
+          "10.0.10.0/24"
+          "10.0.90.0/24"
+          "10.0.100.0/24"
+          "100.64.0.0/22"
+          "10.240.0.0/16"
+          "10.7.10.0/24"
+          "10.7.0.0/24"
+          "10.7.5.0/24"
+          "10.0.95.0/24"
+        ];
+      }
+    ];
+  };
+
   # The second builder, on Apple's hypervisor. It runs only while a build needs
   # it, so it sits alongside the always-on QEMU one rather than replacing it --
   # and the QEMU one is also what builds this one's guest image, which is why
@@ -98,6 +145,43 @@
       }
     )
   ];
+
+  # dynami.st resolves over the tunnel, and nothing else does.
+  #
+  # This is what `networking.wg-quick.interfaces.dc1.dns` above would have
+  # done wrong. nub scoped its resolver with `resolvectl dns dc1 10.0.250.1`,
+  # which is per-interface. macOS has no equivalent, and wg-quick emulates it
+  # by running `networksetup -setdnsservers` over *every* network service --
+  # so all name resolution on this laptop would go to 10.0.250.1 whenever the
+  # tunnel is up, on any network. Worse, the values it restores afterwards
+  # live only in the running wg-quick process (darwin.bash:219-234 collect,
+  # 314-319 restore), so a kill or a power loss destroys the record of what to
+  # restore, not just the chance to run it.
+  #
+  # /etc/resolver/<domain> is the native mechanism and has no restore problem
+  # to have: a store path symlinked into /etc, identical across reboots, owned
+  # by activation rather than by a shell trap, and independent of whether the
+  # tunnel is up. nix-darwin already generates entries in exactly this shape
+  # in modules/services/dnsmasq.nix; that module simply points them at
+  # localhost instead of at a remote server.
+  #
+  # Two things to know before debugging this:
+  #
+  #   * `dig` and `nslookup` do not read /etc/resolver -- they query servers
+  #     directly. They will report failure while every real application works.
+  #     Use `dscacheutil -q host -a name <host>.dynami.st` or `scutil --dns`.
+  #   * It is honoured through getaddrinfo, so a Go binary built with
+  #     CGO_ENABLED=0 uses its own resolver and ignores this. Much of nixpkgs'
+  #     Go is built that way, which makes kubectl the thing to test rather
+  #     than assume. If that bites, services.dnsmasq forwarding only this
+  #     domain is the fallback -- global DNS then points at localhost, not at
+  #     the VPN.
+  #
+  # With the tunnel down, dynami.st lookups fail rather than leaking to public
+  # DNS. That is the right failure, but it is a change from nub.
+  environment.etc."resolver/dynami.st".text = ''
+    nameserver 10.0.250.1
+  '';
 
   # HostName is unset out of the box, which lets macOS derive `hostname`
   # dynamically -- currently to garbage bytes.
