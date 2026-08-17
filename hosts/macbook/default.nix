@@ -183,6 +183,64 @@
     nameserver 10.0.250.1
   '';
 
+  # The fallback, staged but off. `enable = false` means the module produces
+  # nothing at all -- its whole config sits behind `mkIf cfg.enable` -- so this
+  # is a settings block waiting for a decision, not a running daemon.
+  #
+  # Why it might be needed: /etc/resolver above is read through getaddrinfo. A
+  # Go binary built with CGO_ENABLED=0 uses its own resolver, reads
+  # /etc/resolv.conf, and never sees /etc/resolver -- so `dscacheutil` would
+  # resolve an internal name while `kubectl` failed on the same name. dnsmasq
+  # fixes that by moving the split into the *system* resolver, which every
+  # program reaches whatever it links against.
+  #
+  # Unverified, and currently unverifiable: there is no reachable cluster over
+  # this tunnel to test against. Two attempts to settle it from the binaries
+  # alone both failed -- every Go binary on macOS links libSystem, so linkage
+  # proves nothing, and GODEBUG=netdns=2 printed nothing without a lookup to
+  # trigger. So this stays off until something actually fails.
+  #
+  # To turn it on, both halves have to move together:
+  #
+  #   services.dnsmasq.enable = true;
+  #   networking.dns = [ "127.0.0.1" ];
+  #   networking.knownNetworkServices = [
+  #     "Wi-Fi"
+  #     "Thunderbolt Bridge"
+  #     "USB 10/100/1000 LAN"
+  #   ];
+  #
+  # `knownNetworkServices` is not optional. `networking.dns` applies through
+  # `networksetup -setdnsservers`, which needs a service to name, and with the
+  # list empty the module warns and configures nothing
+  # (modules/networking/default.nix:181).
+  #
+  # The upstreams are why this is safe. dnsmasq also reads /etc/resolv.conf --
+  # the module passes no --no-resolv -- and with global DNS pointed at
+  # 127.0.0.1 that file names dnsmasq itself. dnsmasq skips its own address,
+  # which would leave it with no upstream and break every name that is not
+  # dynami.st. Stating the servers here is what prevents that.
+  #
+  # The cost, worth knowing before flipping it: all non-dynami.st resolution
+  # goes to Quad9 rather than to whatever network you are on. Split-horizon
+  # DNS on a client site stops working, and captive portals may not resolve
+  # until you are past them. /etc/resolver has neither problem, which is why
+  # it is the one that is live.
+  services.dnsmasq = {
+    enable = false;
+    bind = "127.0.0.1";
+    port = 53;
+    servers = [
+      # Only this domain goes over the tunnel.
+      "/dynami.st/10.0.250.1"
+      # Everything else, Quad9.
+      "9.9.9.9"
+      "149.112.112.112"
+      "2620:fe::fe"
+      "2620:fe::9"
+    ];
+  };
+
   # HostName is unset out of the box, which lets macOS derive `hostname`
   # dynamically -- currently to garbage bytes.
   networking.hostName = "macbook";
