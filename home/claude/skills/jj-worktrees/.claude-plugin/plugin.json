@@ -1,0 +1,7 @@
+{
+  "name": "jj-worktrees",
+  "displayName": "jj-worktrees",
+  "version": "0.1.0",
+  "description": "Replaces git worktree isolation with jj workspaces for colocated jj/git repos.",
+  "hooks": "./hooks/hooks.json"
+}
