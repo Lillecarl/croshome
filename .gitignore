@@ -1,2 +1,13 @@
 result
 overrides.nix
+
+# The age identity in plaintext. Only ./secrets/identity.age, the passphrase
+# encrypted form, belongs in this repository.
+#
+# ./secrets/unlock never writes here -- it decrypts through mktemp straight to
+# /var/lib/agenix/identity -- so these patterns catch a hand-run `age-keygen`
+# or an `age -d` aimed at the wrong place. That is exactly when a rule like
+# this earns itself.
+secrets/identity
+secrets/identity.txt
+secrets/*.key

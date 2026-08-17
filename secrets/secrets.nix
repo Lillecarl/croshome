@@ -20,8 +20,17 @@
 # Activation runs with no tty. A passphrase-protected identity is fine for the
 # user entry and impossible for the host entry.
 let
+  # The age identity in ./identity.age, whose private half is in this
+  # repository encrypted with a passphrase. This is the one that matters: it is
+  # what ./unlock puts on a machine, so it is what activation decrypts with.
+  #
+  # Derived from the private half with `age-keygen -y`, so it is the public
+  # half of exactly that file and not a key that happens to be nearby.
+  lillecarl-age = "age1gpep8sqp2ze8kyl82tlt2mkh58e0x933a650al2x9uavj8gnmpdq8zqdmz";
+
   # ../lillecarl.pub, the same key hosts/hetztop/default.nix installs as an
-  # authorized key. Personal, and on every secret.
+  # authorized key. Kept as a second way in: it opens a secret from any machine
+  # holding that ssh key, with no passphrase and no ./unlock.
   lillecarl = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPG9VIDuXFvf6BkqeCQxBDt3OxkdxF4nV0tdFuQUfVlz lillecarl@world";
 
   # Host keys, not user keys. agenix reads these at activation as root.
@@ -46,8 +55,8 @@ in
 {
   # No secrets yet. This is the shape:
   #
-  #   "wg0.key.age".publicKeys = [ lillecarl macbook ];
-  #   "hetztop-api-token.age".publicKeys = [ lillecarl hetztop ];
+  #   "wg0.key.age".publicKeys = [ lillecarl-age lillecarl macbook ];
+  #   "hetztop-api-token.age".publicKeys = [ lillecarl-age lillecarl hetztop ];
   #
   # Name a host here and in `age.secrets` in ./default.nix. Naming it in only
   # one of the two places is the usual mistake: this file decides who *can*

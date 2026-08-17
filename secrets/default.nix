@@ -19,17 +19,41 @@
   # directory, or set RULES.
   environment.systemPackages = [
     (pkgs.callPackage "${inputs.agenix}/pkgs/agenix.nix" { })
+
+    # `age` itself, which agenix does not put on the PATH. It references the
+    # binary by store path through `ageBin`, so age lands in the closure and
+    # nowhere a shell can reach it.
+    #
+    # ./README.md asks for `age-keygen` and `age -p` to create the identity, so
+    # those have to exist. ./unlock needs `age` too, and falls back to
+    # `nix run nixpkgs#age` only on a machine this configuration has never
+    # activated.
+    pkgs.age
   ];
 
-  # `age.identityPaths` is deliberately unset. Its default is already what this
-  # repo wants on both machines:
+  # The age identity ./unlock writes, ahead of the host keys rather than
+  # instead of them. agenix tries every readable entry in turn, so a secret
+  # encrypted to either one still opens.
+  #
+  # The defaults are kept because they are already right, and because they are
+  # what works on a machine where ./unlock has never run:
   #
   #   darwin  /etc/ssh/ssh_host_ed25519_key and the rsa one beside it
   #   NixOS   the ed25519 and rsa keys of `services.openssh.hostKeys`
   #
-  # The install script skips any identity that is missing, unreadable or empty
-  # rather than failing, so the rsa entry costs nothing on a machine that has
-  # no rsa key. It warns instead, and only if *every* identity is unusable.
+  # A missing, unreadable or empty entry is skipped rather than fatal -- the
+  # install script tests each with `-r` and `-s` first. So this path costs
+  # nothing before ./unlock has run, and the rsa entries cost nothing on a
+  # machine with no rsa key. agenix warns only when *every* identity is
+  # unusable.
+  # Stated flat, not derived. Both hosts resolved to the same two host key
+  # paths anyway -- checked by evaluating each -- so a platform branch here
+  # would have had two identical arms.
+  age.identityPaths = [
+    "/var/lib/agenix/identity"
+    "/etc/ssh/ssh_host_ed25519_key"
+    "/etc/ssh/ssh_host_rsa_key"
+  ];
 
   # No secrets yet, and while this is empty the module adds nothing at all:
   # its whole `config` sits behind `mkIf (cfg.secrets != { })`. No launchd
