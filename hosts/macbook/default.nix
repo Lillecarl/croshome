@@ -38,6 +38,14 @@
   # the machine. The VM's own vCPU count needs no such treatment -- it reads
   # hw.ncpu itself at start-up.
   nix.linux-vz-builder.maxJobs = 15;
+  # Half of this Mac's 24 GiB, up from the module's 8 GiB default. A fact about
+  # the machine, so it sits here next to maxJobs rather than in the module.
+  #
+  # Read it as a ceiling the host never gets back below while the VM runs: the
+  # framework backs guest RAM lazily, so an idle guest still costs little, but
+  # a guest that has once touched 12 GiB keeps it until the VM exits. That is
+  # what `idleTimeout` is for.
+  nix.linux-vz-builder.memory = 12288;
   # What `vzrun` logs in with. This is the public half of ~/.ssh/id_ed25519,
   # so it is checked in on purpose -- the alternative is reading a path outside
   # the repo at evaluation time, which makes the build depend on this Mac.

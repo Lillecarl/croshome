@@ -452,12 +452,15 @@ in
 
     swapSize = lib.mkOption {
       type = lib.types.int;
-      default = 16384; # 16 GiB
+      default = cfg.memory * 2;
+      defaultText = lib.literalExpression "memory * 2";
       description = ''
         Size in MiB of the ephemeral swap disk, or 0 for no swap.
 
-        Twice `memory` by default. The image is sparse and recreated on each
-        start, so unused swap costs nothing but the header mkswap writes.
+        Twice `memory`, and computed from it: this was a fixed 16384, which
+        held the stated ratio only while `memory` kept its own default. The
+        image is sparse and recreated on each start, so unused swap costs
+        nothing but the header mkswap writes.
 
         A second disk rather than a swapfile: NixOS builds a swapfile with
         `dd`, which would write the whole thing on every boot, while `mkswap`
