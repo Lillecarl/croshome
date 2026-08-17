@@ -24,6 +24,12 @@
   targets.genericLinux.enable = true;
   home.shell.enableFishIntegration = true;
 
+  # Exports XDG_{CONFIG,CACHE,DATA,STATE}_HOME as session variables, the same
+  # as ../../home/default.nix does for the other two machines. This config
+  # expects an XDG layout everywhere, and Crostini is the machine with nothing
+  # underneath it to set one.
+  xdg.enable = true;
+
   programs.home-manager.enable = true;
   programs.fish.enable = true;
 

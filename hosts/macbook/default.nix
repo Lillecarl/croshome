@@ -136,11 +136,17 @@
     # builds instead of 21. Fetching them costs a couple of MiB.
     always-allow-substitutes = true;
 
-    # extra-* rather than plain substituters/trusted-public-keys, which are
-    # lists that replace rather than append -- assigning them here would drop
-    # cache.nixos.org, which is the whole default.
-    extra-substituters = [ "https://lillecarl.cachix.org" ];
-    extra-trusted-public-keys = [
+    # The plain names, not extra-*. These options are lists, so the module
+    # system merges the definitions: nixpkgs states cache.nixos.org and this
+    # appends to it. It does not replace it.
+    #
+    # `extra-*` appends too, so the nix.conf was already correct. What it did
+    # not do is reach `config.nix.settings.substituters`, which stayed at
+    # cache.nixos.org alone. Anything that reads that option to pass the
+    # setting on -- the way ./vz-builder/default.nix hands the guest this
+    # host's experimental-features -- saw no cache at all. Matches hetztop.
+    substituters = [ "https://lillecarl.cachix.org" ];
+    trusted-public-keys = [
       "lillecarl.cachix.org-1:NN/LLMg7mbyvZCu32Qlo8LpSHqNw7Rr3VBCEYQvRpT0="
     ];
 
