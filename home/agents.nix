@@ -47,17 +47,30 @@ let
   # a rebuild.
   jjBlockGitWrite =
     let
+      source = ./claude/skills/jj-worktrees/scripts/pretooluse-block-git-write.py;
+
       # writePython3Bin writes its own shebang against a pinned interpreter.
       # Leaving the original would make it the second line of the file, which
       # the flake8 pass reads as a stray block comment (E265).
-      body = lib.removePrefix "#!/usr/bin/env python3\n" (
-        builtins.readFile ./claude/skills/jj-worktrees/scripts/pretooluse-block-git-write.py
-      );
+      body = lib.removePrefix "#!/usr/bin/env python3\n" (builtins.readFile source);
+
+      # E501 alone: the long lines there are deliberate -- compact set
+      # literals and prose. Every other flake8 check stays on, and catches a
+      # genuine syntax error at build time rather than at hook time.
+      built = pkgs.writers.writePython3Bin "jj-block-git-write" { flakeIgnore = [ "E501" ]; } body;
     in
-    # E501 alone: the long lines there are deliberate -- compact set literals
-    # and prose. Every other flake8 check stays on, and catches a genuine
-    # syntax error at build time rather than at hook time.
-    pkgs.writers.writePython3Bin "jj-block-git-write" { flakeIgnore = [ "E501" ]; } body;
+    # Deciding whether a command *is* an invocation is now a small shell
+    # parser, and its failure mode is refusing legitimate commands -- which is
+    # both worse than missing one and much less likely to be noticed. So its
+    # cases run here, against the built copy, and a regression is a failed
+    # build. Copied rather than symlinked so $out is a package in its own
+    # right and the check cannot be skipped by depending on `built` directly.
+    pkgs.runCommand "jj-block-git-write" { } ''
+      ${lib.getExe pkgs.python3} ${./claude/skills/jj-worktrees/scripts/test_block_git_write.py} \
+        ${built}/bin/jj-block-git-write
+      mkdir -p $out/bin
+      cp ${built}/bin/jj-block-git-write $out/bin/jj-block-git-write
+    '';
 in
 {
   # Out-of-store symlinks, so editing a skill takes effect immediately rather

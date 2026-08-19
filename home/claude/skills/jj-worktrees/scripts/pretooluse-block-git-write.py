@@ -77,6 +77,12 @@ _PREFIX_RUNNERS = {
     "ionice", "setsid", "stdbuf", "time", "timeout", "xargs", "watch",
 }
 
+# Of those, the ones taking a bare positional of their own before the command
+# -- `timeout 5 git push`. Only the first is dropped, so the fancier forms
+# (`timeout -k 5 10 ...`) fall through to allowing, which is the right way to
+# be wrong here.
+_RUNNERS_WITH_POSITIONAL = {"timeout"}
+
 # Shells whose -c argument is itself a command line.
 _SHELL_RUNNERS = {"sh", "bash", "zsh", "dash", "ksh", "ash", "fish", "busybox"}
 
@@ -159,6 +165,8 @@ def _strip_prefix_runners(argv):
             while argv and "=" in argv[0] and not argv[0].startswith("-"):
                 argv = argv[1:]
         while argv and argv[0].startswith("-"):
+            argv = argv[1:]
+        if head in _RUNNERS_WITH_POSITIONAL and argv:
             argv = argv[1:]
     return argv
 
