@@ -14,7 +14,10 @@ trying to tell their read and write forms apart.
 
 "jj git <subcommand>" is jj's own git-interop subcommand (push, fetch,
 clone, ...), not the git CLI -- it goes through jj's own safety model, so
-it's exempt.
+it's exempt. The exemption has to survive jj's global options coming
+first: "jj --no-pager git push" is the form the jj skill actually asks
+for, so matching only a bare "jj " immediately before "git" rejects the
+common case.
 """
 
 import json
@@ -45,9 +48,14 @@ _GIT_CALL_RE = re.compile(r"(?<!\w)git(?=[\s;&|`)]|$)")
 # character, or the start of a new command substitution.
 _GIT_STOP_RE = re.compile(r"[;&|`)\n]|\$\(")
 
-# A "git" match immediately preceded by "jj" is jj's own subcommand, not a
-# real git invocation -- see module docstring.
-_JJ_GIT_PREFIX_RE = re.compile(r"(?<!\w)jj\s+$")
+# jj's own global options that consume the following token as their value,
+# so that value isn't mistaken for a positional. Same role as
+# _GIT_OPTS_WITH_ARG above. The "--opt=value" spelling needs no entry: it is
+# a single token and consumes nothing after it.
+_JJ_OPTS_WITH_ARG = {
+    "-R", "--repository", "--at-operation", "--at-op",
+    "--color", "--config", "--config-file",
+}
 
 
 def _first_positional(tokens):
@@ -63,6 +71,36 @@ def _first_positional(tokens):
     return None
 
 
+def _is_jj_subcommand(prefix):
+    """True when the text before a "git" match makes it jj's own git-interop
+    subcommand rather than a git invocation -- i.e. the nearest preceding
+    command word is "jj", with only jj global options in between.
+
+    Keyed off the *last* "jj" token so a chain stays correct: in
+    "jj git push && git push" the second match sees "git push" after that jj,
+    which is a positional and not an option, so it is not exempted."""
+    try:
+        tokens = shlex.split(prefix)
+    except ValueError:
+        tokens = prefix.split()  # unbalanced quote -- best effort, as above
+
+    last_jj = None
+    for i, tok in enumerate(tokens):
+        if tok == "jj" or tok.endswith("/jj"):
+            last_jj = i
+    if last_jj is None:
+        return False
+
+    # Everything between that "jj" and the "git" must be a global option (or
+    # an option's value). Any bare word means "git" is not jj's subcommand.
+    i = last_jj + 1
+    while i < len(tokens):
+        if not tokens[i].startswith("-"):
+            return False
+        i += 2 if tokens[i] in _JJ_OPTS_WITH_ARG else 1
+    return True
+
+
 def _denied_git_command(command):
     """The offending "git <subcommand>" string if `command` invokes a git
     subcommand outside the read-only allowlist, else None. Scans the raw
@@ -72,7 +110,7 @@ def _denied_git_command(command):
     scan. Erring towards over-blocking is fine here; the point is that
     nothing writes, not that every legitimate read-only call is recognized."""
     for m in _GIT_CALL_RE.finditer(command):
-        if _JJ_GIT_PREFIX_RE.search(command[: m.start()]):
+        if _is_jj_subcommand(command[: m.start()]):
             continue
         rest = command[m.end():]
         stop = _GIT_STOP_RE.search(rest)
