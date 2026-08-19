@@ -1,10 +1,11 @@
 # Puts wrapty on PATH so its Claude Code plugin manifest
 # (home/claude/skills/wrapty/) can reference its binaries by bare command
-# name (wrapty-mcp, wrapty-hook-stop, wrapty-hook-posttooluse) rather than a
-# store path or the old /Users/lillecarl/Dynamist/wrapty/result/... path from
-# when wrapty was its own standalone repo. Those manifest files are plain,
-# hand-edited JSON under an out-of-store symlink (see ./agents.nix), not
-# generated here -- nothing in this module writes to them.
+# name (wrapty-mcp, wrapty-monitor, wrapty-hook-stop, wrapty-hook-posttooluse)
+# rather than a store path or the old /Users/lillecarl/Dynamist/wrapty/
+# result/... path from when wrapty was its own standalone repo. Those
+# manifest files are plain, hand-edited JSON under an out-of-store symlink
+# (see ./agents.nix), not generated here -- nothing in this module writes
+# to them.
 #
 # A rebuild does not reach a session that is already running. wrapty is the
 # long-lived process wrapping `claude` (see ../home/fish/functions/claude.fish)
@@ -12,6 +13,11 @@
 # repoints the profile for the *next* session and leaves live ones on the old
 # binary. Restart the session to pick a wrapty change up; /reload-plugins is
 # not enough, and neither is anything else short of a restart.
+#
+# wrapty-monitor sits on the same fault line from the other side. It is a
+# plain binary on PATH, so a rebuild does reach it at once -- but it talks
+# to the running wrapty, which is still the old one, so its calls fail until
+# the session restarts. It says exactly that instead of showing a traceback.
 #
 # This is worth knowing because the hooks behave the opposite way and the
 # difference is invisible: ./agents.nix installs the git-write hook as a bare

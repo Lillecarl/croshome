@@ -12,6 +12,7 @@ dependencies = ["mcp", "json-rpc", "jinja2"]
 [project.scripts]
 wrapty = "wrapty:main"
 wrapty-mcp = "wrapty_mcp:main"
+wrapty-monitor = "wrapty_monitor:main"
 wrapty-statusline = "wrapty_statusline:main"
 wrapty-hook-stop = "wrapty_hooks:main_stop"
 wrapty-hook-posttooluse = "wrapty_hooks:main_posttooluse"
@@ -20,4 +21,4 @@ wrapty-hook-posttooluse = "wrapty_hooks:main_posttooluse"
 ignore-vcs = true
 
 [tool.hatch.build.targets.wheel]
-only-include = ["wrapty.py", "wrapty_mcp.py", "wrapty_client.py", "wrapty_statusline.py", "wrapty_hooks.py", "prompts"]
+only-include = ["wrapty.py", "wrapty_mcp.py", "wrapty_monitor.py", "wrapty_client.py", "wrapty_statusline.py", "wrapty_hooks.py", "prompts"]

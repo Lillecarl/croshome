@@ -166,12 +166,26 @@ async def _run(argv):
     # pending_compact is the temporary case with a condition worth waiting on:
     # it polls for usage to actually drop before resuming. Everything else just
     # settles and resumes.
+    #
+    # monitors is the same shape again, with the condition moved out of this
+    # process: wrapty-monitor watches something that has nothing to do with
+    # the session (a build, a deploy, a file) and types the agent back when it
+    # happens. The difference from the two above is duration. A compaction or
+    # a queued slash command resolves in seconds, so those permit exactly one
+    # stop; a monitor can run for an hour, and the agent may stop repeatedly
+    # in the meantime with genuinely nothing to do. So an outstanding monitor
+    # suppresses the nudge for as long as it lives rather than once.
+    #
+    # That makes a monitor which never finishes a way to silence the nudge
+    # forever, which is why wrapty-monitor always reports back -- on its
+    # timeout if not on its condition -- and clears itself either way.
     nudge_state = {
         "allow_stop": False,
         "resume": None,
         "stop_count": 0,
         "cooldowns": {},
         "pending_compact": None,
+        "monitors": {},
         "task": None,
     }
     async def _type_and_submit(text_bytes, press_enter):
@@ -260,12 +274,43 @@ async def _run(argv):
             nudge_state["stop_count"] = 0
             nudge_state["task"] = loop.create_task(_run_pending_resume(resume))
             return {"nudge": False}
+        # Checked before allow_stop so it is not consumed: a monitor permits
+        # every stop until it reports, not just the next one.
+        if nudge_state["monitors"]:
+            nudge_state["stop_count"] = 0
+            return {"nudge": False}
         if nudge_state["allow_stop"]:
             nudge_state["allow_stop"] = False
             nudge_state["stop_count"] = 0
             return {"nudge": False}
         nudge_state["stop_count"] += 1
         return {"nudge": True, "count": nudge_state["stop_count"]}
+
+    @dispatcher.add_method
+    def monitor_register(label, until, pid=None, timeout=None):
+        """Record a running wrapty-monitor. See nudge_state above for why an
+        outstanding monitor suppresses the stop nudge for its whole life."""
+        nudge_state["monitors"][label] = {
+            "until": until,
+            "pid": pid,
+            "timeout": timeout,
+            "started": loop.time(),
+        }
+        nudge_state["stop_count"] = 0
+        return "ok"
+
+    @dispatcher.add_method
+    def monitor_done(label):
+        nudge_state["monitors"].pop(label, None)
+        return "ok"
+
+    @dispatcher.add_method
+    def monitor_list():
+        now = loop.time()
+        return {
+            label: dict(info, waiting_seconds=round(now - info["started"], 1))
+            for label, info in nudge_state["monitors"].items()
+        }
 
     @dispatcher.add_method
     def check_cooldown(name, seconds):
