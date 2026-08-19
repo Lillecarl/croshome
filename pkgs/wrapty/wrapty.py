@@ -167,18 +167,16 @@ async def _run(argv):
     # it polls for usage to actually drop before resuming. Everything else just
     # settles and resumes.
     #
-    # monitors is the same shape again, with the condition moved out of this
-    # process: wrapty-monitor watches something that has nothing to do with
-    # the session (a build, a deploy, a file) and types the agent back when it
-    # happens. The difference from the two above is duration. A compaction or
-    # a queued slash command resolves in seconds, so those permit exactly one
-    # stop; a monitor can run for an hour, and the agent may stop repeatedly
-    # in the meantime with genuinely nothing to do. So an outstanding monitor
-    # suppresses the nudge for as long as it lives rather than once.
+    # monitors is the same shape again, over a longer span. wrapty-monitor
+    # holds an inbox open for the session, and `listen --permit-stop` records
+    # it here: the agent's next move depends on a message somebody else has
+    # not sent yet, so stopping is right and the nudge would only push it into
+    # inventing work. Unlike the two above, which permit exactly one stop,
+    # this permits every stop until the listener exits.
     #
-    # That makes a monitor which never finishes a way to silence the nudge
-    # forever, which is why wrapty-monitor always reports back -- on its
-    # timeout if not on its condition -- and clears itself either way.
+    # That is also why --permit-stop is not the default. A listener lives as
+    # long as the session, so registering one unasked would silence the nudge
+    # for the whole session.
     nudge_state = {
         "allow_stop": False,
         "resume": None,

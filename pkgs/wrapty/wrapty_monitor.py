@@ -1,47 +1,50 @@
-"""Watch for something outside this session, then type the agent back to.
+"""An inbox for a Claude Code session: anything local can post, the session
+gets a notification.
 
-The problem this solves: an agent often has to wait for work it does not own
--- a CI run, a deploy, a long build in another terminal, a file that some
-other process writes. Its options today are both bad. It can block a tool
-call and hold the turn open for as long as the wait, or it can poll, which
-costs a turn every time and still sleeps between checks.
+Claude Code's Monitor tool runs a command and turns every line the command
+writes to stdout into a notification in the conversation. That is the whole
+mechanism this builds on. `listen` is a command that writes a line whenever
+somebody posts one, so the agent runs it under Monitor and then hears from
+the outside world for as long as the session lives:
 
-A monitor is the third option. The agent starts one, ends its turn, and
-stops costing anything at all. Some minutes later the condition holds, the
-monitor types a message into the session, and the agent picks the work back
-up as if it had been waiting attentively.
+    Monitor(command="wrapty-monitor listen", persistent=true,
+            description="messages posted to this session")
 
-    wrapty-monitor start \\
-        --until 'gh run view --json status -q .status | grep -qx completed' \\
-        --wake 'The CI run finished. Read the result and fix what failed.' \\
-        --interval 30 --timeout 3600
+    wrapty-monitor post 'the deploy finished, log is at /tmp/deploy.log'
 
-The predicate is a shell command. Exit 0 means the condition holds. That is
-the whole interface, and it is enough for anything a shell can answer.
+The poster can be anything on this machine: another terminal, a git hook, a
+cron job, a CI script, another agent. It needs no cooperation from the
+session beyond knowing which one to post to.
 
-Two things make this safe to leave running. The monitor registers itself
-with wrapty, so the Stop hook stops nudging the agent to keep working while
-the wait is legitimate. And it always reports, on its timeout if not on its
-condition, so the session is never left silently waiting on something that
-already gave up.
+Why not type into the session's terminal instead? Because a person may be
+typing at the same moment, and the two interleave into one garbled line.
+Notifications go through Claude Code's own channel and cannot collide with a
+keyboard. That is not a detail -- it is the reason this shape exists.
 
-The wake text arrives as a fresh prompt with no context around it. Write it
-so it stands alone: say what happened and what to do next, not "it's done".
+The session is addressed by its wrapty id, so two sessions on one machine
+never share an inbox. `list` shows what is live, for a poster that does not
+already know the id.
+
+Posting is local-only by design: the inbox is a unix socket under
+$XDG_RUNTIME_DIR, so who may post is a filesystem question and nothing
+listens on the network.
 """
 
 import argparse
 import asyncio
 import os
-import subprocess
+import socket
 import sys
-import time
 
 from wrapty_client import call, runtime_dir
 
-# How long to let the session settle before typing into it. Same reasoning as
-# wrapty's own resume path: the condition holding says nothing about whether
-# the terminal is mid-redraw.
-SETTLE_DELAY = float(os.environ.get("WRAPTY_MONITOR_SETTLE_DELAY", "1"))
+
+def _inbox_dir() -> str:
+    return os.path.join(runtime_dir(), "inbox")
+
+
+def _socket_path(session_id: str) -> str:
+    return os.path.join(_inbox_dir(), f"{session_id}.sock")
 
 
 def _session_id() -> str:
@@ -55,181 +58,168 @@ def _rpc(method, params=None):
     return asyncio.run(call(_session_id(), method, params))
 
 
-def _log_path(label):
-    return os.path.join(runtime_dir(), f"monitor-{label}.log")
+def _is_live(path: str) -> bool:
+    """Whether something is accepting connections on this socket.
 
-
-def _wake(label, text):
-    """Type into the session. A failure here goes to the monitor's log rather
-    than to a terminal: by this point the process is detached and its output
-    is redirected, so there is nowhere else for it to land."""
-    time.sleep(SETTLE_DELAY)
-    try:
-        _rpc("send", {"text": text, "press_enter": True})
-    except Exception as exc:  # noqa: BLE001 -- nothing above to handle it
-        print(f"wrapty-monitor[{label}]: could not wake the session: {exc}",
-              file=sys.stderr)
-
-
-def _detach(label):
-    """Double fork, so the monitor outlives the shell that started it.
-
-    An agent starts this from a tool call, and that call's process group goes
-    away when the call returns. Without this the monitor would be killed
-    moments after being started, which is a failure that looks exactly like a
-    condition that never fired.
-
-    stdout and stderr are redirected for a second reason, unrelated to noise:
-    a caller reading the tool call's output waits for the pipe to close, and
-    the pipe does not close while a detached child still holds the write end.
-    Keeping them would hang the very tool call this is supposed to free.
+    A socket file outlives the process that made it, so its presence proves
+    nothing. Connecting is the only honest test.
     """
-    if os.fork() > 0:
-        os._exit(0)
-    os.setsid()
-    if os.fork() > 0:
-        os._exit(0)
-    devnull = os.open(os.devnull, os.O_RDONLY)
-    os.dup2(devnull, 0)
-    os.close(devnull)
-    os.makedirs(runtime_dir(), exist_ok=True)
-    log = os.open(_log_path(label), os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
-    os.dup2(log, 1)
-    os.dup2(log, 2)
-    os.close(log)
-
-
-def _watch(label, until, interval, timeout, wake, expired):
-    deadline = time.monotonic() + timeout if timeout else None
-    while True:
-        completed = subprocess.run(
-            ["sh", "-c", until],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        if completed.returncode == 0:
-            _wake(label, wake)
-            return
-        if deadline is not None and time.monotonic() >= deadline:
-            _wake(label, expired)
-            return
-        # Do not overshoot the deadline by a whole interval.
-        remaining = interval
-        if deadline is not None:
-            remaining = min(interval, max(0.0, deadline - time.monotonic()))
-        time.sleep(remaining)
-
-
-def _start(args):
-    label = args.label or f"monitor-{os.getpid()}"
-    timeout = args.timeout or None
-
-    if timeout is None:
-        expired = None
-    elif args.expired:
-        expired = args.expired
-    else:
-        expired = (
-            f"The monitor '{label}' gave up after {timeout:.0f}s without its "
-            f"condition holding. It was waiting for: {args.until}. "
-            "Decide whether to wait again, check by hand, or do something else."
-        )
-
-    # Registered before forking, for two reasons. An unreachable socket
-    # becomes a failed command the agent sees, rather than a silent death in a
-    # child it cannot observe. And the registration is what permits the agent
-    # to stop, so it has to exist before this command returns -- registering
-    # from the child would leave a window where the agent has been told it may
-    # stop and the Stop hook does not yet agree.
-    _rpc("monitor_register", {
-        "label": label,
-        "until": args.until,
-        "timeout": timeout,
-    })
-
-    print(f"monitor '{label}' started; this turn may now end.")
-    print(f"  until:    {args.until}")
-    print("  interval: {}s{}".format(
-        args.interval,
-        f", timeout {timeout:.0f}s" if timeout else ", no timeout",
-    ))
-    print(f"  log:      {_log_path(label)}")
-    print("The session is woken when the condition holds. Stop your turn now:")
-    print("working on past this point wastes the wait.")
-    sys.stdout.flush()
-
-    _detach(label)
-
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
-        # Again, now that there is a pid worth recording -- `cancel` needs it.
-        _rpc("monitor_register", {
-            "label": label,
-            "until": args.until,
-            "pid": os.getpid(),
-            "timeout": timeout,
-        })
-        _watch(label, args.until, args.interval, timeout, args.wake, expired)
+        sock.settimeout(1)
+        sock.connect(path)
+        return True
+    except OSError:
+        return False
     finally:
+        sock.close()
+
+
+async def _serve(path: str, once: bool):
+    stop = asyncio.Event()
+
+    async def handle(reader, writer):
+        # Read to EOF rather than one line: a posted message may be several
+        # lines, and Claude Code batches stdout written within 200ms into a
+        # single notification, so it arrives whole.
+        data = await reader.read()
+        writer.close()
+        text = data.decode("utf-8", "replace").rstrip("\n")
+        if text:
+            print(text, flush=True)
+            if once:
+                stop.set()
+
+    server = await asyncio.start_unix_server(handle, path=path)
+    os.chmod(path, 0o600)
+    try:
+        if once:
+            await stop.wait()
+        else:
+            await asyncio.Event().wait()
+    finally:
+        server.close()
+
+
+def _listen(args):
+    session_id = _session_id()
+    path = _socket_path(session_id)
+    os.makedirs(_inbox_dir(), exist_ok=True)
+
+    if os.path.exists(path):
+        if _is_live(path):
+            sys.exit(f"already listening for this session at {path}")
+        os.unlink(path)  # left behind by a listener that is gone
+
+    if args.permit_stop:
+        # Off by default on purpose. A listener runs for the whole session,
+        # so registering one would suppress the stop nudge permanently --
+        # which is the opposite of what the nudge is for. Pass this only when
+        # the session's next move genuinely depends on a posted message.
+        _rpc("monitor_register", {
+            "label": f"inbox:{session_id}",
+            "until": "a message posted to this session's inbox",
+            "pid": os.getpid(),
+        })
+
+    print(f"inbox open. Post to it with: wrapty-monitor post --to {session_id} 'text'",
+          flush=True)
+    try:
+        asyncio.run(_serve(path, args.once))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        if args.permit_stop:
+            try:
+                _rpc("monitor_done", {"label": f"inbox:{session_id}"})
+            except Exception:  # noqa: BLE001 -- the session may already be gone
+                pass
         try:
-            _rpc("monitor_done", {"label": label})
-        except Exception:  # noqa: BLE001 -- the session may already be gone
+            os.unlink(path)
+        except OSError:
             pass
 
 
+def _post(args):
+    session_id = args.to or os.environ.get("WAPTY_ID")
+    if not session_id:
+        sys.exit(
+            "no session to post to: pass --to ID, or set WAPTY_ID. "
+            "`wrapty-monitor list` shows the sessions that are listening."
+        )
+
+    text = " ".join(args.text) if args.text else sys.stdin.read()
+    text = text.rstrip("\n")
+    if not text:
+        sys.exit("refusing to post an empty message")
+
+    path = _socket_path(session_id)
+    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    try:
+        sock.settimeout(5)
+        sock.connect(path)
+        sock.sendall(text.encode())
+        # Half-close, so the listener's read-to-EOF returns. Without this it
+        # waits for a close that only comes when this process exits.
+        sock.shutdown(socket.SHUT_WR)
+    except FileNotFoundError:
+        sys.exit(f"nothing is listening for session {session_id}")
+    except ConnectionRefusedError:
+        sys.exit(f"session {session_id} left a stale socket behind; it is not listening")
+    finally:
+        sock.close()
+    print("posted")
+
+
 def _list(_args):
-    monitors = _rpc("monitor_list")
-    if not monitors:
-        print("no monitors running")
+    directory = _inbox_dir()
+    if not os.path.isdir(directory):
+        print("no sessions are listening")
         return
-    for label, info in monitors.items():
-        print(f"{label}  pid={info.get('pid')}  waiting={info['waiting_seconds']}s")
-        print(f"  until: {info['until']}")
-
-
-def _cancel(args):
-    monitors = _rpc("monitor_list")
-    info = monitors.get(args.label)
-    if info is None:
-        sys.exit(f"no monitor called '{args.label}'")
-    pid = info.get("pid")
-    if pid:
-        try:
-            os.kill(pid, 15)
-        except ProcessLookupError:
-            pass  # already gone; clearing the registration below is the point
-    _rpc("monitor_done", {"label": args.label})
-    print(f"cancelled '{args.label}'")
+    live = [
+        name[: -len(".sock")]
+        for name in sorted(os.listdir(directory))
+        if name.endswith(".sock") and _is_live(os.path.join(directory, name))
+    ]
+    if not live:
+        print("no sessions are listening")
+        return
+    here = os.environ.get("WAPTY_ID")
+    for session_id in live:
+        mine = "  (this session)" if session_id == here else ""
+        print(f"{session_id}{mine}")
 
 
 def main():
     parser = argparse.ArgumentParser(
         prog="wrapty-monitor",
-        description="Wait for a shell condition, then wake this Claude session.",
+        description="An inbox for a Claude Code session. Run `listen` under "
+                    "Claude Code's Monitor tool; anything local can then post "
+                    "a message and the session is notified.",
     )
     sub = parser.add_subparsers(dest="command")
 
-    start = sub.add_parser("start", help="start a monitor and detach")
-    start.add_argument("--until", required=True, metavar="CMD",
-                       help="shell command polled until it exits 0")
-    start.add_argument("--wake", required=True, metavar="TEXT",
-                       help="typed into the session when the condition holds; "
-                            "it arrives with no context, so make it stand alone")
-    start.add_argument("--interval", type=float, default=30.0, metavar="SEC",
-                       help="seconds between checks (default: 30)")
-    start.add_argument("--timeout", type=float, default=0.0, metavar="SEC",
-                       help="give up after this long (default: no timeout)")
-    start.add_argument("--expired", metavar="TEXT",
-                       help="typed instead if the timeout is reached")
-    start.add_argument("--label", metavar="NAME",
-                       help="name for this monitor (default: monitor-<pid>)")
-    start.set_defaults(func=_start)
+    listen = sub.add_parser(
+        "listen",
+        help="print every posted message, one event per message; run under Monitor",
+    )
+    listen.add_argument("--once", action="store_true",
+                        help="exit after the first message, ending the watch")
+    listen.add_argument("--permit-stop", action="store_true",
+                        help="suppress the stop nudge while listening. Off by "
+                             "default: a listener lives as long as the session, "
+                             "so this silences the nudge for that whole time")
+    listen.set_defaults(func=_listen)
 
-    sub.add_parser("list", help="show the monitors this session has running") \
+    post = sub.add_parser("post", help="send a message to a listening session")
+    post.add_argument("text", nargs="*",
+                      help="the message; read from stdin when absent")
+    post.add_argument("--to", metavar="ID",
+                      help="session to post to (default: this session's WAPTY_ID)")
+    post.set_defaults(func=_post)
+
+    sub.add_parser("list", help="show the sessions that are listening") \
        .set_defaults(func=_list)
-
-    cancel = sub.add_parser("cancel", help="stop a monitor")
-    cancel.add_argument("label")
-    cancel.set_defaults(func=_cancel)
 
     args = parser.parse_args()
     if args.command is None:
@@ -239,20 +229,18 @@ def main():
     try:
         args.func(args)
     except FileNotFoundError:
-        # The id is set but the socket is not there: the wrapping session has
-        # gone away, or this is a stale environment inherited from one.
         sys.exit("wrapty is not listening for this session; is it still running?")
     except RuntimeError as exc:
-        # A wrapty older than the monitor answers every monitor_* call this
-        # way. Worth naming, because the fix is not obvious and the raw
-        # message is not either: a rebuild does not reach a session that is
-        # already running, so wrapty stays on the binary it started with
-        # until the session restarts. See home/wrapty.nix.
+        # A wrapty older than this answers every monitor_* call that way.
+        # Worth naming, because a bare `wrapty-monitor` inside a session is
+        # itself the old build: wrapty's wrapper puts its own store bin/ at
+        # the front of PATH. So a rebuild changes neither side until the
+        # session restarts. See home/wrapty.nix.
         if "Method not found" in str(exc):
             sys.exit(
-                "this session's wrapty predates wrapty-monitor. A rebuild "
-                "does not reach a running session, so restart the session "
-                "to pick it up."
+                "this session's wrapty predates --permit-stop. A rebuild does "
+                "not reach a running session, so restart the session to pick "
+                "it up, or drop the flag."
             )
         sys.exit(f"wrapty refused the call: {exc}")
     return 0

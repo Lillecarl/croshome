@@ -14,10 +14,14 @@
 # binary. Restart the session to pick a wrapty change up; /reload-plugins is
 # not enough, and neither is anything else short of a restart.
 #
-# wrapty-monitor sits on the same fault line from the other side. It is a
-# plain binary on PATH, so a rebuild does reach it at once -- but it talks
-# to the running wrapty, which is still the old one, so its calls fail until
-# the session restarts. It says exactly that instead of showing a traceback.
+# That covers every binary in this package, not just the wrapty process
+# itself. buildPythonApplication wraps each script so it prepends its own
+# store bin/ to PATH, and the wrapped `claude` inherits that, so a bare
+# `wrapty-monitor` inside a session resolves to the wrapty that started it
+# however many rebuilds ago. Checked by reading the wrapper and the session's
+# PATH after a switch: the profile symlink had moved and the session had not.
+# ~/.nix-profile/bin/wrapty-monitor reaches the new one if you need it before
+# a restart.
 #
 # This is worth knowing because the hooks behave the opposite way and the
 # difference is invisible: ./agents.nix installs the git-write hook as a bare
