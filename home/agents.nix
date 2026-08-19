@@ -20,6 +20,44 @@ let
   # build reads as "does not work here". Running the binary is what separates
   # the two, and neither of these needed to be Linux-only.
   runsOnDarwinButFailsTheCheck = drv: drv.overrideAttrs { doInstallCheck = !hostPlatform.isDarwin; };
+
+  # The PreToolUse hook that blocks git writes in a jj repo, built rather than
+  # executed straight out of the tree.
+  #
+  # This pins the *interpreter* and nothing else. The shebang was
+  # `#!/usr/bin/env python3`, which resolves against whatever python the
+  # environment happens to have -- and hetztop has none, so the hook could not
+  # run at all there. That dependency is accidental: the script does not care
+  # which python it gets, only that it gets one.
+  #
+  # The `jj` lookup it does at runtime is deliberately NOT pinned, and that is
+  # the whole point of the hook. It asks the environment two questions -- is
+  # there a jj, and is this a jj repo -- and a "no" to either means git is
+  # nobody's business here and the command is allowed through. Putting jj on
+  # this wrapper's PATH would answer the first question yes everywhere and
+  # make that case unreachable. git is banned in jj repos, not in general.
+  #
+  # ./claude/skills/jj-worktrees/hooks/hooks.json names this by bare command,
+  # the same arrangement ./wrapty.nix uses for wrapty's hooks. A store path
+  # there is not an option: the skills directory is one out-of-store symlink,
+  # so no file inside it can be nix-generated.
+  #
+  # The cost is that this one script no longer follows the "edit takes effect
+  # immediately" rule the rest of that directory does -- changing it now needs
+  # a rebuild.
+  jjBlockGitWrite =
+    let
+      # writePython3Bin writes its own shebang against a pinned interpreter.
+      # Leaving the original would make it the second line of the file, which
+      # the flake8 pass reads as a stray block comment (E265).
+      body = lib.removePrefix "#!/usr/bin/env python3\n" (
+        builtins.readFile ./claude/skills/jj-worktrees/scripts/pretooluse-block-git-write.py
+      );
+    in
+    # E501 alone: the long lines there are deliberate -- compact set literals
+    # and prose. Every other flake8 check stays on, and catches a genuine
+    # syntax error at build time rather than at hook time.
+    pkgs.writers.writePython3Bin "jj-block-git-write" { flakeIgnore = [ "E501" ]; } body;
 in
 {
   # Out-of-store symlinks, so editing a skill takes effect immediately rather
@@ -31,6 +69,8 @@ in
     config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
 
   home.packages = [
+    jjBlockGitWrite
+
     # The overlay in ../pkgs tracks upstream releases rather than the nixpkgs
     # pin, and picks the build for the host platform, so this one attribute
     # works on macOS and Linux alike.

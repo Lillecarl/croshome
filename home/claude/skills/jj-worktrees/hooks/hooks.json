@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/scripts/pretooluse-block-git-write.py"
+            "command": "jj-block-git-write"
           }
         ]
       }
