@@ -87,7 +87,24 @@
     # `Host <name>`, and the block takes OpenSSH directive names directly.
     settings."*" = {
       WarnWeakCrypto = "no";
-      ServerAliveInterval = 15;
+
+      # Notice a dead link in about 30 seconds, not in minutes.
+      #
+      # ServerAlive* is the check that does the work. It runs inside the ssh
+      # connection, so it is encrypted and nothing on the path can forge an
+      # answer. The client sends a request every 10 seconds and gives up
+      # after 3 with no reply. Without it a session on a link that died sits
+      # there until the kernel TCP timeout, which is minutes.
+      #
+      # TCPKeepAlive is the kernel's own check, below ssh. Its timing comes
+      # from the OS and starts at about two hours, so it is far too slow to
+      # be the one that notices. It still ends a connection whose peer sent
+      # a reset, so it stays on. `enableDefaultConfig = false` means this
+      # block is the whole policy, so it says so rather than relying on the
+      # OpenSSH default.
+      ServerAliveInterval = 10;
+      ServerAliveCountMax = 3;
+      TCPKeepAlive = true;
     };
   };
 }

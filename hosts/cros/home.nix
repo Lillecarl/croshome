@@ -42,9 +42,12 @@
     enableDefaultConfig = false;
     settings."*" = {
       WarnWeakCrypto = "no";
-      # The link to these machines drops often enough that this matters more
-      # here than anywhere else.
-      ServerAliveInterval = 15;
+      # The same keepalive policy as ../../home/default.nix, which this host
+      # does not import. Read the reasoning there. It matters more here than
+      # anywhere else, because the link to these machines drops often.
+      ServerAliveInterval = 10;
+      ServerAliveCountMax = 3;
+      TCPKeepAlive = true;
     };
   };
 
