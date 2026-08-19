@@ -11,3 +11,7 @@ overrides.nix
 secrets/identity
 secrets/identity.txt
 secrets/*.key
+
+# Python bytecode, from running the hook cases in place.
+__pycache__/
+*.pyc
