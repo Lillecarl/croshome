@@ -12,9 +12,8 @@
   # binaries bare. Verified to build and run on x86_64-linux.
   #
   # The module's activation step merges `statusLine` into ~/.claude/
-  # settings.json, but `enabledPlugins` is not nix-managed and still has to be
-  # set by hand, once:
-  #
-  #   "enabledPlugins": { "wrapty@skills-dir": true }
+  # settings.json and touches nothing else there. Nothing further is needed to
+  # load the plugin: see ../../home/wrapty.nix for why `enabledPlugins` is not
+  # the gate it looks like.
   programs.wrapty.enable = true;
 }

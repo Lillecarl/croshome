@@ -11,10 +11,26 @@
 # selection, trust state), so a nix-generated copy would either get silently
 # reverted on the next activation or fight those writes. The one exception is
 # the activation script below, which merges in just the `statusLine` key on
-# every switch and leaves every other key exactly as Claude Code left it --
-# so `enabledPlugins` still has to be turned on by hand, once:
+# every switch and leaves every other key exactly as Claude Code left it.
 #
-#   "enabledPlugins": { "wrapty@skills-dir": true }
+# This comment used to say `enabledPlugins` had to be set by hand before the
+# plugin would load. It does not: a plugin discovered under ~/.claude/skills
+# -- the directory ./agents.nix symlinks -- is enabled by default, under the
+# marketplace name `skills-dir`. Checked on hetztop with no `enabledPlugins`
+# key present at all: `pluginUsage` in ~/.claude.json listed both
+# `wrapty@skills-dir` and `jj-worktrees@skills-dir` with a few hundred uses
+# between them, and the MCP server was live in a running session. Such
+# plugins are also absent from ~/.claude/plugins/installed_plugins.json,
+# which only tracks marketplace installs.
+#
+# Setting it explicitly is harmless. If you do, name every plugin rather than
+# only this one -- naming one is what would turn the others off, should that
+# key ever be read as an allowlist rather than an override map:
+#
+#   "enabledPlugins": {
+#     "wrapty@skills-dir": true,
+#     "jj-worktrees@skills-dir": true
+#   }
 {
   config,
   lib,
