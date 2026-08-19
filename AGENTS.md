@@ -8,7 +8,7 @@ Three machines share one configuration.
 | --------------- | ------------------------------------------------------------- |
 | `default.nix`   | The entry point. Builds `pkgs` and each host.                  |
 | `hosts/macbook` | nix-darwin. `./rebuild build`, `./rebuild switch`.             |
-| `hosts/hetztop` | NixOS. `nixos-rebuild switch --file . --attr hetztop`.         |
+| `hosts/hetztop` | NixOS. `sudo ai-rebuild` (NOPASSWD, for agents).               |
 | `hosts/cros`    | home-manager alone on ChromeOS. Deliberately small.            |
 | `home/`         | Shared home-manager config. `macbook` and `hetztop` import it. |
 | `home/darwin/`  | Loaded only on macOS.                                          |
@@ -174,12 +174,65 @@ Never activate without reading the diff first.
 - `./rebuild diff-drv` says *why* a derivation differs, for when no version
   moved and everything rebuilt anyway.
 
+Those two are the MacBook wrapper. hetztop has no equivalent script, so the
+same two questions are asked by hand — build without activating, then diff the
+result against the running system:
+
+```sh
+nix-build . --attr hetztop.config.system.build.toplevel --out-link /tmp/next
+nix run --file . pkgs.nvd -- diff /run/current-system /tmp/next
+nix run --file . pkgs.nix-diff -- --environment --skip-already-compared \
+  --word-oriented --context 4 /run/current-system /tmp/next
+```
+
+Read both. nvd answers "what packages moved", and it is blind to a package
+whose *contents* changed while its version did not — which is exactly what a
+local-checkout input override does. nix-diff is what catches that. Worth
+checking beyond either tool, since neither reports it:
+
+```sh
+diff -rq /run/current-system/etc /tmp/next/etc     # /etc, incl. sudoers
+diff <(ls /run/current-system/etc/systemd/system) \
+     <(ls /tmp/next/etc/systemd/system)            # units added or removed
+readlink -f /run/current-system/kernel /tmp/next/kernel   # same kernel?
+```
+
+Then activate with `sudo ai-rebuild`, which is `nixos-rebuild switch --file .
+--attr hetztop` against this checkout. It is NOPASSWD for `lillecarl` so an
+agent can run it unattended — see `hosts/hetztop/ai-rebuild.nix`, and read
+that grant as full root rather than narrow root. `sudo ai-rebuild-pynixd` is
+the same switch routed through the pynixd store.
+
 ## Version Control
 
 This repo uses **jj (Jujutsu)** as its VCS. Always use jj commands instead of git.
 
 - Load the **jj** skill before performing any version control operations
-- Load the **jj-hunk** skill for partial commits, splits, or selective squashing
 - Use `jj --no-pager` for all jj commands to avoid pager issues
 - Prefer `jj commit -m "msg"` over `jj describe` when finishing a task
+- Split a mixed working copy with `jj split <paths> -m '...'`, repeated. For
+  finer-than-file granularity there is a `jj-hunk` CLI on PATH, documented by
+  `references/jj-hunk.md` inside the jj skill. There is no separate jj-hunk
+  *skill* to load, which an earlier version of this list claimed.
 - Never use `git` directly — use jj equivalents instead
+
+That last rule is enforced, not merely advised. `home/claude/skills/jj-worktrees`
+installs a PreToolUse hook that denies any git command outside a small
+read-only allowlist, whenever the working directory is a jj repo. Three things
+follow from how it decides:
+
+- It is deliberately fail-open. No `jj` on PATH, or a directory that is not a
+  jj repo, both mean the command goes through. The ban applies *inside* jj
+  repos, not everywhere.
+- `jj git push` and friends are exempt, including behind jj's own global
+  options (`jj --no-pager git fetch`). If a command you expect to be allowed
+  gets denied, treat that as a hook bug rather than something to route around.
+- It scans raw command text rather than parsing shell grammar, so it also
+  catches invocations nested inside `sh -c '...'` or `$(...)`. The cost is
+  false positives on text that merely *mentions* the tool: writing this very
+  section with a shell heredoc was denied. Use the file-editing tools for
+  prose like that.
+
+The hook is built by `home/agents.nix` and installed as `jj-block-git-write`,
+so editing its script needs a rebuild to take effect — unlike the rest of
+`home/claude/skills/`, which is an out-of-store symlink and applies at once.
