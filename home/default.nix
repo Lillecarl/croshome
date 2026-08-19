@@ -19,6 +19,7 @@
   imports = [
     inputs.catppuccin.homeModules.catppuccin
     ./agents.nix
+    ./claude-md.nix
     ./fish.nix
     ./fonts.nix
     ./github.nix

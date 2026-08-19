@@ -16,4 +16,17 @@
   # load the plugin: see ../../home/wrapty.nix for why `enabledPlugins` is not
   # the gate it looks like.
   programs.wrapty.enable = true;
+
+  # See ../../home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Only the
+  # values that differ per machine live here; the prose is shared.
+  programs.claudeInstructions = {
+    enable = true;
+    hostName = "hetztop";
+    cloneDir = "~/Code";
+    extraRebuildNotes = ''
+
+      `sudo ai-rebuild-pynixd` builds the same attribute through the pynixd
+      store instead of the daemon. Use it only when I ask for it by name.
+    '';
+  };
 }

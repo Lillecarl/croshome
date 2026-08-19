@@ -31,6 +31,14 @@ in
   # which does not import ../../home at all.
   programs.wrapty.enable = true;
 
+  # See ../../home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Only the
+  # values that differ per machine live here; the prose is shared.
+  programs.claudeInstructions = {
+    enable = true;
+    hostName = "macbook";
+    cloneDir = "~/Dynamist";
+  };
+
   home.packages = [
     # The CLI only. Pulling from lillecarl.cachix.org is already set up as a
     # substituter in ./default.nix; this is for pushing, and it keeps its auth
