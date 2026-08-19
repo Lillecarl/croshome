@@ -27,7 +27,8 @@ in
   xdg.configFile."homebrew/trust.json".source = brewTrust;
 
   # See ../../home/wrapty.nix -- puts wrapty on PATH for the Claude Code
-  # plugin under home/claude/skills/wrapty. Not enabled on hetztop/cros.
+  # plugin under home/claude/skills/wrapty. Also on hetztop; not on cros,
+  # which does not import ../../home at all.
   programs.wrapty.enable = true;
 
   home.packages = [
