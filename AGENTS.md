@@ -227,11 +227,15 @@ follow from how it decides:
 - `jj git push` and friends are exempt, including behind jj's own global
   options (`jj --no-pager git fetch`). If a command you expect to be allowed
   gets denied, treat that as a hook bug rather than something to route around.
-- It scans raw command text rather than parsing shell grammar, so it also
-  catches invocations nested inside `sh -c '...'` or `$(...)`. The cost is
-  false positives on text that merely *mentions* the tool: writing this very
-  section with a shell heredoc was denied. Use the file-editing tools for
-  prose like that.
+- It parses the command into shell words and only looks at words in *command
+  position*, so text that merely mentions the tool — a commit message, a
+  heredoc body, a grep pattern — is not an invocation. Nested shell is still
+  caught, because `sh -c`, `$(...)`, backticks and prefix runners like `sudo`
+  and `env` are each handled explicitly.
+- A false positive costs more than a false negative, and every doubt is
+  resolved that way. It guards against forgetting which VCS this repo uses,
+  not against a determined caller — anything that cannot be lexed is allowed
+  rather than blocked.
 
 The hook is built by `home/agents.nix` and installed as `jj-block-git-write`,
 so editing its script needs a rebuild to take effect — unlike the rest of
