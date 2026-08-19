@@ -147,6 +147,8 @@ let
     ${remoteBuilders}
   '';
 
+  globalDir = ./claude/global;
+
   # Order matters only for reading. Claude Code splices each import in where
   # the `@` line sits.
   shared = [
@@ -157,9 +159,28 @@ let
     "prose.md"
   ];
 
-  imports' = lib.concatMapStringsSep "\n" (
-    f: "@${selfStr}/home/claude/global/${f}"
-  ) shared;
+  onDisk = lib.attrNames (
+    lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir globalDir)
+  );
+
+  # Both directions, because each one fails silently on its own. A name in the
+  # list with no file writes an `@` line that resolves to nothing, and the
+  # section just disappears from the instructions. A file with no entry in the
+  # list is never imported, so a section written today never reaches a session.
+  # Neither shows up as an error anywhere, hence the eval-time check.
+  missingFiles = lib.subtractLists onDisk shared;
+  unlistedFiles = lib.subtractLists shared onDisk;
+
+  imports' =
+    assert lib.assertMsg (missingFiles == [ ]) (
+      "home/claude-md.nix: `shared` names ${toString missingFiles}, "
+      + "which does not exist in home/claude/global."
+    );
+    assert lib.assertMsg (unlistedFiles == [ ]) (
+      "home/claude-md.nix: home/claude/global holds ${toString unlistedFiles}, "
+      + "which `shared` does not name, so it is never imported."
+    );
+    lib.concatMapStringsSep "\n" (f: "@${selfStr}/home/claude/global/${f}") shared;
 in
 {
   options.programs.claudeInstructions = {
