@@ -57,6 +57,15 @@ ALLOW = [
     ("jj --config=ui.color=never git push", "jj interop, inline option value"),
     ("jj --no-pager log", "plain jj"),
     ("jj --no-pager git push && jj --no-pager git fetch", "two jj interop calls"),
+    # `git config` reads. The write forms are in DENY below.
+    ("git config --get user.email", "config read, classic flag"),
+    ("git config --get-all remote.origin.fetch", "config read, --get-all"),
+    ("git config --get-regexp '^user'", "config read, --get-regexp"),
+    ("git config --list", "config read, --list"),
+    ("git config -l", "config read, short --list"),
+    ("git config --global --get user.name", "config read behind a scope flag"),
+    ("git config get user.email", "config read, newer subcommand form"),
+    ("git config list", "config read, newer subcommand form"),
     # Unlexable text is allowed rather than guessed at: a false positive
     # costs more than a false negative here.
     ("echo 'unbalanced", "unbalanced quote"),
@@ -83,6 +92,16 @@ DENY = [
     ("timeout 5 git push", "prefix runner with an argument"),
     ("git -C /tmp push", "global option with a value"),
     ("git --git-dir=/tmp/x push", "inline global option"),
+    # `git config` writes. A read marker has to be present and unopposed,
+    # so the bare set form is refused without being enumerated.
+    ("git config user.email x@y.z", "config write, the bare set form"),
+    ("git config --global user.email x@y.z", "config write behind a scope flag"),
+    ("git config set user.email x@y.z", "config write, newer subcommand form"),
+    ("git config --unset user.email", "config write, --unset"),
+    ("git config --add remote.origin.fetch x", "config write, --add"),
+    ("git config --edit", "config write, opens an editor"),
+    ("git config --get user.email --edit", "read marker opposed by a write marker"),
+    ("git config", "no marker at all"),
 ]
 
 

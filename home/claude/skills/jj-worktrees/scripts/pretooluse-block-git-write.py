@@ -9,8 +9,14 @@ rebase, reset, add, rm, mv, stash, tag, branch, cherry-pick, revert,
 remote, config, clean, gc, fetch, pull, am, apply, worktree, submodule,
 filter-branch, ...) is too large and too easy to miss a new one from. The
 read-only surface is small and doesn't grow. Dual-mode commands (branch,
-tag, stash, remote, config, reflog) are left off entirely rather than
-trying to tell their read and write forms apart.
+tag, stash, remote, reflog) are left off entirely rather than trying to
+tell their read and write forms apart.
+
+`git config` is the one exception, because its read form is common and
+unambiguous. It is allowed only when it carries an explicit read marker --
+`--get`, `--list`, or the `get`/`list` subcommands of newer git -- and no
+write marker. Everything else about it, `git config user.email x` included,
+is still refused.
 
 This parses the command into shell words and only considers words in
 *command position* -- the start of the command, or just after a separator
@@ -56,6 +62,20 @@ _READONLY_GIT_SUBCOMMANDS = {
     "grep", "count-objects", "fsck", "merge-base", "show-ref", "var",
     "check-ignore", "check-attr", "check-mailmap", "range-diff",
 }
+
+# `git config` in a read form. Both spellings: the classic flags, and the
+# `get`/`list` subcommands git grew later. A write marker anywhere wins, so
+# a line carrying both is refused rather than guessed at.
+_CONFIG_READ_FLAGS = {
+    "--get", "--get-all", "--get-regexp", "--get-urlmatch", "--get-color",
+    "--get-colorbool", "--list", "-l",
+}
+_CONFIG_READ_SUBCOMMANDS = {"get", "list"}
+_CONFIG_WRITE_FLAGS = {
+    "--add", "--unset", "--unset-all", "--replace-all", "--edit", "-e",
+    "--rename-section", "--remove-section",
+}
+_CONFIG_WRITE_SUBCOMMANDS = {"set", "unset", "edit", "rename-section", "remove-section"}
 
 # Global git options that consume the following token as their value, so
 # that value isn't mistaken for the subcommand.
@@ -172,6 +192,7 @@ def _strip_prefix_runners(argv):
 
 
 def _first_positional(tokens):
+    """The subcommand and the tokens after it, or (None, [])."""
     i = 0
     while i < len(tokens):
         tok = tokens[i]
@@ -179,9 +200,26 @@ def _first_positional(tokens):
             i += 1
             continue
         if not tok.startswith("-"):
-            return tok
+            return tok, tokens[i + 1:]
         i += 2 if tok in _GIT_OPTS_WITH_ARG else 1
-    return None
+    return None, []
+
+
+def _config_is_read(args):
+    """True for a `git config` invocation that only reads.
+
+    Requires a read marker to be present, so the bare `git config foo.bar
+    value` write form -- which has no marker of its own -- is refused by
+    default rather than by enumeration.
+    """
+    if any(a in _CONFIG_WRITE_FLAGS for a in args):
+        return False
+    sub, rest = _first_positional(args)
+    if sub in _CONFIG_WRITE_SUBCOMMANDS:
+        return False
+    if sub in _CONFIG_READ_SUBCOMMANDS:
+        return True
+    return any(a in _CONFIG_READ_FLAGS for a in args)
 
 
 def _denied_in(command, depth=0):
@@ -229,9 +267,12 @@ def _denied_in(command, depth=0):
             continue
 
         if head == "git":
-            sub = _first_positional(argv[1:])
-            if sub is not None and sub not in _READONLY_GIT_SUBCOMMANDS:
-                return f"git {sub}"
+            sub, rest = _first_positional(argv[1:])
+            if sub is None or sub in _READONLY_GIT_SUBCOMMANDS:
+                continue
+            if sub == "config" and _config_is_read(rest):
+                continue
+            return f"git {sub}"
 
     return None
 
