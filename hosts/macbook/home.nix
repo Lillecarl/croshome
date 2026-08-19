@@ -14,11 +14,6 @@ in
   home.homeDirectory = "/Users/lillecarl";
   home.stateVersion = "26.11";
 
-  # Work machine, so commits carry the work address rather than the
-  # git@lillecarl.com that ../../home/vcs.nix defaults to. Setting it here is
-  # enough for git too: vcs.nix reads the git identity off this one.
-  programs.jujutsu.settings.user.email = "carl.andersson@dynamist.se";
-
   # Both locations, because brew picks between them from the environment: it
   # uses $XDG_CONFIG_HOME/homebrew when that is set, which is the case in a
   # shell, and ~/.homebrew otherwise -- and activation runs brew under sudo,

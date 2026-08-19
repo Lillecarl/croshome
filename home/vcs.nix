@@ -10,9 +10,14 @@
       enable = true;
       settings = {
         user.name = "lillecarl";
-        # mkDefault so a host can commit under another address. The git
-        # identity below reads this value, so overriding it moves both.
-        user.email = lib.mkDefault "git@lillecarl.com";
+        # The work address, on every machine. It used to default to
+        # git@lillecarl.com with only the MacBook overriding it, which meant
+        # work landed under a personal address from anywhere else.
+        #
+        # mkDefault stays, so a host can still commit under another address.
+        # The git identity below reads this value, so overriding it moves
+        # both.
+        user.email = lib.mkDefault "carl.andersson@dynamist.se";
         git.private-commits = "description(glob:'private:*')";
         ui.pager = [
           "sh"
