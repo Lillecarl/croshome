@@ -6,19 +6,64 @@ import asyncio
 import json
 import sys
 import os
+import time
 
 from wrapty_client import call
 
+# Above this, a window is close enough to full that the time to its reset
+# changes what you do next. Below it the reset is noise, so the line omits it.
+LOUD_AT = 80
 
-def _render(payload):
+# The plan windows Claude Code reports, in the order they run out.
+WINDOWS = (
+    ("five_hour", "5h"),
+    ("seven_day", "7d"),
+)
+
+
+def _until(epoch, now):
+    """The time to `epoch` in one short unit: `40m`, `3h`, `2d`."""
+    seconds = int(epoch - now)
+    if seconds <= 0:
+        return "now"
+    if seconds < 3600:
+        return f"{seconds // 60}m"
+    if seconds < 86400:
+        return f"{seconds // 3600}h"
+    return f"{seconds // 86400}d"
+
+
+def _window(data, label, now):
+    """One plan window as `5h 62%`, with the reset time once it is loud."""
+    if not data:
+        return None
+    pct = data.get("used_percentage")
+    if pct is None:
+        return None
+    text = f"{label} {pct:.0f}%"
+    resets_at = data.get("resets_at")
+    if pct >= LOUD_AT and resets_at is not None:
+        text += f" ({_until(resets_at, now)})"
+    return text
+
+
+def _render(payload, now=None):
     model = payload.get("model", {}).get("display_name", "?")
     ctx = payload.get("context_window", {})
     used_pct = ctx.get("used_percentage")
+    limits = payload.get("rate_limits") or {}
     cost = payload.get("cost", {}).get("total_cost_usd")
+    now = time.time() if now is None else now
 
     parts = [model]
     if used_pct is not None:
         parts.append(f"ctx {used_pct:.0f}%")
+    # An API key has no plan windows, and an older Claude Code does not report
+    # them, so every one of these is optional.
+    for key, label in WINDOWS:
+        window = _window(limits.get(key), label, now)
+        if window is not None:
+            parts.append(window)
     if cost is not None:
         parts.append(f"${cost:.2f}")
     return " · ".join(parts)
