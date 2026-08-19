@@ -23,7 +23,7 @@ def _session_id() -> str:
 
 
 @mcp.tool()
-async def send(text: str, press_enter: bool = True) -> str:
+async def send(text: str, press_enter: bool = True, resume: str | None = None) -> str:
     """Type text into this session's stdin, then press Enter.
 
     The text is typed a few characters at a time with a short randomized
@@ -34,11 +34,36 @@ async def send(text: str, press_enter: bool = True) -> str:
     call doesn't return until typing has actually finished, so "ok" means
     the text is in, not that it's on its way.
 
+    Typed is not the same as run. This session only submits queued input
+    once it is idle, so anything you type into your own box lands in the box
+    and waits for your turn to end. If you keep working, it keeps waiting —
+    and the Stop hook nudging you onward is exactly what stops your turn
+    ending, so the text can sit there indefinitely and never take effect.
+
+    Pass `resume` whenever you are sending a command you expect to act on
+    this session — a slash command like /reload-plugins, say. It permits the
+    next Stop and says what to type back to you once your queued input has
+    gone through, so: your turn ends, the command runs, and you are started
+    again with that text as a fresh prompt. Put enough in it to pick the
+    work back up, since it arrives with no other context.
+
+    Then actually stop your turn. Nothing runs until you do.
+
+    A slash command reports its result in the transcript rather than
+    anywhere pollable, so being resumed is not proof it worked — check for
+    the effect you wanted once you are back.
+
     Args:
         text: The text to type.
         press_enter: Press Enter after typing (default True).
+        resume: What to type back to you after the turn ends, or None (the
+            default) to just type and leave your turn alone.
     """
-    return await call(_session_id(), "send", {"text": text, "press_enter": press_enter})
+    return await call(
+        _session_id(),
+        "send",
+        {"text": text, "press_enter": press_enter, "resume": resume},
+    )
 
 
 @mcp.tool()

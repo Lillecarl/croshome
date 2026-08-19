@@ -55,6 +55,10 @@ COMPACT_SETTLE_DELAY = float(os.environ.get("WRAPTY_COMPACT_SETTLE_DELAY", "1"))
 # cap on how long to wait before giving up and resuming anyway.
 COMPACT_POLL_INTERVAL = float(os.environ.get("WRAPTY_COMPACT_POLL_INTERVAL", "2"))
 COMPACT_MAX_WAIT = float(os.environ.get("WRAPTY_COMPACT_MAX_WAIT", "120"))
+# How long to let the session settle after a temporary stop before typing the
+# agent back to. The queued input submits at the turn boundary, so this only
+# has to cover that landing, not the command itself finishing.
+RESUME_SETTLE_DELAY = float(os.environ.get("WRAPTY_RESUME_SETTLE_DELAY", "2"))
 CONTINUE_TEXT = os.environ.get("WRAPTY_CONTINUE_TEXT", "Continue with your task.")
 
 
@@ -144,17 +148,31 @@ async def _run(argv):
 
     dispatcher = Dispatcher()
     latest_stats = {}
-    # need_user: set once the agent flags it's blocked on the user, cleared on
-    # the next Stop. stop_count: consecutive Stops seen without that flag
-    # being set, used to nudge an agent that keeps stopping silently.
-    # pending_compact: set by compact() to defer the actual "/compact...\r"
-    # keystrokes until the agent's turn has genuinely ended -- see on_stop().
+    # allow_stop: this Stop is permitted rather than nudged, cleared once used.
+    # It is deliberately not called need_user, because needing the user is only
+    # one of the reasons to set it -- compact() sets it too, and a compaction
+    # has nothing to do with wanting the human. What the flag actually means is
+    # "let the turn end this once".
+    #
+    # That splits stops into two kinds, and `resume` is what tells them apart:
+    #
+    #   permanent  need_user(), resume None -- the agent is done or blocked,
+    #              and the turn ending is the point.
+    #   temporary  resume set -- the turn has to end for something else to
+    #              happen (queued input only submits when the session is idle,
+    #              not mid-turn), and the agent is typed back to afterwards so
+    #              the work continues. Nobody has to notice and poke it.
+    #
+    # pending_compact is the temporary case with a condition worth waiting on:
+    # it polls for usage to actually drop before resuming. Everything else just
+    # settles and resumes.
     nudge_state = {
-        "need_user": False,
+        "allow_stop": False,
+        "resume": None,
         "stop_count": 0,
         "cooldowns": {},
         "pending_compact": None,
-        "compact_task": None,
+        "task": None,
     }
     async def _type_and_submit(text_bytes, press_enter):
         """Delivers text_bytes a few bytes at a time with a short, jittered
@@ -169,13 +187,26 @@ async def _run(argv):
             write_master(b"\r")
 
     @dispatcher.add_method
-    async def send(text, press_enter=False):
+    async def send(text, press_enter=False, resume=None):
         # Awaited directly (see _dispatch) rather than farmed out to a
         # detached task, so the RPC call -- and the MCP tool call on top of
         # it -- doesn't return until the text has actually been typed, not
         # merely scheduled. A caller that gets "ok" back knows the text is
         # in, not that it will be shortly.
+        #
+        # Typed is not the same as run, though. The session only submits
+        # queued input once it is idle, so text an agent sends to its own box
+        # mid-turn sits there until the turn ends -- and if the Stop hook
+        # keeps nudging it onward, that never happens and the text is silently
+        # stranded. `resume` is the way out: it permits the next Stop and says
+        # what to type once the queued input has gone through, so the turn
+        # ends, the command runs, and the agent is brought back.
         await _type_and_submit(text.encode(), press_enter)
+        if resume is not None:
+            nudge_state["allow_stop"] = True
+            nudge_state["resume"] = resume
+            nudge_state["stop_count"] = 0
+            return "ok: stop this turn now, it will be typed back to you after"
         return "ok"
 
     @dispatcher.add_method
@@ -190,7 +221,11 @@ async def _run(argv):
 
     @dispatcher.add_method
     def need_user():
-        nudge_state["need_user"] = True
+        # The permanent kind of stop: no resume, so nothing types the agent
+        # back afterwards. That is the whole point -- it is now the human's
+        # turn.
+        nudge_state["allow_stop"] = True
+        nudge_state["resume"] = None
         nudge_state["stop_count"] = 0
         return "ok"
 
@@ -208,14 +243,25 @@ async def _run(argv):
         pending = nudge_state["pending_compact"]
         if pending is not None:
             nudge_state["pending_compact"] = None
-            nudge_state["need_user"] = False
+            nudge_state["allow_stop"] = False
+            nudge_state["resume"] = None
             nudge_state["stop_count"] = 0
-            nudge_state["compact_task"] = loop.create_task(
+            nudge_state["task"] = loop.create_task(
                 _run_pending_compact(pending["instructions"], pending["used_pct"])
             )
             return {"nudge": False}
-        if nudge_state["need_user"]:
-            nudge_state["need_user"] = False
+        # A temporary stop: whatever was queued gets its turn boundary, then
+        # the agent is typed back to. Same hand-off to a background task, and
+        # for the same reason.
+        if nudge_state["resume"] is not None:
+            resume = nudge_state["resume"]
+            nudge_state["resume"] = None
+            nudge_state["allow_stop"] = False
+            nudge_state["stop_count"] = 0
+            nudge_state["task"] = loop.create_task(_run_pending_resume(resume))
+            return {"nudge": False}
+        if nudge_state["allow_stop"]:
+            nudge_state["allow_stop"] = False
             nudge_state["stop_count"] = 0
             return {"nudge": False}
         nudge_state["stop_count"] += 1
@@ -233,6 +279,20 @@ async def _run(argv):
             return False
         nudge_state["cooldowns"][name] = now
         return True
+
+    async def _run_pending_resume(text):
+        """Runs after a temporary stop (see on_stop()). Whatever the agent
+        queued has submitted by now -- that is what ending the turn was for --
+        so this only has to wait for the session to be idle again and then
+        type the agent back to.
+
+        There is no equivalent of the compaction check below, because there is
+        nothing general to poll: a slash command reports success in the
+        transcript, not in the statusline. So this settles and resumes, and an
+        agent that needs proof its command took effect should check for it
+        after being resumed rather than assume it."""
+        await asyncio.sleep(RESUME_SETTLE_DELAY)
+        await _type_and_submit(text.encode(), press_enter=True)
 
     async def _run_pending_compact(instructions, used_pct_before):
         """Runs after the agent's turn has genuinely ended (see on_stop()).
@@ -269,7 +329,7 @@ async def _run(argv):
                 ),
             )
         nudge_state["pending_compact"] = {"instructions": instructions, "used_pct": used_pct}
-        nudge_state["need_user"] = True
+        nudge_state["allow_stop"] = True
         nudge_state["stop_count"] = 0
         return "scheduled: stop this turn now, compaction runs once it ends"
 
