@@ -88,10 +88,18 @@ async def compact(instructions: str = "") -> str:
     This session's input box only accepts a typed "/compact" as a genuine
     command when it's actually idle -- not while you're still mid-turn
     running this very tool call. So this doesn't type it immediately: it
-    marks the session as needing the user (the Stop hook won't nudge you to
-    keep going) and records the request. Once your turn actually ends,
-    "/compact [instructions]" is typed for real, and you'll be resumed
-    automatically afterwards with a fresh "Continue with your task." prompt.
+    records the request and permits your turn to end (the Stop hook won't
+    nudge you to keep going). Once your turn actually ends,
+    "/compact [instructions]" is typed for real.
+
+    You're then resumed automatically, but not until the compaction has
+    demonstrably happened: wrapty polls the statusline until the context
+    usage it reports actually drops, and only then types a fresh "Continue
+    with your task." prompt. Waiting on the effect rather than on having
+    typed the keystrokes is the whole point -- you come back to a context
+    that really is compacted, not to one where /compact merely got
+    submitted. If the usage never drops, it gives up after a couple of
+    minutes and resumes you anyway rather than stranding the session.
 
     Do not call any more tools or produce more text after this -- just stop.
 
