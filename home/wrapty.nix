@@ -6,6 +6,20 @@
 # hand-edited JSON under an out-of-store symlink (see ./agents.nix), not
 # generated here -- nothing in this module writes to them.
 #
+# A rebuild does not reach a session that is already running. wrapty is the
+# long-lived process wrapping `claude` (see ../home/fish/functions/claude.fish)
+# and it owns the control socket the MCP server and hooks talk to, so a switch
+# repoints the profile for the *next* session and leaves live ones on the old
+# binary. Restart the session to pick a wrapty change up; /reload-plugins is
+# not enough, and neither is anything else short of a restart.
+#
+# This is worth knowing because the hooks behave the opposite way and the
+# difference is invisible: ./agents.nix installs the git-write hook as a bare
+# command that hooks.json names, so PATH is re-resolved on every invocation
+# and a rebuild takes effect at once. Changing the hook needs no restart;
+# changing wrapty does. Confirmed by an MCP call against a stale session
+# rejecting an argument the new wrapty had just gained.
+#
 # ~/.claude/settings.json as a whole is deliberately NOT nix-managed: Claude
 # Code itself writes to that file at runtime (plugin toggles, model
 # selection, trust state), so a nix-generated copy would either get silently
