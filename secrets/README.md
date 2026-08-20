@@ -14,6 +14,9 @@ Two things read a secret, and they read it in different ways:
 Activation has no terminal. That is the whole reason the plaintext copy at
 `/var/lib/agenix/identity` exists, and the reason `./unlock` puts it there.
 
+The two OpenPGP keys are a third case and read neither row: nothing decrypts
+them without a person. See [OpenPGP](#openpgp) below.
+
 ## One time, to create the identity
 
 Do this once, ever. It creates the key that every secret is encrypted to.
@@ -262,6 +265,124 @@ Before you wipe the machine, know what touched a disk:
 
 If you did run `./unlock` there, `./secrets/unlock --lock` removes the
 plaintext before you hand the machine on.
+
+## OpenPGP
+
+Two keys, one per identity, and they follow the same split the commit author
+already does:
+
+| Name | Identity | Signs |
+| --- | --- | --- |
+| `pgp-work` | Carl Andersson <carl.andersson@dynamist.se> | everything else |
+| `pgp-personal` | lillecarl <prettygood@lillecarl.com> | this repository |
+
+Each key is an ed25519 primary that only certifies, with an ed25519 signing
+subkey and a cv25519 encryption subkey under it. The primary is the identity
+and rarely has to move. A subkey does the daily work and can be replaced
+without changing who you are.
+
+`../home/gpg.nix` installs gpg and its agent. `../home/vcs.nix` turns signing
+on, and reads the fingerprints from `./pgp-keys.nix`.
+
+### One time, to create the keys
+
+Once, ever, on one machine. It must be a terminal: it asks for a passphrase.
+
+```sh
+./secrets/pgp-create
+```
+
+It makes both keys, encrypts each secret key to `lillecarl-age`, writes the
+public halves and `./pgp-keys.nix`, imports both into that machine's GnuPG,
+and then proves both age files decrypt before it says it is done.
+
+Commit what it wrote, rebuild, and signing turns on.
+
+### Once per machine
+
+```sh
+./secrets/pgp-import            # both keys
+./secrets/pgp-import personal   # or just one
+./secrets/pgp-import --status   # what is here already
+```
+
+It asks for the age passphrase, decrypts, and imports. GnuPG keeps the key
+afterwards, so nothing runs again at boot or at login.
+
+`--status` needs no passphrase, no key and no gpg. Run it first when signing
+stops working.
+
+### Why there is no agenix home-manager module here
+
+The obvious design is `${inputs.agenix}/modules/age-home.nix`, a user-level
+agenix that decrypts into `$XDG_RUNTIME_DIR`. It is the wrong shape for this,
+and the reason is worth keeping.
+
+That module exists for a secret that has to **be a file** while a program
+runs. So it decrypts on every login, with no terminal, which means it needs an
+identity the user can read with no passphrase. Setting that up would mean a
+second plaintext copy of the age key, this time user-readable.
+
+An OpenPGP key is not that shape. It goes into GnuPG's own store **once** and
+stays there across reboots. So the decryption is a thing a person does, one
+command per machine, and it can ask for the passphrase like any other. The
+identity at `/var/lib/agenix/identity` stays root-only, and the system agenix
+in `./default.nix` stays the only agenix in this repository.
+
+Reach for the home module when a secret must be a file at runtime -- an API
+token some program reads at startup. Not for this.
+
+### Two passphrases, and both must survive
+
+The key's own passphrase protects the export before age ever sees it. The age
+passphrase protects it again in this public repository. That is deliberate:
+the ciphertext here is world-readable and permanent, so one secret should not
+be the whole of its protection.
+
+The cost is that losing **either** loses the key. Put both in a password
+manager. A third weak recipient is not the fix -- see the note on `lillecarl`
+in `./secrets.nix`.
+
+`../home/gpg.nix` sets a generous agent cache for exactly this reason: eight
+hours since last use, one day since the passphrase was typed. A working day
+costs one prompt.
+
+### Renewal, revocation and publishing
+
+Both keys expire two years after `./pgp-create` ran. Renewal does not change
+the fingerprint, so nothing downstream moves:
+
+```sh
+gpg --quick-set-expire <fingerprint> 2y '*'      # '*' covers the subkeys too
+```
+
+Then re-export, because `./pgp-work.age` still holds the old expiry:
+
+```sh
+cd secrets
+gpg --export-secret-keys --armor <fingerprint> |
+  age -r "$(sed -n 's/^ *lillecarl-age = "\(age1[^"]*\)".*/\1/p' secrets.nix)" \
+      -a -o pgp-work.age
+```
+
+`./pgp-create` copied the revocation certificate gpg made at generation to
+`~/.gnupg/openpgp-revocs.d/<fingerprint>.rev` on that one machine. It is not in
+this repository, and it should not be: whoever holds it can revoke the key.
+It is the only way to retire a key whose passphrase is lost, so back it up
+somewhere you trust. With the key and its passphrase in hand you can always
+make another with `gpg --gen-revoke`.
+
+The public halves are checked in as `./pgp-work.pub.asc` and
+`./pgp-personal.pub.asc`, in plaintext, because a public key is public. Hand
+one to somebody directly, or publish it:
+
+```sh
+gpg --send-keys <fingerprint>     # keys.openpgp.org, per ../home/gpg.nix
+```
+
+keys.openpgp.org verifies the address before it serves a user ID. The old SKS
+pool served whatever anyone uploaded, which is how keys got poisoned with
+thousands of bogus signatures.
 
 ## Notes
 
