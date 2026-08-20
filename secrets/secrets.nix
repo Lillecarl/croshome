@@ -144,6 +144,43 @@ in
     armor = true;
   };
 
+  # The two OpenPGP secret keys, exported with `gpg --export-secret-keys`.
+  # `pgp-work` is Carl Andersson <carl.andersson@dynamist.se> and
+  # `pgp-personal` is lillecarl <prettygood@lillecarl.com>. ./pgp-create makes
+  # them, ./pgp-import puts one into GnuPG on a machine, and ./pgp-keys.nix
+  # records the fingerprints for ../home/vcs.nix to sign with.
+  #
+  # `lillecarl-age` is the only recipient, and the two omissions are deliberate.
+  #
+  # No host key. A host key is for a secret that activation decrypts with no
+  # terminal, and nothing decrypts these without a person: ./pgp-import is a
+  # command you run once per machine, and GnuPG keeps the key afterwards. So
+  # listing hetztop would mean that taking a public VPS yields a work identity,
+  # in exchange for nothing.
+  #
+  # Not `lillecarl` either, for the reason given above it: a passphrase-less
+  # ssh key that has been copied to many places sets the floor for anything
+  # encrypted to it.
+  #
+  # These files are less exposed than the rest of this directory, and it is
+  # worth being exact about why. The export is already encrypted with the key's
+  # own passphrase before age ever sees it, so the ciphertext in this public
+  # repository is behind two independent secrets. Both have to be broken, and
+  # both have to survive: lose either passphrase and the key is gone with it.
+  # Put both in a password manager.
+  #
+  # `armor` because ./pgp-create writes them with `age -a`. It has to agree, or
+  # the next `agenix -r` silently rewrites them as binary.
+  "pgp-work.age" = {
+    publicKeys = [ lillecarl-age ];
+    armor = true;
+  };
+
+  "pgp-personal.age" = {
+    publicKeys = [ lillecarl-age ];
+    armor = true;
+  };
+
   # Adding another: name it here and in `age.secrets` in ./default.nix. Naming
   # it in only one of the two places is the usual mistake -- this file decides
   # who *can* decrypt, that file decides what actually gets decrypted and where
