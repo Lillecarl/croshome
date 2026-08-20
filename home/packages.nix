@@ -76,6 +76,16 @@
     ast-grep # structural search and rewrite, where ripgrep only sees text
     binutils
     difftastic # diff by syntax, so a reformat stops looking like a rewrite
+    # The Bitwarden vault from a shell, as `bw`. Builds and runs on both
+    # platforms, so it is here rather than in a per-machine list.
+    #
+    # It holds what this repository deliberately cannot: the two passphrases
+    # that open ../secrets, and the OpenPGP revocation certificates. Neither
+    # belongs in a public repository -- the passphrases because they are the
+    # whole of its protection, the revocation certificates because whoever
+    # holds one can retire the key. See ../secrets/README.md.
+    bitwarden-cli
+
     gitui
     # gh's opposite number. ./github.nix configures gh through a home-manager
     # module; glab has none, and its config lives in ~/.config/glab-cli
