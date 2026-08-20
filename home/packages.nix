@@ -77,6 +77,14 @@
     binutils
     difftastic # diff by syntax, so a reformat stops looking like a rewrite
     gitui
+    # gh's opposite number. ./github.nix configures gh through a home-manager
+    # module; glab has none, and its config lives in ~/.config/glab-cli
+    # either way, so the package is the whole of it.
+    #
+    # Shared rather than macbook-only, which is where it used to be. Nothing
+    # about talking to GitLab is a property of that machine, and having it on
+    # one of three was a divergence nobody chose.
+    glab
     jj-hunk
     lazygit
     shellcheck # check a shell script before it is the thing that ran

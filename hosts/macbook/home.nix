@@ -40,8 +40,5 @@ in
     # token in ~/.config/cachix/cachix.dhall, which stays hand-managed.
     pkgs.cachix
     pkgs.autossh
-    # gh's opposite number; no home-manager module for it, and its config lives
-    # in ~/.config/glab-cli/ either way.
-    pkgs.glab
   ];
 }
