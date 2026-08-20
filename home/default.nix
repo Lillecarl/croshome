@@ -23,6 +23,7 @@
     ./fish.nix
     ./fonts.nix
     ./github.nix
+    ./gpg.nix
     ./helix.nix
     ./k9s.nix
     ./packages.nix
