@@ -271,10 +271,21 @@ plaintext before you hand the machine on.
 Two keys, one per identity, and they follow the same split the commit author
 already does:
 
-| Name | Identity | Signs |
+| Name | User IDs | Signs |
 | --- | --- | --- |
 | `pgp-work` | Carl Andersson <carl.andersson@dynamist.se> | everything else |
-| `pgp-personal` | lillecarl <prettygood@lillecarl.com> | this repository |
+| `pgp-personal` | lillecarl <prettygood@lillecarl.com><br>lillecarl <git@lillecarl.com> | this repository |
+
+The personal key carries two addresses, and the second one is not decoration.
+GitHub and GitLab badge a signature only when the address on the **commit** is
+one of the key's user IDs. `../home/vcs.nix` commits as `git@lillecarl.com`
+here, so a key naming only `prettygood@lillecarl.com` gives signatures that are
+valid and shown as unverified -- the one thing publishing a key is meant to
+fix. GitHub settled it: it reports `git@lillecarl.com` as a verified address on
+the account and `prettygood@lillecarl.com` as not.
+
+The rule generalises. Before adding an address to `./pgp-create`, check that
+whatever commits under it is a user ID on the key that signs it.
 
 Each key is an ed25519 primary that only certifies, with an ed25519 signing
 subkey and a cv25519 encryption subkey under it. The primary is the identity
@@ -343,9 +354,24 @@ The cost is that losing **either** loses the key. Put both in a password
 manager. A third weak recipient is not the fix -- see the note on `lillecarl`
 in `./secrets.nix`.
 
-`../home/gpg.nix` sets a generous agent cache for exactly this reason: eight
-hours since last use, one day since the passphrase was typed. A working day
-costs one prompt.
+`../home/gpg.nix` sets the agent cache to 400 days for exactly this reason,
+which is "until the agent stops" in practice. hetztop is a server with agents
+committing on it around the clock, and a cache that lapses overnight means a
+signing failure at an hour when nobody is there to type anything. Read the
+comment there for what that trades away.
+
+So one command per boot, and `pgp-unlock` is it:
+
+```sh
+pgp-unlock            # both keys, one prompt
+pgp-unlock --status   # what the agent holds
+pgp-unlock --lock     # forget it again
+```
+
+One prompt covers both keys because gpg-agent caches per subkey, not per
+passphrase: unlocking one leaves the other locked, and a commit in a
+repository that signs with the other key still stops to ask. Until it has run,
+jj cannot even snapshot -- signing failure, not just an unsigned commit.
 
 ### Renewal, revocation and publishing
 
@@ -383,6 +409,15 @@ gpg --send-keys <fingerprint>     # keys.openpgp.org, per ../home/gpg.nix
 keys.openpgp.org verifies the address before it serves a user ID. The old SKS
 pool served whatever anyone uploaded, which is how keys got poisoned with
 thousands of bogus signatures.
+
+Both keys are already on GitHub (`Lillecarl`) and on gitlab.com (`lillecarl`),
+added 2026-08-20. Neither host stores anything secret, so re-uploading after a
+renewal is safe and is the way to update them -- the fingerprint does not
+change, but the expiry date on the uploaded copy does.
+
+`glab` and `gh` both need a token for that. `ask` and `answer`, from
+`../home/ask.nix`, are how an agent supplies one without it passing through a
+conversation.
 
 ## Notes
 
