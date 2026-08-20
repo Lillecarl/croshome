@@ -72,11 +72,16 @@ in
         # else's signatures alone. `force` would re-sign a commit written by
         # someone else, which is a claim this configuration should not make.
         #
-        # jj rewrites a commit far more often than git does -- every snapshot
-        # of the working copy is a rewrite -- so this runs gpg often. That is
-        # cheap with the agent holding the passphrase and impossible without
-        # it. `jj --config signing.behavior=drop` is the way past it when the
-        # agent is cold and the work is not worth a prompt.
+        # jj rewrites a commit far more often than git does, so this runs gpg
+        # far more often. Measured with a counting wrapper: one gpg call per
+        # snapshot that actually changed a file, one per `jj new`, and none at
+        # all when nothing changed. So it is one signature per edit and not
+        # one per command, which is affordable.
+        #
+        # It is affordable only while gpg-agent holds the passphrase, and
+        # impossible once the cache expires -- true for any agent committing
+        # here as much as for a person. `jj --config signing.behavior=drop` is
+        # the way past it when the work is not worth a prompt.
         signing = {
           backend = "gpg";
           behavior = "own";
