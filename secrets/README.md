@@ -373,6 +373,40 @@ passphrase: unlocking one leaves the other locked, and a commit in a
 repository that signs with the other key still stops to ask. Until it has run,
 jj cannot even snapshot -- signing failure, not just an unsigned commit.
 
+### A second copy, in Bitwarden
+
+The repository is one copy and a public one. A vault item, `OpenPGP keys
+(croshome)`, holds a second, reachable with `bw` from `../home/packages.nix`:
+
+| Attachment | What it is |
+| --- | --- |
+| `identity.age` | the age identity. **Everything else is encrypted to this**, so the other attachments cannot be opened without it. |
+| `pgp-work.age` | the work key, as in this directory |
+| `pgp-personal.age` | the personal key, as in this directory |
+| `<fingerprint>.rev` | a revocation certificate per key |
+
+The revocation certificates are the part that matters most. They live in
+`~/.gnupg/openpgp-revocs.d` on the machine that ran `./pgp-create` and nowhere
+else, and they are not in this repository, because whoever holds one can retire
+the key. The vault is their only other copy.
+
+The two passphrases are **not** in the vault, by choice. So this copy protects
+against losing GitHub and every clone, and not against forgetting a
+passphrase -- that still loses both keys for good. The revocation certificates
+are the exception: a `.rev` file needs no passphrase at all.
+
+To restore with the vault alone and no repository:
+
+```sh
+bw get attachment identity.age     --itemid <id> --output identity.age
+bw get attachment pgp-personal.age --itemid <id> --output pgp-personal.age
+age -d -i identity.age pgp-personal.age | gpg --import
+```
+
+Every attachment was read back and compared with the local file on upload,
+2026-08-20, and all five matched byte for byte. Do that again after any
+change: a backup nobody has read back is a copy somebody hopes exists.
+
 ### Renewal, revocation and publishing
 
 Both keys expire two years after `./pgp-create` ran. Renewal does not change
