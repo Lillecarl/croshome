@@ -163,6 +163,22 @@
       sbomnix.override { python3 = patchedPython; }
     )
 
+    # Answering "what is this machine doing right now", on either platform.
+    # The Linux-only half of the same job -- net-tools, psmisc, sysstat and the
+    # hardware tools -- is in ./linux/default.nix, because those read /proc,
+    # /sys and Linux netlink and have nothing to read on macOS.
+    #
+    # `jc` above parses most of these into JSON, which is what makes them worth
+    # installing for an agent rather than only for a human: `lsof -i -P -n | jc
+    # --lsof`, `dig ... | jc --dig`.
+    dnsutils # dig, and `dig +short` is the whole answer most of the time
+    file # what a thing actually is, when the extension is absent or lying
+    iperf3 # is the link slow, or is the far end slow
+    lsof # which process holds this file, this socket, this deleted inode
+    pv # a progress bar and a rate for any pipe that has neither
+    smartmontools # the disk knows it is dying before the filesystem does
+    tcpdump # the packets themselves, when every layer above them disagrees
+
     # The rest
     fish-lsp
     wireguard-tools
