@@ -281,7 +281,10 @@
   system.defaults.NSGlobalDomain.NSWindowShouldDragOnGesture = true;
 
   system.keyboard.enableKeyMapping = true;
-  system.keyboard.swapLeftCtrlAndFn = true;
+  # macOS owns the hardware-specific Ctrl/Fn and Caps/Escape mapping through
+  # System Settings. It records the verified map in the per-host preference
+  # domain, where it covers both Fn event variants on this M5 Pro keyboard.
+  system.keyboard.swapLeftCtrlAndFn = false;
   # Apple ISO keyboards report the key left of 1 as Non-US \ (0x64), which
   # US-style layouts render as §/±; remap it to Grave/Tilde (0x35).
   system.keyboard.nonUS.remapTilde = true;

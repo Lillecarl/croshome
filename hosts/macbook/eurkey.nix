@@ -97,5 +97,23 @@ in
     # nix copies in is quarantined, so clearing the whole tree is safe and
     # removes the flag from anything that came before.
     /usr/bin/xattr -c -r "/Library/Keyboard Layouts/EurKEY-Next.bundle"
+
+    # loginwindow is not in lillecarl's preference domain. It reads the
+    # system copy of HIToolbox instead, so selecting EurKEY for the account
+    # alone leaves the initial login screen on Swedish. Copy the complete
+    # preference file rather than reconstructing private HIToolbox keys and
+    # layout IDs; this preserves the exact source that macOS accepted for the
+    # user. The bundle has been installed above before this file is consumed
+    # at the next boot.
+    install -m 644 \
+      "/Users/lillecarl/Library/Preferences/com.apple.HIToolbox.plist" \
+      "/Library/Preferences/com.apple.HIToolbox.plist"
+
+    # FileVault's pre-boot login happens before macOS can load either
+    # HIToolbox plist or a custom layout. Its supported input source comes
+    # from NVRAM; `en-US:0` is Apple's standard U.S. source. This also fixes
+    # the regular login window, which was following the existing `en:7`
+    # (Swedish) value instead of the system HIToolbox preference above.
+    /usr/sbin/nvram 'prev-lang:kbd=en-US:0'
   '';
 }
