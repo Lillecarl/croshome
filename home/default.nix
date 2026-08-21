@@ -27,6 +27,7 @@
     ./gpg.nix
     ./helix.nix
     ./k9s.nix
+    ./opencode.nix
     ./packages.nix
     ./tmux.nix
     ./vcs.nix

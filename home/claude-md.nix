@@ -4,9 +4,11 @@
 # The file is half generated and half live. The header below is generated,
 # because it states things that differ per machine: the clone directory, the
 # rebuild command, and which nix-community builder matches this system. The
-# sections after it are plain markdown in ./claude/global/, pulled in with
-# `@` imports that point straight into the checkout. An edit to one of those
-# files applies to the next session with no rebuild. An edit here needs one.
+# sections after it are plain markdown in ./agents/, pulled in with `@`
+# imports that point straight into the checkout. ./agents/shared holds rules
+# shared with the other harnesses (see ./opencode.nix); ./agents/claude holds
+# what only Claude Code needs. An edit to one of those files applies to the
+# next session with no rebuild. An edit here needs one.
 #
 # That split is deliberate. Prose changes often and structure does not, so
 # the part that changes often stays out of the store. It is the same trade
@@ -108,9 +110,10 @@ let
 
     - The sections in this header come from `home/claude-md.nix`. A change to
       one of them needs a rebuild.
-    - The sections after the header come from `home/claude/global/*.md`. The
-      `@` imports at the end of this file point straight into the checkout, so
-      an edit to one of those files reaches the next session with no rebuild.
+    - The sections after the header come from `home/agents/shared/*.md` and
+      `home/agents/claude/*.md`. The `@` imports at the end of this file point
+      straight into the checkout, so an edit to one of those files reaches the
+      next session with no rebuild.
 
     ## This machine
 
@@ -147,7 +150,8 @@ let
     ${remoteBuilders}
   '';
 
-  globalDir = ./claude/global;
+  sharedDir = ./agents/shared;
+  claudeDir = ./agents/claude;
 
   # Order matters only for reading. Claude Code splices each import in where
   # the `@` line sits.
@@ -155,12 +159,15 @@ let
     "autonomy.md"
     "next-thing.md"
     "commits.md"
-    "compaction.md"
     "prose.md"
   ];
 
-  onDisk = lib.attrNames (
-    lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir globalDir)
+  claudeOnly = [
+    "compaction.md"
+  ];
+
+  onDisk = dir: lib.attrNames (
+    lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir dir)
   );
 
   # Both directions, because each one fails silently on its own. A name in the
@@ -168,19 +175,34 @@ let
   # section just disappears from the instructions. A file with no entry in the
   # list is never imported, so a section written today never reaches a session.
   # Neither shows up as an error anywhere, hence the eval-time check.
-  missingFiles = lib.subtractLists onDisk shared;
-  unlistedFiles = lib.subtractLists shared onDisk;
+  check = dir: listed: {
+    missing = lib.subtractLists (onDisk dir) listed;
+    unlisted = lib.subtractLists listed (onDisk dir);
+  };
+
+  sharedCheck = check sharedDir shared;
+  claudeCheck = check claudeDir claudeOnly;
 
   imports' =
-    assert lib.assertMsg (missingFiles == [ ]) (
-      "home/claude-md.nix: `shared` names ${toString missingFiles}, "
-      + "which does not exist in home/claude/global."
+    assert lib.assertMsg (sharedCheck.missing == [ ]) (
+      "home/claude-md.nix: `shared` names ${toString sharedCheck.missing}, "
+      + "which does not exist in home/agents/shared."
     );
-    assert lib.assertMsg (unlistedFiles == [ ]) (
-      "home/claude-md.nix: home/claude/global holds ${toString unlistedFiles}, "
+    assert lib.assertMsg (sharedCheck.unlisted == [ ]) (
+      "home/claude-md.nix: home/agents/shared holds ${toString sharedCheck.unlisted}, "
       + "which `shared` does not name, so it is never imported."
     );
-    lib.concatMapStringsSep "\n" (f: "@${selfStr}/home/claude/global/${f}") shared;
+    assert lib.assertMsg (claudeCheck.missing == [ ]) (
+      "home/claude-md.nix: `claudeOnly` names ${toString claudeCheck.missing}, "
+      + "which does not exist in home/agents/claude."
+    );
+    assert lib.assertMsg (claudeCheck.unlisted == [ ]) (
+      "home/claude-md.nix: home/agents/claude holds ${toString claudeCheck.unlisted}, "
+      + "which `claudeOnly` does not name, so it is never imported."
+    );
+    (lib.concatMapStringsSep "\n" (f: "@${selfStr}/home/agents/shared/${f}") shared)
+    + "\n"
+    + (lib.concatMapStringsSep "\n" (f: "@${selfStr}/home/agents/claude/${f}") claudeOnly);
 in
 {
   options.programs.claudeInstructions = {
