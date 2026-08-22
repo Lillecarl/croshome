@@ -18,6 +18,7 @@
   # decide which modules define `pkgs` by first reading `pkgs`.
   imports = [
     inputs.catppuccin.homeModules.catppuccin
+    ./agenix.nix
     ./agents.nix
     ./ask.nix
     ./claude-md.nix

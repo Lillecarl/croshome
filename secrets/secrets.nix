@@ -61,6 +61,15 @@ let
   #   ssh 65.108.150.98 cat /etc/ssh/ssh_host_ed25519_key.pub
   hetztop = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM84ek07rVn/Bj5dvmrhk96xpzbR+FUVu3ob8rmBV9VX";
 
+  # The user SSH key that home-manager agenix uses on both macbook and
+  # hetztop (and likely cros). This is `~/.ssh/id_ed25519` on those machines:
+  #   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4AwtWUz3usygb2J6owsUJs4X2yTchIGZyI+VDE76tF
+  # Verified on both hosts: `cat ~/.ssh/id_ed25519.pub` and
+  # `ssh lillecarl@65.108.150.98 cat ~/.ssh/id_ed25519.pub` both return this.
+  # Kept distinct from `lillecarl` (the shared lillecarl@world key) and from
+  # the host keys above, because home agenix decrypts with the *user* key.
+  lillecarl-ssh = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4AwtWUz3usygb2J6owsUJs4X2yTchIGZyI+VDE76tF lillecarl@macbook";
+
   # cros is deliberately absent. ChromeOS runs home-manager with no system
   # underneath it, so it has no host key and no activation that runs as root.
   # A secret for that machine needs the home-manager module instead, which is
@@ -178,6 +187,23 @@ in
 
   "pgp-personal.age" = {
     publicKeys = [ lillecarl-age ];
+    armor = true;
+  };
+
+  # Kagi token for kagi-mcp. Read by the wrapper in ../home/kagi-mcp.nix via
+  # home agenix ($XDG_RUNTIME_DIR/agenix/kagi-token) with system agenix
+  # fallback (/run/agenix/kagi-token). Encrypted to lillecarl-age for editing
+  # plus the host keys (system path) and the user SSH keys (home path). The
+  # lillecarl@world key is included so any machine holding that key can also
+  # decrypt, which covers cros if its user key is that one.
+  "kagi-token.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl
+      macbook
+      hetztop
+      lillecarl-ssh
+    ];
     armor = true;
   };
 
