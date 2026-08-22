@@ -45,6 +45,8 @@ inputs: final: prev: {
 
   wrapty = final.python314.pkgs.callPackage ./wrapty { };
 
+  kagi-mcp = final.python3.pkgs.callPackage ./kagi-mcp { };
+
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
   # vfkit with the memory balloon reachable over its REST API. Darwin only: it
