@@ -1,14 +1,17 @@
 // Lets an agent manage its own context pressure with thresholds, plus a tool.
 //
-// Three knobs mirror wrapty's Claude hooks (WRAPTY_MIN_COMPACT_PCT etc.), with
-// the same defaults:
+// Knobs (env-overridable), tuned for attention quality rather than window
+// size -- long tails hurt even when they technically fit:
 //
-//   below MIN (25%)  -- the compact tool refuses; compacting an almost-empty
-//                       context throws away more than it saves.
-//   above HINT (50%) -- every user prompt carries a synthetic note telling the
-//                       agent the percentage and to compact at a boundary.
-//   above FORCE (85%)-- compaction fires on its own at the next idle; the
-//                       agent's cooperation is not required.
+//   below MIN (15%)   -- the compact tool refuses; compacting an almost-empty
+//                        context throws away more than it saves.
+//   above HINT (35%)  -- user prompts carry a synthetic note telling the agent
+//                        the percentage and to compact at a boundary. Rate
+//                        limited: a new note only fires once usage has climbed
+//                        HINT_STEP (1%, ~10k tokens on a 1M model) past the
+//                        last one, so the band does not spam every prompt.
+//   above FORCE (60%) -- compaction fires on its own at the next idle; the
+//                        agent's cooperation is not required.
 //
 // Mechanics: a compaction is a user message carrying a `compaction` part. The
 // run loop re-reads the message list at the top of every iteration and
@@ -34,9 +37,10 @@ const num = (name: string, fallback: number) => {
   return Number.isFinite(v) && v > 0 ? v : fallback
 }
 
-const MIN_PCT = num("OPENCODE_COMPACT_MIN_PCT", 25)
-const HINT_PCT = num("OPENCODE_COMPACT_HINT_PCT", 50)
-const FORCE_PCT = num("OPENCODE_COMPACT_FORCE_PCT", 85)
+const MIN_PCT = num("OPENCODE_COMPACT_MIN_PCT", 15)
+const HINT_PCT = num("OPENCODE_COMPACT_HINT_PCT", 35)
+const HINT_STEP_PCT = num("OPENCODE_COMPACT_HINT_STEP_PCT", 1)
+const FORCE_PCT = num("OPENCODE_COMPACT_FORCE_PCT", 60)
 
 type AssistantInfo = {
   id: string
@@ -54,6 +58,10 @@ export const SelfCompact: Plugin = async ({ client }) => {
   // Dedups repeated tool calls within a turn, and stops the forced path from
   // re-firing on the same high-water mark after a failed compaction.
   const compactedAt = new Map<string, string>()
+  // Fill percentage at the last emitted hint, per session. A new hint waits
+  // for HINT_STEP_PCT of climb past it; a descent (compaction happened)
+  // rebaselines silently.
+  const hintedAt = new Map<string, number>()
   // Set OPENCODE_SELF_COMPACT_DEBUG=1 to log evaluations.
   const debug = !!process.env.OPENCODE_SELF_COMPACT_DEBUG
   let providers: { all: Array<{ id: string; models: Record<string, { limit?: { context?: number } }> }> } | undefined
@@ -99,6 +107,7 @@ export const SelfCompact: Plugin = async ({ client }) => {
 
   const queueCompaction = (sessionID: string, last: AssistantInfo) => {
     compactedAt.set(sessionID, last.id)
+    hintedAt.delete(sessionID)
     void client.session
       .summarize({
         path: { id: sessionID },
@@ -111,6 +120,7 @@ export const SelfCompact: Plugin = async ({ client }) => {
     event: async ({ event }) => {
       if (event.type === "session.deleted") {
         compactedAt.delete(event.properties.info.id)
+        hintedAt.delete(event.properties.info.id)
         return
       }
       if (event.type !== "session.idle") return
@@ -140,6 +150,17 @@ export const SelfCompact: Plugin = async ({ client }) => {
         return
       }
       if (!u || u.pct < HINT_PCT) return
+      const prev = hintedAt.get(input.sessionID)
+      if (prev !== undefined) {
+        if (u.pct < prev) {
+          // Usage fell: a compaction happened. Rebaseline; the old hint text
+          // is gone from the compacted context anyway.
+          hintedAt.set(input.sessionID, u.pct)
+          return
+        }
+        if (u.pct - prev < HINT_STEP_PCT) return
+      }
+      hintedAt.set(input.sessionID, u.pct)
       const now = Date.now()
       output.parts.push({
         id: makePartID(),
