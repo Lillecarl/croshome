@@ -105,5 +105,12 @@ in
         run mkdir -p "$HOME/.config/opencode"
         run ${lib.getExe patchInstructions}
       '';
+
+    # Global plugins directory. opencode auto-loads every .ts/.js file in
+    # ~/.config/opencode/plugins/. Out-of-store symlink, so editing a plugin
+    # reaches the next session with no rebuild -- the same trade ./agents.nix
+    # makes for the skills directory.
+    home.file.".config/opencode/plugins".source =
+      config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/agents/opencode/plugins";
   };
 }
