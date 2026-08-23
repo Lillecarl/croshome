@@ -28,15 +28,15 @@
 // per command. The .envrc must be allowed with `direnv allow`; the plugin
 // never allows files itself.
 //
-// nix-direnv caveat: it caches the built profile in .direnv/ and serves it
-// until a watched file is newer than the cache. Changes direnv cannot see --
-// rebuilt local native code, collected garbage, hand-built store paths -- do
-// not invalidate anything, so a reload then reports no changes. The escape
-// hatches are `direnv reload` (touches .envrc, which is itself a watched
-// file, thereby invalidating the cache) or the stronger
-// `_nix_direnv_force_reload=1 direnv exec . true`, which is what nix-direnv's
-// own nix-direnv-reload script runs. The tool surfaces both in its description
-// and on the no-changes reply.
+// nix-direnv caveat, handled: it caches the built profile in .direnv/ and
+// serves that cache until a watched file changes, so rebuilt local native
+// code or collected garbage would never reach the environment. Every
+// evaluation here therefore sets _nix_direnv_force_reload=1 in the child
+// environment (the same knob nix-direnv's own reload script uses), which
+// skips the cache-validity shortcut and rebuilds via `nix print-dev-env`.
+// Reloads are explicit and rare, so paying evaluation cost on each is the
+// right trade for an agent: stale beats slow only for humans who can see
+// the staleness.
 //
 // No runtime bare-specifier imports ("@opencode-ai/plugin"). Plugin discovery
 // follows the home-manager symlink into this repo, where no node_modules chain
@@ -84,7 +84,17 @@ export const Direnv: Plugin = async ({ client, $, directory }) => {
       const dir = await findEnvrcDir()
       if (!dir) return { kind: "missing" }
       envrcDir = dir
-      const out = await $`direnv export json`.cwd(dir).quiet().text()
+      // Always force nix-direnv to rebuild its cached profile. The agent
+      // reloads precisely because it wants fresh state; serving the cache
+      // would silently keep stale store paths alive. Harmless for projects
+      // without nix-direnv, since nothing else reads the variable. Bun's
+      // .env() replaces the whole child environment rather than merging, so
+      // process.env goes along for the ride.
+      const out = await $`direnv export json`
+        .cwd(dir)
+        .quiet()
+        .env({ ...process.env, _nix_direnv_force_reload: "1" })
+        .text()
       return { kind: "ok", delta: out.trim() ? (JSON.parse(out) as DirenvDelta) : {} }
     } catch (e) {
       const stderr =
@@ -148,12 +158,11 @@ export const Direnv: Plugin = async ({ client, $, directory }) => {
       direnv_reload: {
         description:
           "Re-evaluate the project's .envrc via direnv and apply the fresh environment to subsequent shell " +
-          "commands, including unsetting variables the environment no longer sets. Call this after the " +
-          "environment's inputs change -- for example a rebuilt native library behind a nix dev shell, or " +
-          "edited .envrc entries -- so builds and tests run against the current environment instead of a " +
-          "stale one. Projects using nix-direnv serve a cached profile until a watched file changes; if this " +
-          "reports no changes while you expected some, force the cache rebuild from the shell first -- " +
-          "`_nix_direnv_force_reload=1 direnv exec . true` or `direnv reload` -- then call this again.",
+          "commands, including unsetting variables the environment no longer sets. Always forces nix-direnv " +
+          "to rebuild its cached profile, so rebuilt inputs are picked up rather than served from cache. " +
+          "Call this after the environment's inputs change -- for example a rebuilt native library behind a " +
+          "nix dev shell, or edited .envrc entries -- so builds and tests run against the current " +
+          "environment instead of a stale one.",
         args: {},
         execute: async () => {
           const r = await evaluate()
@@ -166,13 +175,7 @@ export const Direnv: Plugin = async ({ client, $, directory }) => {
           const d = applyDelta(r.delta)
           const summary = describe(d)
           await note("info", `reload: ${summary || "no changes"}`)
-          if (!summary)
-            return (
-              "Environment re-evaluated; no variables changed. If you expected changes, the direnv cache " +
-              "(nix-direnv serves a cached profile until a watched file changes) may be stale: run " +
-              "`_nix_direnv_force_reload=1 direnv exec . true` or `direnv reload` via bash from the project " +
-              "root, then call this tool again."
-            )
+          if (!summary) return "Environment re-evaluated; no variables changed."
           return `Environment reloaded from ${envrcDir}/.envrc. ${summary}. New values apply to subsequent shell commands.`
         },
       } satisfies {
