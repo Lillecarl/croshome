@@ -28,6 +28,16 @@
 // per command. The .envrc must be allowed with `direnv allow`; the plugin
 // never allows files itself.
 //
+// nix-direnv caveat: it caches the built profile in .direnv/ and serves it
+// until a watched file is newer than the cache. Changes direnv cannot see --
+// rebuilt local native code, collected garbage, hand-built store paths -- do
+// not invalidate anything, so a reload then reports no changes. The escape
+// hatches are `direnv reload` (touches .envrc, which is itself a watched
+// file, thereby invalidating the cache) or the stronger
+// `_nix_direnv_force_reload=1 direnv exec . true`, which is what nix-direnv's
+// own nix-direnv-reload script runs. The tool surfaces both in its description
+// and on the no-changes reply.
+//
 // No runtime bare-specifier imports ("@opencode-ai/plugin"). Plugin discovery
 // follows the home-manager symlink into this repo, where no node_modules chain
 // exists, so a runtime import fails to resolve and the plugin silently never
@@ -141,7 +151,9 @@ export const Direnv: Plugin = async ({ client, $, directory }) => {
           "commands, including unsetting variables the environment no longer sets. Call this after the " +
           "environment's inputs change -- for example a rebuilt native library behind a nix dev shell, or " +
           "edited .envrc entries -- so builds and tests run against the current environment instead of a " +
-          "stale one.",
+          "stale one. Projects using nix-direnv serve a cached profile until a watched file changes; if this " +
+          "reports no changes while you expected some, force the cache rebuild from the shell first -- " +
+          "`_nix_direnv_force_reload=1 direnv exec . true` or `direnv reload` -- then call this again.",
         args: {},
         execute: async () => {
           const r = await evaluate()
@@ -154,7 +166,13 @@ export const Direnv: Plugin = async ({ client, $, directory }) => {
           const d = applyDelta(r.delta)
           const summary = describe(d)
           await note("info", `reload: ${summary || "no changes"}`)
-          if (!summary) return "Environment re-evaluated; no variables changed."
+          if (!summary)
+            return (
+              "Environment re-evaluated; no variables changed. If you expected changes, the direnv cache " +
+              "(nix-direnv serves a cached profile until a watched file changes) may be stale: run " +
+              "`_nix_direnv_force_reload=1 direnv exec . true` or `direnv reload` via bash from the project " +
+              "root, then call this tool again."
+            )
           return `Environment reloaded from ${envrcDir}/.envrc. ${summary}. New values apply to subsequent shell commands.`
         },
       } satisfies {
