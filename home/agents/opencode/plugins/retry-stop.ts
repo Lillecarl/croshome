@@ -35,11 +35,31 @@ const PROMPTS = [
   (detail: string) => `Your last reply never arrived (${detail}). Continue working on the current task.`,
 ]
 
+// A pushed continuation is recognizable by shape alone: one text part whose
+// whole body is one of the templates above. The prompts are machine-flavored
+// enough that a person typing one verbatim is not a real risk, and sweeping
+// keeps an hour of retries from burying the session in filler.
+const NUDGE_PATTERNS = [
+  /^The previous turn ended without producing anything \(.+\)\. Continue where you left off\.$/,
+  /^Nothing came back from the provider \(.+\)\. Pick up exactly where you stopped\.$/,
+  /^That turn was lost \(.+\)\. Resume the task from your last completed step\.$/,
+  /^Your last reply never arrived \(.+\)\. Continue working on the current task\.$/,
+]
+
 // Never continue past these. Fixing them needs a person or compaction, so a
 // retry would only burn tokens against a wall.
 const FATAL = new Set(["ProviderAuthError", "MessageAbortedError", "ContextOverflowError"])
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+type AnyMessage = { info: { id: string; role: string }; parts: Array<{ type: string; text?: string }> }
+
+const isNudge = (m: AnyMessage) =>
+  m.info.role === "user" &&
+  m.parts.length === 1 &&
+  m.parts[0].type === "text" &&
+  !!m.parts[0].text &&
+  NUDGE_PATTERNS.some((p) => p.test(m.parts[0].text!))
 
 export const RetryStop: Plugin = async ({ client }) => {
   // One entry per failure streak: how many nudges went out, and when the
@@ -47,6 +67,24 @@ export const RetryStop: Plugin = async ({ client }) => {
   const episodes = new Map<string, { attempt: number; since: number }>()
   // Set OPENCODE_RETRY_STOP_DEBUG=1 to log every idle evaluation.
   const debug = !!process.env.OPENCODE_RETRY_STOP_DEBUG
+
+  // Delete every pushed continuation still sitting in the history. Empty
+  // assistant turns stay: they carry no content and cost nothing, but each
+  // nudge is a full user message, and a long streak of them reads as noise.
+  const sweepNudges = async (sessionID: string, messages: AnyMessage[]) => {
+    for (const m of messages) {
+      if (!isNudge(m)) continue
+      try {
+        await client.session.deleteMessage({ sessionID, messageID: m.info.id })
+        if (debug)
+          await client.app.log({
+            body: { service: "retry-stop", level: "debug", message: `swept nudge ${m.info.id} from ${sessionID}` },
+          })
+      } catch {
+        // A busy session or a gone message must never break the retry path.
+      }
+    }
+  }
 
   return {
     event: async ({ event }) => {
@@ -86,6 +124,7 @@ export const RetryStop: Plugin = async ({ client }) => {
           !lastAssistant.parts.some((p) => (p.type as string) !== "step-start" && (p.type as string) !== "step-finish")
         if (!error && !isEmptyTurn) {
           episodes.delete(sessionID) // clean turn; end the streak
+          await sweepNudges(sessionID, messages as AnyMessage[])
           return
         }
         // Anything newer than the failure means someone intervened.
@@ -109,6 +148,10 @@ export const RetryStop: Plugin = async ({ client }) => {
         }
         ep.attempt += 1
         episodes.set(sessionID, ep)
+
+        // Out with the older nudges before the new one lands, so a long
+        // streak leaves at most one continuation message in the context.
+        await sweepNudges(sessionID, messages as AnyMessage[])
 
         const delay = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** (ep.attempt - 1))
         await sleep(delay)
