@@ -62,6 +62,11 @@ const isNudge = (m: AnyMessage) =>
   NUDGE_PATTERNS.some((p) => p.test(m.parts[0].text!))
 
 export const RetryStop: Plugin = async ({ client }) => {
+  // The needs-user gate subsumes this plugin's empty and error heuristics.
+  // When it is enabled, stand down so the two never double-nudge a turn.
+  if (process.env.OPENCODE_NEEDS_USER === "1") {
+    return {}
+  }
   // One entry per failure streak: how many nudges went out, and when the
   // streak started. The clock, not a count, decides when to give up.
   const episodes = new Map<string, { attempt: number; since: number }>()
