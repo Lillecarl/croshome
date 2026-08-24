@@ -1,8 +1,21 @@
 {
   inputs = {
     flake-compatish.url = "github:lillecarl/flake-compatish";
-    # nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixpkgs.url = "https://channels.nixos.org/nixos-unstable/nixexprs.tar.xz";
+    # `nixpkgs-unstable`, and not `nixos-unstable`. nanopynix and easykubenix
+    # both track that branch, and this configuration builds nanopynix from
+    # source with its own package set (the `nanopynix` input below, switched
+    # off in home/packages.nix while the Python 3.15 work happens upstream).
+    #
+    # The two channels never publish the same revision. So a `nixos-unstable`
+    # pin here means a second Python closure, and nanopynix builds against
+    # Python 3.15, which is a large one to build twice.
+    #
+    # The lock holds the release the three repositories share:
+    # nixpkgs-26.11pre1058374.07e1d92cdc0e. `nix flake update` moves it to the
+    # head of the channel, so re-pin the other two after an update.
+    #
+    # nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
     home-manager = {
       url = "github:nix-community/home-manager/master";
       inputs.nixpkgs.follows = "nixpkgs";
