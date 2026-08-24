@@ -12,10 +12,28 @@
 //
 // This plugin watches session.idle for both shapes and sends a continuation
 // prompt back into the same session.
+//
+// Policy: exponential backoff from 2s capped at 60s, rotating through a
+// small pool of phrasings so the same sentence does not become wallpaper.
+// One failure streak may be pushed for up to an hour, then the plugin logs
+// a warning and leaves the session alone. A clean turn ends the streak;
+// auth errors, aborts and context overflow stay fatal. Knobs:
+// OPENCODE_RETRY_STOP_BASE_DELAY_MS, OPENCODE_RETRY_STOP_MAX_DELAY_MS and
+// OPENCODE_RETRY_STOP_WINDOW_MS override those defaults.
 import type { Plugin } from "@opencode-ai/plugin"
 
-const MAX_ATTEMPTS = 3
-const BASE_DELAY_MS = 2000
+const BASE_DELAY_MS = Number(process.env.OPENCODE_RETRY_STOP_BASE_DELAY_MS) || 2000
+const MAX_DELAY_MS = Number(process.env.OPENCODE_RETRY_STOP_MAX_DELAY_MS) || 60000
+const WINDOW_MS = Number(process.env.OPENCODE_RETRY_STOP_WINDOW_MS) || 3_600_000
+
+// Rotation keeps repeated nudges from reading as one stuck record. Every
+// variant carries the failure detail and asks for the same thing: resume.
+const PROMPTS = [
+  (detail: string) => `The previous turn ended without producing anything (${detail}). Continue where you left off.`,
+  (detail: string) => `Nothing came back from the provider (${detail}). Pick up exactly where you stopped.`,
+  (detail: string) => `That turn was lost (${detail}). Resume the task from your last completed step.`,
+  (detail: string) => `Your last reply never arrived (${detail}). Continue working on the current task.`,
+]
 
 // Never continue past these. Fixing them needs a person or compaction, so a
 // retry would only burn tokens against a wall.
@@ -24,14 +42,16 @@ const FATAL = new Set(["ProviderAuthError", "MessageAbortedError", "ContextOverf
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export const RetryStop: Plugin = async ({ client }) => {
-  const attempts = new Map<string, number>()
+  // One entry per failure streak: how many nudges went out, and when the
+  // streak started. The clock, not a count, decides when to give up.
+  const episodes = new Map<string, { attempt: number; since: number }>()
   // Set OPENCODE_RETRY_STOP_DEBUG=1 to log every idle evaluation.
   const debug = !!process.env.OPENCODE_RETRY_STOP_DEBUG
 
   return {
     event: async ({ event }) => {
       if (event.type === "session.deleted") {
-        attempts.delete(event.properties.info.id)
+        episodes.delete(event.properties.info.id)
         return
       }
       if (event.type !== "session.idle") return
@@ -65,7 +85,7 @@ export const RetryStop: Plugin = async ({ client }) => {
           lastAssistant.parts.length > 0 &&
           !lastAssistant.parts.some((p) => (p.type as string) !== "step-start" && (p.type as string) !== "step-finish")
         if (!error && !isEmptyTurn) {
-          attempts.delete(sessionID) // clean turn; reset the counter
+          episodes.delete(sessionID) // clean turn; end the streak
           return
         }
         // Anything newer than the failure means someone intervened.
@@ -74,20 +94,24 @@ export const RetryStop: Plugin = async ({ client }) => {
         if (error && FATAL.has(error.name)) return
 
         const reason = error ? error.name : "empty response"
-        const attempt = attempts.get(sessionID) ?? 0
-        if (attempt >= MAX_ATTEMPTS) {
+        const now = Date.now()
+        const ep = episodes.get(sessionID) ?? { attempt: 0, since: now }
+        if (now - ep.since >= WINDOW_MS) {
+          episodes.delete(sessionID)
           await client.app.log({
             body: {
               service: "retry-stop",
               level: "warn",
-              message: `giving up on ${sessionID} after ${attempt} continuations (${reason})`,
+              message: `giving up on ${sessionID} after ${Math.round((now - ep.since) / 60000)} minutes of continuations (${reason})`,
             },
           })
           return
         }
-        attempts.set(sessionID, attempt + 1)
+        ep.attempt += 1
+        episodes.set(sessionID, ep)
 
-        await sleep(BASE_DELAY_MS * 2 ** attempt)
+        const delay = Math.min(MAX_DELAY_MS, BASE_DELAY_MS * 2 ** (ep.attempt - 1))
+        await sleep(delay)
         const detail =
           typeof error?.data === "object" && error.data && "message" in error.data
             ? String((error.data as { message: unknown }).message)
@@ -96,7 +120,7 @@ export const RetryStop: Plugin = async ({ client }) => {
           body: {
             service: "retry-stop",
             level: "info",
-            message: `continuing ${sessionID} after ${reason}: ${detail} (attempt ${attempt + 1}/${MAX_ATTEMPTS})`,
+            message: `continuing ${sessionID} after ${reason}: ${detail} (continuation ${ep.attempt}, waited ${delay / 1000}s)`,
           },
         })
         await client.session.prompt({
@@ -105,7 +129,7 @@ export const RetryStop: Plugin = async ({ client }) => {
             parts: [
               {
                 type: "text",
-                text: `The previous turn ended without producing anything (${detail}). Continue where you left off.`,
+                text: PROMPTS[(ep.attempt - 1) % PROMPTS.length](detail),
               },
             ],
           },
