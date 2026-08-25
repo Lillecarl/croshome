@@ -25,7 +25,7 @@
     cloneDir = "~/Code";
     extraRebuildNotes = ''
 
-      `sudo ai-rebuild-pynixd` builds the same attribute through the pynixd
+      `ai-rebuild-pynixd` builds the same attribute through the pynixd
       store instead of the daemon. Use it only when I ask for it by name.
     '';
   };

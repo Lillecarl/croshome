@@ -123,10 +123,12 @@ let
 
     ## Rebuilding
 
-    `sudo ai-rebuild` is greenlit. Run it when you need it, without asking.
+    `ai-rebuild` is greenlit. Run it when you need it, without asking. No
+    sudo in front of it.
 
     It takes no arguments and needs no password. It builds the `${cfg.hostName}`
-    attribute from the configuration path above and activates the result.
+    attribute from the configuration path above as your own user, sharing your
+    fetcher cache, and elevates once at the end for the switch.
 
     Two things follow. It activates the working copy, so it picks up
     uncommitted edits. And it grants full root, not narrow root, because it
@@ -211,7 +213,7 @@ in
     hostName = lib.mkOption {
       type = lib.types.str;
       description = ''
-        The attribute `sudo ai-rebuild` builds on this machine, which is also
+        The attribute `ai-rebuild` builds on this machine, which is also
         how the instructions name the host.
       '';
     };
