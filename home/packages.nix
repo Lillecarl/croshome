@@ -202,6 +202,7 @@
     tcpdump # the packets themselves, when every layer above them disagrees
 
     # The rest
+    asciinema # record a terminal session to a .cast file, replay or share it
     fish-lsp
     wireguard-tools
     fzf
