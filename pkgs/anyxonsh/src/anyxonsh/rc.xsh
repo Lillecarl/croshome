@@ -20,9 +20,97 @@ $UPDATE_OS_ENVIRON = True
 $XONSH_SHOW_TRACEBACK = True
 
 # --- Prompt -------------------------------------------------------------
-$PROMPT = "{env_name}{BOLD_GREEN}{user}@{hostname}{RESET}:{BOLD_BLUE}{cwd}{RESET}{branch_color}{curr_branch: {}}{RESET}{RESET}\n{prompt_end} "
+# jj, and deliberately not git. This repository is jj-only -- the owner has
+# never once wanted a git branch name at a prompt -- so the classic
+# {curr_branch} field is gone, and what replaces it talks to jj: the change ID
+# of @ and whatever bookmarks point at it, rendered by the `jj_prompt` field
+# defined below.
+#
+# Colour note: every named colour here resolves through the catppuccin-mocha
+# map the `catppuccin` xontrib registers below (the sixteen slots of
+# Catppuccin's own terminal mapping), so GREEN really is Mocha green and PINK
+# really is Mocha pink -- see that module for why the default guess collapses
+# half the palette into one grey. Arbitrary palette names ({MAUVE} and
+# friends) are not part of that map and render literally; verified headless.
+#
+# On an SSH session user and host take different colours -- same-colour
+# user@host gives no cue about which machine a shell is on, which matters
+# precisely when the answer is "not this one". Locally they share green, the
+# classic look.
+import os as _os
+import subprocess as _subprocess
+
+if ${...}.get("SSH_CONNECTION") or ${...}.get("SSH_CLIENT"):
+    _userhost = "{BOLD_GREEN}{user}{RESET}{YELLOW}@{hostname}{RESET}"
+else:
+    _userhost = "{BOLD_GREEN}{user}@{hostname}{RESET}"
+
+$PROMPT = (
+    "{env_name}"
+    + _userhost
+    + ":{BLUE}{cwd}{RESET}{jj_prompt}\n{prompt_end} "
+)
 $RIGHT_PROMPT = "{last_return_code_if_nonzero:[{BOLD_INTENSE_RED}{}{RESET}] }{short_cwd}"
 $TITLE = "{current_job:{} | }{cwd_base} | xonsh"
+
+# The jj prompt fields. One subprocess per *command*, not per keystroke:
+# helix sets $UPDATE_PROMPT_ON_KEYPRESS, so a naive field would shell out to
+# `jj log` on every keypress. Instead a cached string is re-rendered for free,
+# and two events mark it stale -- after each command, and on directory change,
+# the two things that can actually alter what jj would report.
+_jj_state = {"dirty": True, "render": ""}
+
+
+def _jj_render():
+    """Colour-coded '@change-id bookmarks' for the cwd, or '' outside a repo."""
+    d = _os.getcwd()
+    while True:
+        if _os.path.isdir(_os.path.join(d, ".jj")):
+            break
+        parent = _os.path.dirname(d)
+        if parent == d:
+            return ""
+        d = parent
+
+    try:
+        proc = _subprocess.run(
+            ["jj", "log", "-r", "@", "--no-graph",
+             "--template", 'change_id.short(8) ++ " " ++ bookmarks.join(" ")'],
+            capture_output=True, text=True, timeout=1, cwd=d,
+        )
+    except (OSError, _subprocess.TimeoutExpired):
+        return ""
+    words = proc.stdout.split() if proc.returncode == 0 else []
+
+    segment = ""
+    if words:
+        segment += "{CYAN}@" + words[0] + "{RESET}"
+        if len(words) > 1:
+            segment += " {PINK}" + " ".join(words[1:]) + "{RESET}"
+        segment = " " + segment
+    return segment
+
+
+def _jj_prompt():
+    if _jj_state["dirty"]:
+        _jj_state["dirty"] = False
+        _jj_state["render"] = _jj_render()
+    return _jj_state["render"]
+
+
+$PROMPT_FIELDS["jj_prompt"] = _jj_prompt
+
+from xonsh.events import events as _events
+
+
+@_events.on_post_command
+def _jj_stale_after_command(**_):
+    _jj_state["dirty"] = True
+
+
+@_events.on_chdir
+def _jj_stale_after_chdir(**_):
+    _jj_state["dirty"] = True
 
 # --- Line editing -------------------------------------------------------
 # `helix` is anyxonsh's default: Helix's selection-then-action model rather
@@ -169,3 +257,10 @@ for _name in _wanted:
         xontrib load @(_name)
 
 del _wanted, _installed, _name, _get_xontribs, _shutil, _interactive
+# The prompt machinery below is deliberately NOT deleted: xonsh runs this file
+# in its own global namespace, so a function defined here resolves `_os`,
+# `_jj_state` and friends through that namespace *at call time* -- every
+# keystroke re-render of the prompt, long after this file finished. Deleting
+# them buys a clean namespace and costs a NameError on the first prompt.
+del _events, _userhost
+del _jj_stale_after_command, _jj_stale_after_chdir
