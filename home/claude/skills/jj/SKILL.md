@@ -145,7 +145,8 @@ Two traps from the lab:
 | One file mixes two concerns | `jj-hunk` hunk-level split — [jj-hunk.md](references/jj-hunk.md) |
 | Small fixup belongs in parent | `jj squash --use-destination-message` |
 | Whole files in `@` belong in an earlier commit | `jj squash <fileset> --into <rev>` — see above |
-| Hunk-level changes belong in an earlier commit | `jj split`/`jj-hunk` to peel, then `jj squash --revision @- --use-destination-message` — see above |
+| Hunk-level changes belong in the parent | `jj-hunk squash '<spec>'` — one step, no peel — [jj-hunk.md](references/jj-hunk.md) |
+| Hunk-level changes belong in an earlier (non-parent) commit | peel with `jj split`/`jj-hunk split`, then `jj squash --revision @- --use-destination-message` — see above |
 | Extract part of `@` onto another commit as its own branch point | `jj split <fileset> --onto <rev> --message '...'` — [splitting.md](references/splitting.md) |
 | Need a merge of two lines of work | `jj new --message 'msg' <rev1> <rev2>` — [rebase-and-merge.md](references/rebase-and-merge.md) |
 | Need to move commits onto a new base | `jj rebase --source/--branch/--revisions --onto <dest>` — **ask first**, see Safety |

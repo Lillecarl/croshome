@@ -155,9 +155,25 @@ jj squash --revision @- --use-destination-message      # folds into its parent
 peeled one. Omit it (and omit `--message`) on a squash that empties a described
 revision and jj opens the description editor — headless, a guaranteed panic.
 
-For whole files you can skip the split: `jj squash path/to/file --into <rev>` moves
-them in one step. The tandem exists for hunk-level granularity (via `jj-hunk`) or
-when the piece already sits in its own commit.
+You can skip the split entirely and move changes straight into the commit of your
+choice. Whole files take one step (`--from` defaults to `@`; verified):
+
+```bash
+jj squash --from @ --into <rev> path/to/file
+```
+
+Hunk-level selection folds into the **parent** of its source revision in one step,
+also without peeling ([jj-hunk.md](jj-hunk.md) has the spec format):
+
+```bash
+jj-hunk squash '{"files": {"src/foo.py": {"hunks": [0]}}, "default": "reset"}'
+```
+
+The split-then-fold tandem is still the shape when the destination is further up than
+a parent: `jj-hunk squash` has no destination flag, and routing its selection through
+`jj squash -i --tool=jj-hunk --into <rev>` does not work — verified in the lab that
+the tool emits the wrong tree on the squash path and leaves the destination
+conflicted.
 
 ## `--parallel`
 

@@ -80,7 +80,7 @@ the hunk's content changes), or use whole-file actions:
 |---|---|
 | `jj-hunk split '<spec>' "msg"` | **Two** commits: matched hunks → first (with `msg`), rest → second (new empty-ish `@`). Everything ends up committed — mirrors plain `jj split`. |
 | `jj-hunk commit '<spec>' "msg"` | **One** commit with only the matched hunks. Everything else stays **uncommitted** in the working copy for further editing. |
-| `jj-hunk squash '<spec>'` | Matched hunks squashed into the parent commit; opens no editor (no message needed — keeps parent's). |
+| `jj-hunk squash '<spec>'` | Matched hunks squashed into the **parent** of the source revision (`-r/--rev`, default `@`). The destination is always the parent — there is no flag for anything else. Opens no editor (no message needed — keeps parent's). For a farther destination, use file-level `jj squash --from <rev> --into <rev> <fileset>`, or peel first ([splitting.md](splitting.md)). |
 
 ```bash
 jj-hunk split '{"files": {"src/utils.py": {"hunks": [0]}}, "default": "reset"}' \
