@@ -21,6 +21,17 @@ from prompt_toolkit.completion import Completer, Completion
 _LIMIT = 5000
 
 
+def _entry_input(entry) -> str:
+    """The command text of one history entry, whatever shape it arrives in.
+
+    Some xonsh history backends hand out plain dicts, others objects with
+    attribute access; ask both ways rather than assume.
+    """
+    if isinstance(entry, dict):
+        return entry.get("inp") or ""
+    return getattr(entry, "inp", None) or ""
+
+
 def history_entries() -> list[str]:
     """Every distinct command in this shell's history, newest first."""
     from xonsh.built_ins import XSH
@@ -31,7 +42,7 @@ def history_entries() -> list[str]:
     seen: set[str] = set()
     out: list[str] = []
     for entry in reversed(list(history.items())):
-        cmd = (entry.inp or "").strip()
+        cmd = _entry_input(entry).strip()
         if not cmd or cmd in seen:
             continue
         seen.add(cmd)

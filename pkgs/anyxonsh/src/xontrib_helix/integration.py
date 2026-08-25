@@ -273,8 +273,8 @@ class HelixMode:
         buf.text = ""
         buf.cursor_position = 0
         buf.completer = HistorySearchCompleter()
-        buf.complete_while_typing = True
-        self.session.complete_while_typing = True
+        buf.complete_while_typing = Condition(lambda: True)
+        self.session.complete_while_typing = Condition(lambda: True)
         self.editor.mode = Mode.INSERT
         self._adopt_buffer()
         buf.start_completion()
