@@ -18,18 +18,12 @@ while holding a measurement you have not written down yet. Write it to the
 repository, to an issue or to memory **first**. A compaction that loses the
 one number the next step needs has cost more than it saved.
 
-**Always pass instructions.** A plain `/compact` keeps what it guesses. Name
-what the next step needs, in this order:
-
-1. the task in progress and the next action;
-2. the anchors: file paths with line numbers, issue numbers, commit ids,
-   command lines that work;
-3. the measurements, with the arm they came from. A number with no
-   provenance is not evidence;
-4. what is **proven** against what is **inferred**. Losing that line turns a
-   hypothesis into a fact across the boundary;
-5. the corrections. What you got wrong and how you found out, so it is not
-   repeated.
+**Keep the instructions short.** A plain `/compact` is fine most of the time:
+the summary reads the whole conversation, so it finds the task without help.
+Pass instructions only when the next step needs something specific, and keep
+them to a line or two -- what we do next, and the one thing that must
+survive, such as a path, a number or a decision. Do not write a structured
+brief. Long instructions cost more than they save.
 
 Say one line after compacting: what you kept and why now. Do not ask
 permission and do not report the percentage on a turn where nothing happened.

@@ -109,7 +109,9 @@ async def compact(instructions: str = "") -> str:
 
     Args:
         instructions: What to preserve/focus on across the compaction, passed
-            straight through to /compact. Leave empty for a plain /compact.
+            straight through to /compact. One line is enough -- what comes
+            next and anything that must survive it; the summary reads the
+            whole conversation anyway. Leave empty for a plain /compact.
     """
     return await call(_session_id(), "compact", {"instructions": instructions})
 
