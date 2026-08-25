@@ -117,10 +117,10 @@
     # clone without that file stops here, on nanopynix-store-exec being
     # lib.platforms.linux. Linux builds from the lock and needs nothing.
     #
-    # Disabled 2026-08-23 while python3.15 work happens upstream in nanopynix;
-    # its env fails to build (tornado tests) and takes this whole rebuild down.
-    # Restore once the upstream refactor lands:
-    #   (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
+    # Disabled 2026-08-23 while python3.15 work happened upstream in nanopynix;
+    # its env failed to build (tornado tests) and took every rebuild down with
+    # it. Back once the base moved to stable 3.14.
+    (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
     # Nix diagnostics, for machines that rebuild this much. ../../rebuild uses
     # both: nvd lists the packages a switch would move, nix-diff says why a
     # derivation differs when no version moved at all.
