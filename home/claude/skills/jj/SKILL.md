@@ -72,15 +72,11 @@ a new `@` — further edits silently land back in the commit you just described.
 
 ## Passing commit messages safely
 
-Inline `-m '...'` breaks the moment the message contains an apostrophe: the shell ends
-the single-quoting there and executes the rest of the message as commands. Real
-incident: a body saying "that repo's dev conveniences" mangled a description and ran
-half the message through bash.
-
-So: reserve `-m 'one liner'` for messages you have checked contain no `'`, `"`, `` ` ``
-or `$`. For every real message — anything with a body — pass it through a **quoted
-heredoc** via command substitution, which survives all of those verbatim (verified on
-jj 0.44.0):
+One pattern covers every command that takes `-m`: pass the message through a quoted
+heredoc via command substitution. It survives apostrophes, double quotes, `$vars` and
+backticks verbatim, so message content never needs checking first (verified on
+jj 0.44.0). Inline `-m '...'` is left undocumented here on purpose: it breaks on the
+first apostrophe in a message, and the shell then executes the rest as commands.
 
 ```bash
 jj commit -m "$(cat <<'EOF'
@@ -91,14 +87,20 @@ EOF
 )"
 ```
 
-The same substitution works for every command that takes `-m`, including `jj split`
-and `jj describe`. To set or rewrite a whole description without opening an editor,
-`describe --stdin` reads it straight from stdin:
+The identical shape serves `jj split`, which belongs in regular rotation rather than
+in reserve for disasters: peel each finished piece out of `@` while the boundaries
+are fresh instead of letting one working copy grow several concerns, and reach for
+`jj-hunk` when two concerns share a file
+([references/splitting.md](references/splitting.md),
+[references/jj-hunk.md](references/jj-hunk.md)):
 
 ```bash
-jj describe -r @- --stdin <<'EOF'
-the corrected message
+jj split path/to/file -m "$(cat <<'EOF'
+this piece's own subject
+
+Its body, safe for the same reason.
 EOF
+)"
 ```
 
 ## Decision guide: which command?
