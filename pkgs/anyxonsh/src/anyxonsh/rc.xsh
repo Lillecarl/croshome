@@ -226,6 +226,9 @@ if "EDITOR" not in ${...}:
 from xonsh.xontribs import get_xontribs as _get_xontribs
 
 _wanted = [
+    # Ours: fish's funced/funcsave. Stdlib-only, no external program, so it
+    # loads unconditionally -- see src/xontrib_funcs/.
+    "funcs",
     # Packaged by nixpkgs
     "vox",
     "jedi",
