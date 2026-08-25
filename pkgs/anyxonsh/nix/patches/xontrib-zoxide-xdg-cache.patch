@@ -1,0 +1,38 @@
+Cache the generated zoxide init next to the other caches, never next to the code.
+
+`_initZoxide` writes a generated `zoxide_init_cache.py` and imports it on later
+starts, which saves compiling the output of `zoxide init xonsh` every time. It
+picks the directory from `$XDG_CACHE_HOME` -- but only when that variable is
+set, and falls back to its own installed package directory when it is not.
+
+$XDG_CACHE_HOME is unset on most systems: the basedir spec defines it as
+*optional* with a default of `$HOME/.cache`, so a program is meant to apply
+that default rather than treat "unset" as "no cache directory". Falling back to
+the install directory is wrong on any read-only installation, and a Nix store
+path is exactly that -- the first import raises
+`OSError: [Errno 30] Read-only file system`, and the xontrib never loads.
+
+So: apply the spec's own default. `~/.cache/zoxide/` on a normal system, and
+`$XDG_CACHE_HOME/zoxide/` still wins where it is set, which is unchanged
+behaviour for anyone who has it.
+
+Not Nix-specific, and worth sending upstream:
+https://github.com/dyuri/xontrib-zoxide
+
+--- a/xontrib/zoxide/zoxide.py
++++ b/xontrib/zoxide/zoxide.py
+@@ -17,11 +17,9 @@
+     f.write(zoxide_init)
+ 
+ def  _initZoxide():
+-  if cache_home := os.environ.get("XDG_CACHE_HOME"):
+-    z_cache_path = Path(cache_home).expanduser() / "zoxide" / _cache_name
+-    z_cache_path.parent.mkdir(exist_ok=True, parents=True)
+-  else:
+-    z_cache_path	= Path(os.path.dirname(__file__)).parent / _cache_name
++  cache_home = os.environ.get("XDG_CACHE_HOME") or "~/.cache"
++  z_cache_path = Path(cache_home).expanduser() / "zoxide" / _cache_name
++  z_cache_path.parent.mkdir(exist_ok=True, parents=True)
+   sys.path.append(str(z_cache_path.parent))
+ 
+   zoxide_init_proc	= subprocess.run(["zoxide",'init','xonsh'],capture_output=True)

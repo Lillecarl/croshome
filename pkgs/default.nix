@@ -45,6 +45,82 @@ inputs: final: prev: {
 
   wrapty = final.python314.pkgs.callPackage ./wrapty { };
 
+  # The xonsh bundle from Lillecarl/anyxonsh, vendored wholesale into
+  # ./anyxonsh -- source tree and build machinery together, because the plan
+  # is to iterate here rather than track upstream. Its nix/ directory bridges
+  # Nixpkgs' Python package set into pyproject.nix's flat dependency resolver
+  # (see that tree's nix/bridge.nix for why that exists); pyproject-nix comes
+  # from the flake inputs, following this repository's nixpkgs.
+  #
+  # In the overlay rather than a host file so `nix run --file . pkgs.anyxonsh`
+  # reaches it on a machine this configuration has never activated -- the same
+  # reasoning agenix has.
+  #
+  # The arguments below are the upstream default shell, verbatim. mkAnyxonsh
+  # is additive by design, so a later change here cannot silently lose one of
+  # these.
+  anyxonsh =
+    let
+      pyproject-nix = import inputs.pyproject-nix { inherit (final) lib; };
+      bridge = final.callPackage ./anyxonsh/nix/bridge.nix { inherit pyproject-nix; };
+      mkAnyxonsh = final.callPackage ./anyxonsh/nix/mk-anyxonsh.nix {
+        pkgs = final;
+        inherit pyproject-nix bridge;
+      };
+    in
+    mkAnyxonsh.mkAnyxonsh {
+      pythonPackages = ps: [
+        ps.libtmux
+        ps.requests
+        ps.rich
+      ];
+      xontribs = xs: [
+        xs.xontrib-vox
+        xs.xontrib-abbrevs
+        # Nixpkgs' own xontrib-jedi fails one of its tests against the jedi
+        # version currently in nixpkgs -- `nix build` on the bare
+        # `xonsh.passthru.xontribs.xontrib-jedi` attribute fails identically, so
+        # this is upstream's bug, not the bridge's. Skip that single test rather
+        # than dropping a useful completion xontrib.
+        (xs.xontrib-jedi.overridePythonAttrs (old: {
+          disabledTests = (old.disabledTests or [ ]) ++ [ "test_special_tokens" ];
+        }))
+      ];
+      # Packages Nixpkgs doesn't ship, built with pyproject.nix directly. Named in
+      # `extraPackages` so they become real dependency edges in the venv spec.
+      overlays = [ (final.callPackage ./anyxonsh/nix/extra-packages.nix { }) ];
+      extraPackages = [
+        # From PyPI wheels
+        "xontrib-term-integrations"
+        "xontrib-cmd-durations"
+        "xontrib-fish-completer"
+        # Built from source: sdist tarball, and a git checkout
+        "xontrib-output-search"
+        "xontrib-fzf-widgets"
+        "xontrib-envrc"
+        # Built from source because it is patched -- see nix/extra-packages.nix.
+        "xontrib-zoxide"
+      ];
+
+      paths = [
+        # A stripped remote host inherits whatever PATH is already there, which
+        # may not include a usable `ls`/`cat`/`env`. A shell that calls itself
+        # complete brings its own.
+        final.coreutils
+        final.bat
+        final.eza
+        final.fd
+        # xontrib-fzf-widgets shells out to `fzf`; nothing puts it on PATH for us
+        # because nixpkgsPrebuilt discards wrapper scripts.
+        final.fzf
+        final.gitMinimal
+        final.ripgrep
+        # xontrib-zoxide shells out to `zoxide` -- it is a Rust binary, not a
+        # Python dependency, so nothing in the venv would bring it along.
+        final.zoxide
+      ];
+    };
+
   kagi-mcp = final.python3.pkgs.callPackage ./kagi-mcp { };
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };

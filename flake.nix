@@ -82,6 +82,15 @@
       url = "github:ryantm/agenix";
       flake = false;
     };
+    # Builds anyxonsh, vendored under ./pkgs/anyxonsh. Its build machinery
+    # resolves Python dependencies flat through pyproject.nix rather than
+    # through Nixpkgs' propagation -- see that tree's nix/bridge.nix for why.
+    # Follows this repository's nixpkgs, so one package set builds it and no
+    # second Nixpkgs is instantiated.
+    pyproject-nix = {
+      url = "github:pyproject-nix/pyproject.nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     # A source tree, and not a flake. `default.nix` of nanopynix takes `pkgs`,
     # so this package set builds it and no second nixpkgs is instantiated.
     # `flake = false` is what keeps the outputs of nanopynix unevaluated:
