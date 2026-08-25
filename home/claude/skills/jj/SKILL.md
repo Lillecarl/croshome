@@ -70,6 +70,37 @@ area, and assuming `jj commit` behaves like `git commit`. Neither is true:
 a new `@` — further edits silently land back in the commit you just described. Use
 `jj describe -r @-` only to rename an already-finished parent commit.
 
+## Passing commit messages safely
+
+Inline `-m '...'` breaks the moment the message contains an apostrophe: the shell ends
+the single-quoting there and executes the rest of the message as commands. Real
+incident: a body saying "that repo's dev conveniences" mangled a description and ran
+half the message through bash.
+
+So: reserve `-m 'one liner'` for messages you have checked contain no `'`, `"`, `` ` ``
+or `$`. For every real message — anything with a body — pass it through a **quoted
+heredoc** via command substitution, which survives all of those verbatim (verified on
+jj 0.44.0):
+
+```bash
+jj commit -m "$(cat <<'EOF'
+subject line
+
+Body paragraph. Apostrophes, "double quotes", $vars and `backticks` are safe.
+EOF
+)"
+```
+
+The same substitution works for every command that takes `-m`, including `jj split`
+and `jj describe`. To set or rewrite a whole description without opening an editor,
+`describe --stdin` reads it straight from stdin:
+
+```bash
+jj describe -r @- --stdin <<'EOF'
+the corrected message
+EOF
+```
+
 ## Decision guide: which command?
 
 | Situation | Command |
