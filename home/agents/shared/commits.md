@@ -1,11 +1,19 @@
 ## Commits
 
-Write the subject and the body. Do not add trailers.
+Write the subject and the body. End every commit you make with exactly one
+trailer, on the last line after a blank line:
 
-One exception: add `Co-Authored-By:` when you contribute to nixpkgs, to Nix
-itself, or to another upstream Nix project. Those projects require you to
-disclose AI work, and the trailer is the disclosure. This configuration
-repository is not one of them, so its commits get no trailer.
+    Assisted-By: <your model name>
+
+For example `Assisted-By: ox-alpha`. Every commit an agent makes is made
+autonomously, so every commit you make carries it.
+
+One exception holds. Contributions to nixpkgs, to Nix itself, and to other
+upstream Nix projects require `Co-Authored-By:` as the disclosure of AI work;
+there that trailer replaces this one.
+
+No other trailer of any kind, anywhere. A commit carries either `Assisted-By`
+or, upstream, `Co-Authored-By`, and never both, never more.
 
 ## Commit as you go
 
@@ -26,7 +34,10 @@ You do not have to plan the split in advance. `jj split` separates a messy
 working copy after the fact, and it is non-interactive when you name the files:
 
 ```sh
-jj --no-pager split path/to/file.py -m 'the message for that part'
+jj --no-pager split path/to/file.py --message "$(cat <<'EOF'
+the message for that part
+EOF
+)"
 ```
 
 The named files go into the first commit. The rest stays in `@`. Repeat until
