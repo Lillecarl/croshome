@@ -192,6 +192,8 @@ class HelixMode:
         #: -- under xonsh that is the registry it passes to `prompt()` last,
         #: which is what puts us at the end of the merge order.
         self.key_bindings = bindings if bindings is not None else KeyBindings()
+        #: Live history-search state, or None. See `_open_histsearch`.
+        self.histsearch: dict | None = None
         self.apply_timeouts()
         self._wire_clipboard()
         self._bind()
@@ -229,6 +231,8 @@ class HelixMode:
         # the line just submitted, and all of it would otherwise be waiting at
         # the next prompt.
         editor.reset_transient()
+        # An open history search cannot survive the line it opened on.
+        self.histsearch = None
 
     @property
     def mode(self) -> Mode:
@@ -242,6 +246,73 @@ class HelixMode:
     @property
     def _buffer(self):
         return self.session.default_buffer
+
+    # ---------------------------------------------------------- histsearch --
+
+    def histsearch_active(self) -> bool:
+        """Is `/` history search open right now?"""
+        return self.histsearch is not None
+
+    def _open_histsearch(self, event) -> None:
+        """Turn the command line into a filter over this shell's history.
+
+        The line is cleared -- an empty query means "show me where I have been"
+        rather than "match against what little was here" -- the completer is
+        swapped for the history one, and insert mode takes over so typing flows
+        straight into the query. The pre-search line comes back on Escape.
+        """
+        from .search import HistorySearchCompleter
+
+        buf = self._buffer
+        self.histsearch = {
+            "text": buf.text,
+            "cursor": buf.cursor_position,
+            "completer": buf.completer,
+            "typing": self.session.complete_while_typing,
+        }
+        buf.text = ""
+        buf.cursor_position = 0
+        buf.completer = HistorySearchCompleter()
+        buf.complete_while_typing = True
+        self.session.complete_while_typing = True
+        self.editor.mode = Mode.INSERT
+        self._adopt_buffer()
+        buf.start_completion()
+
+    def _close_histsearch(self, event, *, accept: bool) -> None:
+        """Leave history search, restoring on cancel and keeping on accept."""
+        st = self.histsearch
+        if st is None:
+            return
+        self.histsearch = None
+        buf = event.current_buffer
+
+        buf.completer = st["completer"]
+        buf.complete_while_typing = st["typing"]
+        self.session.complete_while_typing = st["typing"]
+
+        chosen = None
+        if accept:
+            state = buf.complete_state
+            if state is not None and state.current_completion is not None:
+                chosen = state.current_completion.completion.text
+
+        if accept and (chosen is not None or buf.text):
+            # Keep what the box produced: the highlighted alternative, or the
+            # bare query when nothing matched but something was typed. Stays in
+            # insert mode -- the next Enter runs it, exactly like any line.
+            final = chosen if chosen is not None else buf.text
+            buf.cancel_completion()
+            buf.text = final
+            buf.cursor_position = len(final)
+            self._adopt_buffer()
+        else:
+            # Escape, or accept on an empty query: the line you came with.
+            buf.cancel_completion()
+            buf.text = st["text"]
+            buf.cursor_position = min(st["cursor"], len(buf.text))
+            self._adopt_buffer()
+            self.editor.mode = Mode.NORMAL
 
     def _sync_in(self) -> None:
         """Adopt whatever the buffer says before interpreting a key.
@@ -402,6 +473,29 @@ class HelixMode:
             def _named(event):
                 self._dispatch(event, _NAMED.get(event.key_sequence[0].key, ""))
 
+        # Ctrl-R opens history search -- deliberately NOT `/`, which keeps its
+        # Helix meaning: search inside the current line, selections and all.
+        # The line becomes a filter over this shell's history and
+        # prompt_toolkit's completion menu is the flowing alternatives box
+        # under it. Bound in both modes: reflexes reach for Ctrl-R mid-typing.
+        # Ours replaces prompt_toolkit's own reverse-search outright -- same
+        # merge-order logic as every binding here.
+        searching = Condition(lambda: self.enabled and self.histsearch_active())
+
+        @add(Keys.ControlR, filter=enabled)
+        def _histsearch_open(event):
+            if not self.histsearch_active():
+                self._open_histsearch(event)
+
+        # While search is open, Enter accepts: the highlighted alternative
+        # replaces the line, or the bare query when nothing matched. The line
+        # stays editable in insert mode; the next Enter runs it.
+        for key in (Keys.ControlM, Keys.ControlJ):
+
+            @add(key, filter=searching)
+            def _histsearch_accept(event):
+                self._close_histsearch(event, accept=True)
+
         # Enter, but only while a regex is being read. Everywhere else it stays
         # xonsh's -- see the note at the end of this method -- but here it has
         # to mean "that is the pattern" rather than "run this command", and
@@ -415,9 +509,39 @@ class HelixMode:
         # Escape is bound in *both* modes -- it is how insert mode is left.
         @add(Keys.Escape, filter=enabled)
         def _escape(event):
+            if self.histsearch_active():
+                self._close_histsearch(event, accept=False)
+                return
             if self._cancel_completion(event):
                 return
             self._dispatch(event, "<esc>")
+
+        # Kitty keyboard protocol, when the terminal answered at startup: the
+        # disambiguate flag makes modified Enter arrive as a CSI-u sequence
+        # instead of being indistinguishable from plain Enter. prompt_toolkit
+        # cannot parse those, so they surface here as an escape-led key run --
+        # which we bind by hand and turn into what they mean. Shift+Enter and
+        # friends are real multiline input, no backslash continuations.
+        if _env_get("ANYXONSH_KEYBOARD") == "kitty":
+            inserting = Condition(
+                lambda: self.enabled
+                and not self.editor.owns_input
+                and self.editor.mode is Mode.INSERT
+            )
+            for mod in ("2", "3", "5"):  # shift, alt, ctrl
+
+                @add(Keys.Escape, "[", "1", "3", ";", mod, "u", filter=inserting)
+                def _csi_u_enter(event):
+                    event.current_buffer.insert_text("\n")
+
+                # And in normal mode they drop you on an open line below.
+                @add(Keys.Escape, "[", "1", "3", ";", mod, "u",
+                     filter=enabled & Condition(lambda: self.editor.mode is Mode.NORMAL))
+                def _csi_u_enter_normal(event):
+                    buf = event.current_buffer
+                    buf.insert_text("\n")
+                    self._adopt_buffer()
+                    self.editor.mode = Mode.INSERT
 
         for char in _ESCAPE_FOLLOWERS:
 
@@ -633,7 +757,11 @@ class Installation:
         this is an object precisely so that it is read at render time rather
         than cached once per prompt. See `ModeField`.
         """
-        if self.helix is None or not self.helix.editor.pending:
+        if self.helix is None:
+            return ""
+        if self.helix.histsearch_active():
+            return " history"
+        if not self.helix.editor.pending:
             return ""
         return f" {self.helix.editor.pending}"
 
