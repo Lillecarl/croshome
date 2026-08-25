@@ -268,13 +268,16 @@ class HelixMode:
             "text": buf.text,
             "cursor": buf.cursor_position,
             "completer": buf.completer,
-            "typing": self.session.complete_while_typing,
+            # The buffer's own value, not the session's: xonsh passes the
+            # session a bare bool, which prompt_toolkit never calls but a
+            # buffer must be. Restoring the buffer's normalised filter keeps
+            # renders alive after the box closes.
+            "typing": buf.complete_while_typing,
         }
         buf.text = ""
         buf.cursor_position = 0
         buf.completer = HistorySearchCompleter()
         buf.complete_while_typing = Condition(lambda: True)
-        self.session.complete_while_typing = Condition(lambda: True)
         self.editor.mode = Mode.INSERT
         self._adopt_buffer()
         buf.start_completion()
@@ -289,7 +292,6 @@ class HelixMode:
 
         buf.completer = st["completer"]
         buf.complete_while_typing = st["typing"]
-        self.session.complete_while_typing = st["typing"]
 
         chosen = None
         if accept:
