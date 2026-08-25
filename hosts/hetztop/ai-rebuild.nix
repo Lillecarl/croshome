@@ -134,13 +134,6 @@ in
           })
           [
             "/run/current-system/sw/bin/ai-rebuild-activate"
-
-            # The pre-split grants, kept until the build-as-user flow has
-            # proven itself live. They now re-run the new scripts as root,
-            # which still works but rebuilds the fetch caches they exist to
-            # stop rebuilding. Remove once ai-rebuild has switched cleanly.
-            "/run/current-system/sw/bin/ai-rebuild"
-            "/run/current-system/sw/bin/ai-rebuild-pynixd"
           ];
     }
   ];
