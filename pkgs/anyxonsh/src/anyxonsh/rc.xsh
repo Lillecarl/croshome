@@ -112,6 +112,20 @@ def _jj_stale_after_command(**_):
 def _jj_stale_after_chdir(**_):
     _jj_state["dirty"] = True
 
+# --- Keyboard protocol --------------------------------------------------
+# Ask the terminal once whether it speaks the Kitty keyboard protocol, and if
+# so push the disambiguate flag for the life of this shell -- which is what
+# turns Shift+Enter into a distinct event the helix bindings can catch as real
+# multiline input instead of terminal-dependent escape soup. Probing must
+# happen before prompt_toolkit owns stdin (see xontrib_helix.keyboard); it
+# no-ops safely without a tty, so no interactivity gate here -- and none of
+# the names from later sections either, this file runs top to bottom.
+if ${...}.get("ANYXONSH_KEYBOARD", None) is None:
+    from xontrib_helix import keyboard as _keyboard
+
+    _keyboard.enable()
+    del _keyboard
+
 # --- Line editing -------------------------------------------------------
 # `helix` is anyxonsh's default: Helix's selection-then-action model rather
 # than Vim's action-then-motion. Shipped as the `helix` xontrib -- see
