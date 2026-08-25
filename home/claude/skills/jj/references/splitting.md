@@ -18,28 +18,36 @@ editor, no TTY required. This was verified directly against the jj source
 
 ```bash
 # Non-interactive: config.py goes in the first commit, everything else stays behind
-jj --no-pager split src/config.py -m 'feat: add debug config flag'
+jj --no-pager split src/config.py --message 'feat: add debug config flag'
 ```
 
 Confirmed behavior in the lab: this produced two commits with no prompt at all.
 
-**Do not run `jj split` with zero fileset arguments and no `-m` for two commits** —
-that opens an interactive editor and will hang a non-interactive agent session. If you
-need finer-than-file granularity, use [jj-hunk.md](jj-hunk.md) instead of forcing
-`--interactive`.
+**Do not run `jj split` with zero fileset arguments** — that opens an interactive
+editor and will hang a non-interactive agent session. If you need finer-than-file
+granularity, use [jj-hunk.md](jj-hunk.md) instead of forcing `--interactive`.
+
+## Always pass `--message` to a non-interactive split
+
+When the revision being split carries a description, jj needs descriptions for *both*
+halves. With no `--message`, it opens a description editor even though the fileset
+selection itself was non-interactive — and headless that editor dies loudly (verified:
+a helix-wrapper panic, "Failed to edit description", nothing changed). Passing
+`--message '...'` supplies the selected half's description and skips the editor
+entirely. The remaining half keeps the original description.
 
 ## Basic shape
 
 ```bash
-jj --no-pager split <fileset...> -m 'message for the selected part'
+jj --no-pager split <fileset...> --message 'message for the selected part'
 ```
 
-- Splits `@` by default. Use `-r/--revision <rev>` to split a different (mutable)
+- Splits `@` by default. Use `--revision <rev>` to split a different (mutable)
   commit instead.
 - Files matching `<fileset...>` → **first** commit ("Selected changes").
 - Everything else → **second** commit ("Remaining changes"), which becomes the new
   child and — if you were splitting `@` — the new `@`.
-- `-m` sets the description for the **first** (selected) commit only. The second
+- `--message` sets the description for the **first** (selected) commit only. The second
   commit keeps whatever description the original commit had (usually none, if you're
   splitting a WIP `@`).
 - Splitting an **empty** commit is refused — there's nothing to split; use `jj new`.
@@ -58,17 +66,17 @@ non-obvious — they end up on **different** commits after a plain split:
   commit, not the "Selected changes" one, even though the selected commit is the one
   that kept the change ID. This is jj's actual default (`split.legacy-bookmark-behavior
   = true`, confirmed in jj's shipped config) — despite the "legacy" name it's what
-  ships in 0.43. The rationale: a bookmark is meant to track "where development
+  ships in 0.43/0.44. The rationale: a bookmark is meant to track "where development
   continues," which is the remaining commit (also the new `@`), not the historical
   chunk you just peeled off.
 - If `split.legacy-bookmark-behavior = false` is configured, this flips: the bookmark
   stays with whichever commit kept the change ID (the first/selected one) instead.
   Don't assume either way in an unfamiliar repo — check with
   `jj config get split.legacy-bookmark-behavior` if it matters for the task at hand.
-- `-o`/`-A`/`-B` change this further (the *selected* part is what gets relocated and
-  gets the fresh change ID instead) — treat placement-flag splits as needing extra
-  care about where names end up, and verify with `jj bookmark list` afterward if a
-  bookmark was involved.
+- Placement flags (`--onto`/`--insert-after`/`--insert-before`) change this further
+  (the *selected* part is what gets relocated and gets the fresh change ID instead) —
+  treat placement-flag splits as needing extra care about where names end up, and
+  verify with `jj bookmark list` afterward if a bookmark was involved.
 
 ## Repeated splitting to build a narrative
 
@@ -77,10 +85,10 @@ becomes the "everything not yet split out" commit after each step:
 
 ```bash
 # Working copy has: src/schema.py (new), src/api.py (mixed), README.md (docs)
-jj --no-pager split src/schema.py -m 'feat: add schema'
-jj --no-pager split README.md -m 'docs: describe schema'
+jj --no-pager split src/schema.py --message 'feat: add schema'
+jj --no-pager split README.md --message 'docs: describe schema'
 # Whatever's left (src/api.py) is still uncommitted in @ — finish with:
-jj --no-pager commit -m 'feat: wire schema into api'
+jj --no-pager commit --message 'feat: wire schema into api'
 ```
 
 Or, if everything should end up committed via splits alone, keep splitting until the
@@ -93,10 +101,10 @@ non-empty if there was something left unmatched.
 [filesets.md](filesets.md) for the full grammar. Common cases:
 
 ```bash
-jj --no-pager split src/foo.py src/bar.py -m '...'      # exact files
-jj --no-pager split src/ -m '...'                        # whole directory
-jj --no-pager split 'glob:"*.md"' -m '...'                # glob
-jj --no-pager split '~src/wip.py' -m '...'                # everything EXCEPT this file
+jj --no-pager split src/foo.py src/bar.py --message '...'      # exact files
+jj --no-pager split src/ --message '...'                        # whole directory
+jj --no-pager split 'glob:"*.md"' --message '...'                # glob
+jj --no-pager split '~src/wip.py' --message '...'                # everything EXCEPT this file
 ```
 
 ## Placement flags: extracting to a different spot in the graph
@@ -105,16 +113,26 @@ By default the selected part stays where the original commit was, and the remain
 part becomes its child. Three flags relocate the *selected* part instead, leaving the
 remaining part in place:
 
-- `-o/--onto <revset...>` (alias `--destination`) — selected part becomes a new commit
-  with the given revision(s) as parent(s). Multiple revisions → a merge commit.
-- `-A/--insert-after <revset...>` — inserted directly after the given commit(s); their
+- `--onto <revset...>` (alias `--destination`) — the selected part is extracted into a
+  new commit whose **parents are the given revision(s)**. Multiple revisions → a merge
+  commit.
+- `--insert-after <revset...>` — inserted directly after the given commit(s); their
   existing children get rebased onto the new commit.
-- `-B/--insert-before <revset...>` — inserted directly before the given commit(s)
+- `--insert-before <revset...>` — inserted directly before the given commit(s)
   (i.e. onto their parents), and the given commits + descendants get rebased onto it.
 
+Verified shape for `--onto` against an ancestor (`jjtandem3`/`jjonto` labs): splitting
+`f4` from `@` with `--onto @-` left **two siblings under the base** — the parked
+commit (`f4`) as a fresh child of base, and the remaining feature commit unchanged in
+its original position. It does **not** insert into the mainline between them;
+`--insert-before`/`--insert-after` are what splice into a line.
+
 ```bash
-# Pull a fix out of @ and place it right after main, independent of @'s other changes
-jj --no-pager split src/bugfix.py -m 'fix: null check' --insert-after main
+# Pull a fix out of @ and park it as its own branch off main
+jj --no-pager split src/bugfix.py --message 'fix: null check' --onto main
+
+# Splice it INTO the mainline right after main instead
+jj --no-pager split src/bugfix.py --message 'fix: null check' --insert-after main
 ```
 
 These flags make `jj split` a *rewrite* of graph structure beyond `@` (they can rebase
@@ -123,12 +141,30 @@ in [safety-and-undo.md](safety-and-undo.md), unless you're only ever targeting `
 itself with no other flags, which is always safe (it only ever appends/replaces the
 one commit you named).
 
-## `--parallel` / `-p`
+## Folding a peeled piece into an earlier commit
+
+Split isolates; squash folds. To land missed changes from `@` inside an earlier
+commit ([SKILL.md](../SKILL.md) has the short version):
+
+```bash
+jj split shared.txt --message 'the missed tweak'       # peels; sits at @-
+jj squash --revision @- --use-destination-message      # folds into its parent
+```
+
+`--use-destination-message` keeps the destination's description and discards the
+peeled one. Omit it (and omit `--message`) on a squash that empties a described
+revision and jj opens the description editor — headless, a guaranteed panic.
+
+For whole files you can skip the split: `jj squash path/to/file --into <rev>` moves
+them in one step. The tandem exists for hunk-level granularity (via `jj-hunk`) or
+when the piece already sits in its own commit.
+
+## `--parallel`
 
 Makes the two parts siblings (same parent) instead of parent → child:
 
 ```bash
-jj --no-pager split src/a.py -m 'feat: a' --parallel
+jj --no-pager split src/a.py --message 'feat: a' --parallel
 ```
 
 Use this when the two halves are genuinely independent and shouldn't imply an
@@ -144,8 +180,8 @@ jj --no-pager diff --git --revisions <rev>   # confirm each new commit's content
 ## Quick reference
 
 ```bash
-jj --no-pager split <files...> -m 'msg'                       # file-level, non-interactive
-jj --no-pager split <files...> -m 'msg' --parallel             # siblings instead of parent/child
-jj --no-pager split <files...> -m 'msg' --onto <rev>            # relocate selected part
-jj --no-pager split -r <rev> <files...> -m 'msg'                 # split a commit other than @
+jj --no-pager split <files...> --message 'msg'                          # file-level, non-interactive
+jj --no-pager split <files...> --message 'msg' --parallel               # siblings instead of parent/child
+jj --no-pager split <files...> --message 'msg' --onto <rev>             # relocate selected part
+jj --no-pager split --revision <rev> <files...> --message 'msg'         # split a commit other than @
 ```

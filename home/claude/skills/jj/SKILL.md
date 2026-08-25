@@ -53,10 +53,10 @@ area, and assuming `jj commit` behaves like `git commit`. Neither is true:
 
 1. Make edits. jj auto-snapshots them into `@`.
 2. Decide how to land them — in order of preference:
-   - **One logical change** → `jj commit -m 'message'` (commits `@`, opens a new
+   - **One logical change** → `jj commit --message 'message'` (commits `@`, opens a new
      empty `@` child). This is the default 95% case.
-   - **Mixed changes that should become several commits** → **`jj split <fileset> -m
-     'message'`**, repeated (the preferred workflow — see
+   - **Mixed changes that should become several commits** → **`jj split <fileset>
+     --message 'msg'`**, repeated (the preferred workflow — see
      [references/splitting.md](references/splitting.md)). This is non-interactive
      and safe when you pass file paths; no editor, no extra tool required.
    - **Mixed changes within a *single* file** (finer than file granularity) → same
@@ -79,7 +79,7 @@ jj 0.44.0). Inline `-m '...'` is left undocumented here on purpose: it breaks on
 first apostrophe in a message, and the shell then executes the rest as commands.
 
 ```bash
-jj commit -m "$(cat <<'EOF'
+jj commit --message "$(cat <<'EOF'
 subject line
 
 Body paragraph. Apostrophes, "double quotes", $vars and `backticks` are safe.
@@ -95,7 +95,7 @@ are fresh instead of letting one working copy grow several concerns, and reach f
 [references/jj-hunk.md](references/jj-hunk.md)):
 
 ```bash
-jj split path/to/file -m "$(cat <<'EOF'
+jj split path/to/file --message "$(cat <<'EOF'
 this piece's own subject
 
 Its body, safe for the same reason.
@@ -103,15 +103,51 @@ EOF
 )"
 ```
 
+## Moving missed changes onto the right commit
+
+A change landed in `@` that belongs in an earlier commit happens constantly. Three
+verified shapes (jj 0.44.0), whole files first:
+
+```bash
+# Whole files: one step. Rewrites <rev> to contain them; @ keeps the rest.
+jj squash path/to/file --into @-
+```
+
+When the granularity is finer than a file — or the piece already sits in its own
+commit — peel first with `jj split` or `jj-hunk`, then fold:
+
+```bash
+jj split shared.txt --message 'the missed tweak'     # peels it out; it now sits at @-
+jj squash --revision @- --use-destination-message    # folds into its parent
+```
+
+`--use-destination-message` is not optional styling there: when a squash empties and
+abandons a *described* revision, jj opens a message editor to reconcile the two
+descriptions. Headless, that editor panics and the fold does not happen. The same
+applies to any squash of a whole described commit. A partial fileset move like the
+first example never hits this — the source survives holding its description.
+
+Two traps from the lab:
+
+- **Empty commits lie in the way.** Stacks built with repeated `jj new -m` collect
+  nameless empty commits between real ones, and `--revision @-` then folds into an
+  empty instead of your target. Name revisions explicitly (`--into description(...)`,
+  a change ID) rather than trusting relative position.
+- **Always pass `-m`/`--stdin`-grade messages to non-interactive splits** of described
+  revisions — same editor panic otherwise.
+
 ## Decision guide: which command?
 
 | Situation | Command |
 |---|---|
-| All edits in `@` are one logical change | `jj commit -m '...'` |
-| Edits span multiple files, want them as separate commits | `jj split <fileset> -m '...'` (repeat) — [splitting.md](references/splitting.md) |
+| All edits in `@` are one logical change | `jj commit --message '...'` |
+| Edits span multiple files, want them as separate commits | `jj split <fileset> --message '...'` (repeat) — [splitting.md](references/splitting.md) |
 | One file mixes two concerns | `jj-hunk` hunk-level split — [jj-hunk.md](references/jj-hunk.md) |
 | Small fixup belongs in parent | `jj squash --use-destination-message` |
-| Need a merge of two lines of work | `jj new -m 'msg' <rev1> <rev2>` — [rebase-and-merge.md](references/rebase-and-merge.md) |
+| Whole files in `@` belong in an earlier commit | `jj squash <fileset> --into <rev>` — see above |
+| Hunk-level changes belong in an earlier commit | `jj split`/`jj-hunk` to peel, then `jj squash --revision @- --use-destination-message` — see above |
+| Extract part of `@` onto another commit as its own branch point | `jj split <fileset> --onto <rev> --message '...'` — [splitting.md](references/splitting.md) |
+| Need a merge of two lines of work | `jj new --message 'msg' <rev1> <rev2>` — [rebase-and-merge.md](references/rebase-and-merge.md) |
 | Need to move commits onto a new base | `jj rebase --source/--branch/--revisions --onto <dest>` — **ask first**, see Safety |
 | Need to pick specific commits/query history | revset — [revsets.md](references/revsets.md) |
 | Need parallel working directories (e.g. one per task) | `jj workspace add` — [workspaces.md](references/workspaces.md) |
