@@ -11,6 +11,7 @@
     ./ai-rebuild.nix
     ./linux-builder.nix
     ./vz-builder
+    ./linux-vm
     ./cocoa-way.nix
     ./aerospace.nix
     ./borders.nix
@@ -107,6 +108,12 @@
   # and the QEMU one is also what builds this one's guest image, which is why
   # removing it is a later step and not this one.
   nix.linux-vz-builder.enable = true;
+
+  # A persistent Linux VM for kernel-required workloads (Kubernetes and
+  # friends): started and stopped by hand with `linux-vm`, never used as a
+  # builder. See ./linux-vm.
+  virtualisation.linux-vm.enable = true;
+
   # `auto` is not available here: /etc/nix/machines parses this column with
   # string2Int<unsigned int> and throws on anything else, so it is a number or
   # nothing. This is that number for this Mac (`sysctl -n hw.ncpu`), and it

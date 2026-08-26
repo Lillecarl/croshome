@@ -166,6 +166,25 @@ Four things there were measured rather than read, and are easy to get wrong:
   Measuring a still-resident VM after a rebuild reads as confirmation and is
   not. Activation now stops a stale VM for this reason.
 
+### The persistent Linux VM
+
+`hosts/macbook/linux-vm` is a second guest on the same Virtualization.framework
+stack — persistent root disk, started and stopped by hand, and deliberately not
+a builder. It hosts kernel-required workloads (Kubernetes and friends); what it
+runs is defined in its NixOS module like any other machine.
+
+- `linux-vm start|stop|restart|status|ssh|console|activate`. All of it works
+  without sudo: the VM runs as a launchd user agent, never at login.
+- macOS activation deploys to it over SSH when it is running, and skips
+  quietly when it is not — a later start boots the new configuration anyway.
+  If the guest is up but the deploy fails, activation warns loudly instead of
+  failing; `linux-vm restart` always converges.
+- A guest that has been up across several Mac rebuilds cannot see store paths
+  built since it booted — its view of the shared lower store froze at boot.
+  Activation therefore pushes the new closure's missing paths into the guest's
+  own store with `nix copy` before switching. The why lives in
+  ./linux-vm/default.nix.
+
 ## Reading a change before activating it
 
 Never activate without reading the diff first.
