@@ -121,6 +121,28 @@ inputs: final: prev: {
       ];
     };
 
+  # The tmux-driven completion tests for the vendored anyxonsh, run by the
+  # venv under test itself: libtmux is one of its Python dependencies, so no
+  # second environment exists for tests alone. The script lives beside the
+  # shell it exercises -- `pkgs/anyxonsh/tests/completions.py` -- and the
+  # wrapper puts that same anyxonsh build on PATH for it to launch.
+  #
+  #   nix build --file . pkgs.anyxonsh-tests && ./result/bin/anyxonsh-tests
+  #
+  # tmux speaks neither the Kitty keyboard protocol nor its ANSI extensions,
+  # so flows that depend on those need a pty and are out of scope here.
+  anyxonsh-tests =
+    final.runCommand "anyxonsh-tests"
+      {
+        nativeBuildInputs = [ final.makeWrapper ];
+        meta.description = "tmux-driven completion tests for the vendored anyxonsh";
+      } ''
+      mkdir -p $out/bin
+      makeWrapper ${final.anyxonsh.venv}/bin/python $out/bin/anyxonsh-tests \
+        --add-flags "${./anyxonsh/tests/completions.py}" \
+        --prefix PATH : ${final.anyxonsh}/bin
+    '';
+
   kagi-mcp = final.python3.pkgs.callPackage ./kagi-mcp { };
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };

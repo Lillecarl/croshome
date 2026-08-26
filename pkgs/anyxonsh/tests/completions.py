@@ -1,20 +1,25 @@
-"""Drive a real anyxonsh in a scratch tmux session and check completion flows.
+"""Drive a real anyxonsh in a scratch tmux session via libtmux.
 
 Usage:
 
-    python3 tests/completions.py /path/to/anyxonsh
+    nix run .#pkgs.anyxonsh-tests   # or: python3 tests/completions.py <binary>
 
-Every case sends real keys and reads the pane back with tmux capture-pane,
-so what is asserted is what a person would see -- not internals. A case
-fails on a missing screen expectation or on any traceback text appearing
-anywhere in the scrollback.
+Every case sends real keys and asserts on what tmux captured back, so what
+is checked is what a person would see -- not internals. A case fails on a
+missing screen expectation or on any traceback text appearing anywhere in
+the scrollback.
+
+tmux knows nothing about the Kitty keyboard protocol or its ANSI extensions,
+so those flows are invisible here and stay covered by pty-based checks.
 """
 
 import os
 import re
-import subprocess
+import shutil
 import sys
 import time
+
+import libtmux
 
 SESSION = "anyxonsh-test"
 CRASH = ("Traceback", "Press ENTER to continue", "Unhandled exception")
@@ -22,27 +27,46 @@ TRACE = bool(os.environ.get("TRACE"))
 #: The binary under test, recorded by main(); the persistence case reboots
 #: with it to prove history survives a process boundary.
 BINARY = [None]
+#: Terminal noise: SGR colour runs and OSC titles (whose payload is the
+#: cwd -- real text that would otherwise satisfy word assertions).
+ANSI = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]|\x1b\][^\x07]*\x07")
+
+#: One server for the whole run; sessions come and go beneath it.
+SERVER: libtmux.Server | None = None
 
 
-def sh(*args):
-    return subprocess.run(args, capture_output=True, text=True)
+def session() -> libtmux.Session:
+    for existing in SERVER.sessions:
+        if existing.session_name == SESSION:
+            return existing
+    raise RuntimeError(f"tmux session {SESSION!r} is gone")
+
+
+def pane():
+    return session().active_window.active_pane
 
 
 def boot(binary):
-    sh("tmux", "kill-session", "-t", SESSION)
-    sh("tmux", "new-session", "-d", "-s", SESSION, "-x", "180", "-y", "40",
-       binary)
+    global SERVER
+    SERVER = SERVER or libtmux.Server()
+    for existing in list(SERVER.sessions):
+        if existing.session_name == SESSION:
+            existing.kill()
+    SERVER.new_session(session_name=SESSION, x=180, y=40,
+                       window_command=binary)
     end = time.time() + 30
     while time.time() < end:
-        if "@\n" in sh("tmux", "capture-pane", "-p", "-t", SESSION).stdout:
+        if "@\n" in capture():
             break
         time.sleep(0.3)
     time.sleep(1.0)
 
 
 def send(*keys, wait=0.6):
+    """Type each argument as tmux would read it: key names (`C-r`, `Escape`,
+    `Enter`, `Down`) arrive as keys, anything else arrives as typed text."""
     for k in keys:
-        sh("tmux", "send-keys", "-t", SESSION, k)
+        pane().send_keys(k, enter=False)
         time.sleep(0.08)
         if TRACE:
             print(f"[trace] after {k!r}: {screen()}")
@@ -51,18 +75,35 @@ def send(*keys, wait=0.6):
         print(f"[trace] settle({wait}): {screen()}")
 
 
-def screen(scrollback=0):
-    args = ["tmux", "capture-pane", "-p", "-t", SESSION]
+def capture(scrollback=0):
+    args = ["capture-pane", "-p"]
     if scrollback:
         args += ["-S", str(-scrollback)]
-    out = sh(*args).stdout
+    return ANSI.sub("", "\n".join(pane().cmd(*args).stdout))
+
+
+def screen(scrollback=0):
     # Collapse runs of blanks so redraw residue cannot satisfy a match.
-    return re.sub(r"\s+", " ", out)
+    return re.sub(r"\s+", " ", capture(scrollback))
+
+
+def live_frame(rows=2):
+    """The rows around the cursor -- the one prompt frame that is current.
+
+    The prompt does not sit at the bottom of the pane: below it is only
+    emptiness, and above it every past frame keeps whatever it showed
+    forever. Assertions about "what the prompt says now" must anchor on the
+    cursor row, which display-message reports.
+    """
+    out = capture().splitlines()
+    y = int(pane().cmd("display-message", "-p", "#{cursor_y}").stdout[0])
+    lo = max(0, y - rows + 1)
+    return re.sub(r"\s+", " ", "\n".join(out[lo:y + 1]))
 
 
 def crashed():
-    pane = screen(scrollback=120)
-    return [marker for marker in CRASH if marker in pane]
+    pane_text = screen(scrollback=120)
+    return [marker for marker in CRASH if marker in pane_text]
 
 
 CASES = []
@@ -82,7 +123,7 @@ def fresh_prompt():
     # before i enters insert. C-u then clears the line. Scrollback is
     # dropped too, so one case's traceback cannot satisfy another's crash
     # check.
-    sh("tmux", "clear-history", "-t", SESSION)
+    pane().cmd("clear-history")
     send("Escape", wait=0.6)
     send("i", "C-u", wait=0.8)
 
@@ -124,8 +165,7 @@ def _():
     send("C-r", "seed", wait=1.0)
     send("Down", wait=0.5)
     send("Enter", wait=1.0)
-    pane = screen()
-    ok = "beta-seed-2" in pane and not crashed()
+    ok = "beta-seed-2" in screen() and not crashed()
     fresh_prompt()
     return ok
 
@@ -137,8 +177,7 @@ def _():
     send("Down", wait=0.4)
     send("Up", wait=0.4)
     send("Enter", wait=1.0)
-    pane = screen()
-    ok = "alpha-seed-1" in pane and not crashed()
+    ok = "alpha-seed-1" in screen() and not crashed()
     fresh_prompt()
     return ok
 
@@ -167,13 +206,29 @@ def _():
         send("Enter", wait=1.2)
     send("exit", wait=0.4)
     send("Enter", wait=1.5)                  # leave the shell for good
-    sh("tmux", "kill-session", "-t", SESSION)
+    # A clean exit takes the whole tmux session with it -- killing it again
+    # is only for the case where something kept it alive.
+    try:
+        session().kill()
+    except (RuntimeError, libtmux.exc.LibTmuxException):
+        pass
     time.sleep(0.5)
     boot(BINARY[0])                          # a brand-new shell process
     fresh_prompt()
     send("C-r", marker, wait=1.0)            # full marker as exact prefix
-    ok = marker in screen() and not crashed()
-    return ok
+    return marker in screen() and not crashed()
+
+
+@case("slow command shows its seconds, the next fast one clears them")
+def _():
+    fresh_prompt()
+    send("sleep 2", wait=0.5)
+    send("Enter", wait=3.2)
+    shown = "[2s]" in live_frame()
+    send("echo done-fast", wait=0.5)
+    send("Enter", wait=1.6)
+    cleared = "[2s]" not in live_frame()
+    return shown and cleared and not crashed()
 
 
 @case("insert-mode tab completion selects without crashing")
@@ -189,7 +244,11 @@ def _():
 
 
 def main():
-    binary = sys.argv[1] if len(sys.argv) > 1 else "/tmp/anyxonsh/bin/anyxonsh"
+    binary = sys.argv[1] if len(sys.argv) > 1 else None
+    if binary is None:
+        # The nix wrapper puts the shell under test on PATH; a bare checkout
+        # run falls back to the usual out-link.
+        binary = shutil.which("anyxonsh") or "/tmp/anyxonsh/bin/anyxonsh"
     BINARY[0] = binary
     pattern = re.compile(os.environ.get("CASES", "."))
     boot(binary)
@@ -218,7 +277,10 @@ def main():
                 print("--- end pane ---")
             failures += 0 if ok else 1
     finally:
-        sh("tmux", "kill-session", "-t", SESSION)
+        try:
+            session().kill()
+        except Exception:
+            pass
     sys.exit(1 if failures else 0)
 
 
