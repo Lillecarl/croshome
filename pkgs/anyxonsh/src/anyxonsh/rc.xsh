@@ -50,7 +50,7 @@ $PROMPT = (
     + _userhost
     + ":{BLUE}{cwd}{RESET}{jj_prompt}\n{prompt_end} "
 )
-$RIGHT_PROMPT = "{last_return_code_if_nonzero:[{BOLD_INTENSE_RED}{}{RESET}] }{short_cwd}"
+$RIGHT_PROMPT = "{last_cmd_time:[{YELLOW}{}{RESET}] }{last_return_code_if_nonzero:[{BOLD_INTENSE_RED}{}{RESET}] }{short_cwd}"
 $TITLE = "{current_job:{} | }{cwd_base} | xonsh"
 
 # The jj prompt fields. One subprocess per *command*, not per keystroke:
@@ -103,7 +103,10 @@ $PROMPT_FIELDS["jj_prompt"] = _jj_prompt
 from xonsh.events import events as _events
 
 
-@_events.on_post_command
+# NB the spelling: xonsh's command events are on_precommand/on_postcommand,
+# one word. An unknown name would be lazily created as a brand-new event
+# that nothing ever fires -- registering against a typo fails silently.
+@_events.on_postcommand
 def _jj_stale_after_command(**_):
     _jj_state["dirty"] = True
 
@@ -111,6 +114,42 @@ def _jj_stale_after_command(**_):
 @_events.on_chdir
 def _jj_stale_after_chdir(**_):
     _jj_state["dirty"] = True
+
+# --- Slow-command duration ----------------------------------------------
+# A command that took longer than a second owes you its number -- fish's
+# quiet courtesy. Whole seconds, rendered once, on the right of the *next*
+# prompt; anything quicker earns no ink. Measured between xonsh's own
+# precommand/postcommand events -- the same pair the jj staleness marker
+# above relies on. Popping the start on the way out keeps a double
+# postcommand from counting one command twice, and precommand clearing the
+# label is what retires it after the following fast command.
+import time as _time
+
+_last_cmd = {"start": None, "duration": None}
+
+
+@_events.on_precommand
+def _last_cmd_started(**_):
+    _last_cmd["start"] = _time.monotonic()
+    _last_cmd["duration"] = None
+
+
+@_events.on_postcommand
+def _last_cmd_finished(**_):
+    started = _last_cmd["start"]
+    _last_cmd["start"] = None
+    if started is not None:
+        seconds = _time.monotonic() - started
+        if seconds > 1:
+            _last_cmd["duration"] = round(seconds)
+
+
+def _last_cmd_time():
+    seconds = _last_cmd["duration"]
+    return None if seconds is None else f"{seconds}s"
+
+
+$PROMPT_FIELDS["last_cmd_time"] = _last_cmd_time
 
 # --- Keyboard protocol --------------------------------------------------
 # Ask the terminal once whether it speaks the Kitty keyboard protocol, and if
