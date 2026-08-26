@@ -7,7 +7,7 @@ Three machines share one configuration.
 | Path            | What it is                                                    |
 | --------------- | ------------------------------------------------------------- |
 | `default.nix`   | The entry point. Builds `pkgs` and each host.                  |
-| `hosts/macbook` | nix-darwin. `./rebuild build`, `./rebuild switch`.             |
+| `hosts/macbook` | nix-darwin. `./rebuild build`, `./rebuild switch`, or `ai-rebuild` (NOPASSWD, for agents). |
 | `hosts/hetztop` | NixOS. `ai-rebuild` (NOPASSWD, for agents).                |
 | `hosts/cros`    | home-manager alone on ChromeOS. Deliberately small.            |
 | `home/`         | Shared home-manager config. `macbook` and `hetztop` import it. |
@@ -200,10 +200,10 @@ readlink -f /run/current-system/kernel /tmp/next/kernel   # same kernel?
 Then activate with `ai-rebuild`, no sudo in front of it. It evaluates and
 builds as the calling user, so it shares that user's fetcher cache, and
 elevates once at the end for the profile flip and the switch. It is NOPASSWD
-for `lillecarl` so an agent can run it unattended — see
-`hosts/hetztop/ai-rebuild.nix`, and read that grant as full root rather than
-narrow root. `ai-rebuild-pynixd` is the same switch routed through the pynixd
-store.
+for `lillecarl` on both machines that run agents — see
+`hosts/hetztop/ai-rebuild.nix` and `hosts/macbook/ai-rebuild.nix`, and read
+either grant as full root rather than narrow root. `ai-rebuild-pynixd` is the
+same switch routed through the pynixd store.
 
 ## Version Control
 
