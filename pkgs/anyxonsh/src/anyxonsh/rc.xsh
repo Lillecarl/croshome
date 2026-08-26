@@ -26,7 +26,7 @@ $XONSH_SHOW_TRACEBACK = True
 # of @ and whatever bookmarks point at it, rendered by the `jj_prompt` field
 # defined below.
 #
-# Colour note: every named colour here resolves through the catppuccin-mocha
+# Colour note: every named colour here resolves through the catppuccin-mocha-xonsh
 # map the `catppuccin` xontrib registers below (the sixteen slots of
 # Catppuccin's own terminal mapping), so GREEN really is Mocha green and PINK
 # really is Mocha pink -- see that module for why the default guess collapses
@@ -201,27 +201,6 @@ elif $ANYXONSH_EDITING_MODE == "helix" and _interactive:
         + $RIGHT_PROMPT
     )
 
-# --- Prompt colour table -------------------------------------------------
-# The prompt_toolkit style is compiled from xonsh's pygments styler, whose
-# rebuild is skipped whenever the style *name* already matches -- so a table
-# compiled before every registration above could be seen stays colourless
-# for the mode indicator and the rest of the right prompt, until some later
-# event happens to rebuild it. That was the grey-vs-yellow flicker on the
-# mode label. Round-tripping the name through the setter forces one
-# deterministic rebuild now that all styles are registered; it is silent and
-# costs well under a millisecond.
-if _interactive:
-    try:
-        from xonsh.built_ins import XSH
-
-        _styler = XSH.shell.shell.styler
-        _styler.style_name = "default"
-        _styler.style_name = ${XONSH_COLOR_STYLE}
-        del _styler
-    except AttributeError:
-        # The readline shell has no styler and no prompt to colour.
-        pass
-
 # --- The model at the prompt --------------------------------------------
 # `: what is this repo about?` asks; `:help` lists the rest. See
 # src/xontrib/pai.py, src/xontrib_pai/ and the README.
@@ -255,10 +234,10 @@ if ${...}.get("ANYXONSH_AI", True) and _interactive:
 # reason: it is about 60ms of the shell's startup, nearly all of it pygments
 # and Catppuccin's palette, and it buys colours that `anyxonsh -c '...'` was
 # never going to draw.
-$ANYXONSH_COLOR_STYLE = ${...}.get("ANYXONSH_COLOR_STYLE", "catppuccin-mocha")
+$ANYXONSH_COLOR_STYLE = ${...}.get("ANYXONSH_COLOR_STYLE", "catppuccin-mocha-xonsh")
 
 if _interactive:
-    if $ANYXONSH_COLOR_STYLE == "catppuccin-mocha":
+    if $ANYXONSH_COLOR_STYLE == "catppuccin-mocha-xonsh":
         xontrib load catppuccin
     else:
         $XONSH_COLOR_STYLE = $ANYXONSH_COLOR_STYLE

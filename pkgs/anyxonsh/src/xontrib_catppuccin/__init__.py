@@ -38,12 +38,20 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-#: The flavour this xontrib themes the shell with, and the name both maps are
-#: registered under -- deliberately the same string Catppuccin's own pygments
-#: entry point uses, so there is one spelling of "Catppuccin Mocha" and loading
-#: the xontrib upgrades it rather than introducing a second one.
+#: The flavour this xontrib themes the shell with, and the suffix of the name
+#: both maps are registered under. Not `catppuccin-mocha` itself: Catppuccin
+#: ships a real pygments style under exactly that name via its own entry
+#: point, and xonsh's style cache resolves names against pygments' registry
+#: before its own customs -- so a same-named registration is permanently
+#: shadowed and none of this xontrib's Token.Color.* keys ever reach the
+#: render rules. The -xonsh suffix is what makes the bold colours exist.
 FLAVOUR = "mocha"
-STYLE_NAME = f"catppuccin-{FLAVOUR}"
+#: The style Catppuccin's own pygments entry point publishes. Real, resolvable,
+#: and the base both of our registrations build on.
+UPSTREAM_NAME = f"catppuccin-{FLAVOUR}"
+#: The name our maps are registered under -- suffixed so the style cache can
+#: never confuse them with `UPSTREAM_NAME`, which it resolves first.
+STYLE_NAME = f"catppuccin-{FLAVOUR}-xonsh"
 
 #: Catppuccin's terminal ANSI mapping, as palette colour names, against the
 #: sixteen slots xonsh calls `Token.Color.*`. Copied from the terminal ports
@@ -103,7 +111,17 @@ def color_tokens() -> dict[str, str]:
     tokens = {}
     for slot, color in ANSI_SLOTS.items():
         value = getattr(colors, color).hex
+        # The bold forms are written out as real keys rather than left to
+        # xonsh's compound-colour machinery: that composes them lazily, and
+        # a lazily composed name never appears while prompt_toolkit walks
+        # the table to build its render rules -- so `{BOLD_INTENSE_YELLOW}`
+        # rendered as plain foreground grey until some unrelated lookup
+        # happened to prime the composition cache. Ask and answer: every
+        # name the prompt templates use must exist here explicitly.
         tokens[f"Color.{slot}"] = value
+        tokens[f"Color.BOLD_{slot}"] = value
+        tokens[f"Color.INTENSE_{slot}"] = value
+        tokens[f"Color.BOLD_INTENSE_{slot}"] = value
         tokens[f"Color.BACKGROUND_{slot}"] = f"bg:{value}"
     return tokens
 
@@ -112,17 +130,17 @@ def register() -> str:
     """Register both maps under `STYLE_NAME`, and return that name.
 
     Idempotent: registering twice writes the same two entries again. Both
-    registrations take Catppuccin's pygments style as their base, so every
-    token this does not name -- the whole syntax half -- stays exactly what
-    upstream declared, including the `mantle` background and `surface0`
-    highlight the style carries.
+    registrations take Catppuccin's *upstream* pygments style as their base,
+    so every token this does not name -- the whole syntax half -- stays
+    exactly what upstream declared, including the `mantle` background and
+    `surface0` highlight the style carries.
     """
     from xonsh.ansi_colors import register_custom_ansi_style
     from xonsh.pyghooks import register_custom_pygments_style
 
     tokens = color_tokens()
-    register_custom_pygments_style(STYLE_NAME, tokens, base=STYLE_NAME)
-    register_custom_ansi_style(STYLE_NAME, tokens, base=STYLE_NAME)
+    register_custom_pygments_style(STYLE_NAME, tokens, base=UPSTREAM_NAME)
+    register_custom_ansi_style(STYLE_NAME, tokens, base=UPSTREAM_NAME)
     return STYLE_NAME
 
 

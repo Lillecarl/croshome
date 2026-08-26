@@ -128,6 +128,37 @@ def fresh_prompt():
     send("i", "C-u", wait=0.8)
 
 
+def raw_capture():
+    """Capture with escape sequences intact -- for assertions about styling."""
+    return "\n".join(pane().cmd("capture-pane", "-p", "-e").stdout)
+
+
+def mode_label_styled():
+    """Is any visible NOR/INS/SEL label painted in yellow? Waits for the
+    label to exist first -- it first renders well over a second after the
+    prompt does -- then reads *raw* bytes: `capture()` strips escapes, and
+    the left prompt legitimately contains other yellow, so only the bytes
+    immediately before a label occurrence prove anything."""
+    end = time.time() + 8
+    while time.time() < end:
+        rows = pane().cmd("capture-pane", "-p", "-e").stdout
+        for row in rows:
+            for m2 in re.finditer(r"(NOR|INS|SEL)", row):
+                before = row[max(0, m2.start() - 20):m2.start()]
+                if re.search(r"\x1b\[1;38;5;223m|\x1b\[38;5;223m", before):
+                    return True
+        time.sleep(0.15)
+    return False
+    return False
+
+
+@case("mode label carries its colour from the first frame")
+def _():
+    # No keys pressed: whatever the very first prompt rendered is what a
+    # fresh shell shows, and that is exactly where the grey frame lived.
+    return mode_label_styled() and not crashed()
+
+
 @case("search opens and shows the history indicator")
 def _():
     fresh_prompt()
