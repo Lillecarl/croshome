@@ -296,8 +296,17 @@ class HelixMode:
         chosen = None
         if accept:
             state = buf.complete_state
-            if state is not None and state.current_completion is not None:
-                chosen = state.current_completion.completion.text
+            # current_completion is the Completion itself in prompt_toolkit
+            # 3.x -- not a wrapper -- and it is None until an arrow key has
+            # moved over the menu, even though index 0 already renders
+            # highlighted. Accepting therefore means: the arrowed entry,
+            # else the first rendered one, else the bare query.
+            if state is not None:
+                current = state.current_completion
+                if current is not None:
+                    chosen = current.text
+                elif state.completions:
+                    chosen = state.completions[0].text
 
         if accept and (chosen is not None or buf.text):
             # Keep what the box produced: the highlighted alternative, or the
