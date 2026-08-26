@@ -9,6 +9,7 @@ Three machines share one configuration.
 | `default.nix`   | The entry point. Builds `pkgs` and each host.                  |
 | `hosts/macbook` | nix-darwin. `./rebuild build`, `./rebuild switch`, or `ai-rebuild` (NOPASSWD, for agents). |
 | `hosts/hetztop` | NixOS. `ai-rebuild` (NOPASSWD, for agents).                |
+| `hosts/dynhetz` | NixOS on a dedicated server: Ryzen 7700, 64G, 2×1TB NVMe mirror. |
 | `hosts/cros`    | home-manager alone on ChromeOS. Deliberately small.            |
 | `home/`         | Shared home-manager config. `macbook` and `hetztop` import it. |
 | `home/darwin/`  | Loaded only on macOS.                                          |

@@ -107,6 +107,7 @@
     in
     {
       nixosConfigurations.hetztop = default.hetztopSystem { system = "x86_64-linux"; };
+      nixosConfigurations.dynhetz = default.dynhetzSystem { system = "x86_64-linux"; };
       darwinConfigurations.macbook = default.macbookSystem { system = "aarch64-darwin"; };
     };
 }

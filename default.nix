@@ -140,6 +140,20 @@ rec {
 
   hetztop = hetztopSystem { };
   hetztopx = hetztopSystem { system = "x86_64-linux"; };
+  dynhetz = dynhetzSystem { };
+  dynhetzx = dynhetzSystem { system = "x86_64-linux"; };
+  dynhetzSystem =
+    {
+      system ? currentSystem,
+    }:
+    inputs.nixpkgs.lib.nixosSystem {
+      inherit system;
+      specialArgs = specialArgsFor system;
+      modules = [
+        ./hosts/dynhetz
+        (pkgsModule system)
+      ];
+    };
   hetztopSystem =
     {
       system ? currentSystem,
