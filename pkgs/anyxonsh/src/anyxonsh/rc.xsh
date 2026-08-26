@@ -201,6 +201,27 @@ elif $ANYXONSH_EDITING_MODE == "helix" and _interactive:
         + $RIGHT_PROMPT
     )
 
+# --- Prompt colour table -------------------------------------------------
+# The prompt_toolkit style is compiled from xonsh's pygments styler, whose
+# rebuild is skipped whenever the style *name* already matches -- so a table
+# compiled before every registration above could be seen stays colourless
+# for the mode indicator and the rest of the right prompt, until some later
+# event happens to rebuild it. That was the grey-vs-yellow flicker on the
+# mode label. Round-tripping the name through the setter forces one
+# deterministic rebuild now that all styles are registered; it is silent and
+# costs well under a millisecond.
+if _interactive:
+    try:
+        from xonsh.built_ins import XSH
+
+        _styler = XSH.shell.shell.styler
+        _styler.style_name = "default"
+        _styler.style_name = ${XONSH_COLOR_STYLE}
+        del _styler
+    except AttributeError:
+        # The readline shell has no styler and no prompt to colour.
+        pass
+
 # --- The model at the prompt --------------------------------------------
 # `: what is this repo about?` asks; `:help` lists the rest. See
 # src/xontrib/pai.py, src/xontrib_pai/ and the README.
