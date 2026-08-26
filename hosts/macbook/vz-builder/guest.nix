@@ -132,6 +132,16 @@ in
       boot.kernelModules = [
         "virtiofs"
         "overlay"
+        # /dev/kvm, now that ../default.nix's vfkit invocation passes
+        # `--nested`: this Apple Silicon host and macOS version support
+        # nested virtualization, so a Linux kernel inside this guest can run
+        # its own hardware-accelerated qemu instead of falling back to
+        # software TCG. NixOS's own nix.nix computes the local
+        # `system-features` default from `pathExists "/dev/kvm"`, so loading
+        # this is what makes the guest's own nix-daemon start advertising
+        # "kvm" and bind-mounting /dev/kvm into sandboxes that request it --
+        # no separate system-features override needed here.
+        "kvm"
       ];
 
       # Nothing here has, or emulates, a TPM.

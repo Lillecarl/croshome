@@ -270,6 +270,7 @@ let
         --cpus "$cpus" \
         --memory ${toString cfg.memory} \
         --bootloader "linux,kernel=${kernel}/Image,initrd=${netbootRamdisk}/initrd,cmdline=\"console=hvc0 init=${toplevel}/init\"" \
+        --nested \
         --device virtio-rng \
         --device virtio-balloon \
         --device "virtio-net,nat" \
@@ -739,10 +740,15 @@ in
         ];
         maxJobs = cfg.maxJobs;
         speedFactor = 2; # native aarch64 under Apple's hypervisor
-        # No kvm: this is a guest, and nothing nested is available to it.
+        # kvm: the vfkit invocation above passes `--nested`, and ./guest.nix
+        # loads the kvm module, so a build that asks for it gets real
+        # hardware-accelerated nested virtualization instead of the
+        # scheduler refusing to send it here at all.
         supportedFeatures = [
           "big-parallel"
           "benchmark"
+          "kvm"
+          "nixos-test"
         ];
       }
     ];
