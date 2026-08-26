@@ -19,6 +19,9 @@ import time
 SESSION = "anyxonsh-test"
 CRASH = ("Traceback", "Press ENTER to continue", "Unhandled exception")
 TRACE = bool(os.environ.get("TRACE"))
+#: The binary under test, recorded by main(); the persistence case reboots
+#: with it to prove history survives a process boundary.
+BINARY = [None]
 
 
 def sh(*args):
@@ -153,6 +156,26 @@ def _():
     return "draft-marker-9" in screen()
 
 
+@case("search reaches history from earlier invocations")
+def _():
+    fresh_prompt()
+    marker = f"oldsess-{int(time.time())}"
+    send(f"echo {marker}", wait=1.0)
+    # Enter until it actually ran; $COMPLETIONS_CONFIRM is True here.
+    send("Enter", wait=0.9)
+    if marker + " " + marker not in screen():
+        send("Enter", wait=1.2)
+    send("exit", wait=0.4)
+    send("Enter", wait=1.5)                  # leave the shell for good
+    sh("tmux", "kill-session", "-t", SESSION)
+    time.sleep(0.5)
+    boot(BINARY[0])                          # a brand-new shell process
+    fresh_prompt()
+    send("C-r", marker, wait=1.0)            # full marker as exact prefix
+    ok = marker in screen() and not crashed()
+    return ok
+
+
 @case("insert-mode tab completion selects without crashing")
 def _():
     fresh_prompt()
@@ -167,6 +190,7 @@ def _():
 
 def main():
     binary = sys.argv[1] if len(sys.argv) > 1 else "/tmp/anyxonsh/bin/anyxonsh"
+    BINARY[0] = binary
     pattern = re.compile(os.environ.get("CASES", "."))
     boot(binary)
     failures = 0

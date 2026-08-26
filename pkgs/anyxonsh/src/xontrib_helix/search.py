@@ -33,7 +33,12 @@ def _entry_input(entry) -> str:
 
 
 def history_entries() -> list[str]:
-    """Every distinct command in this shell's history, newest first."""
+    """Every distinct command in this shell's history, newest first.
+
+    `all_items` spans every recorded session; plain `items()` is this
+    session only, which would make the box look like the shell forgets
+    everything between invocations.
+    """
     from xonsh.built_ins import XSH
 
     history = XSH.history
@@ -41,7 +46,7 @@ def history_entries() -> list[str]:
         return []
     seen: set[str] = set()
     out: list[str] = []
-    for entry in reversed(list(history.items())):
+    for entry in history.all_items(newest_first=True):
         cmd = _entry_input(entry).strip()
         if not cmd or cmd in seen:
             continue
