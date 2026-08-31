@@ -254,6 +254,41 @@
   networking.localHostName = "not-linux"; # Bonjour: not-linux.local
   networking.computerName = "not-linux"; # Finder / AirDrop / Sharing
 
+  # Pre-resolve Quad9 so dns.quad9.net never needs a clear-text lookup.
+  #
+  # Ubiquiti / other firewalls that snoop DNS can block or log the bootstrap
+  # lookup for the DoH/DoT endpoint itself. With a hosts entry, getaddrinfo
+  # resolves dns.quad9.net locally and no query hits the wire -- DoH/DoT
+  # can then bootstrap to 9.9.9.9 / 149.112.112.112 without leaking the name.
+  # TLS verification still uses the hostname, so the cert check is unaffected.
+  #
+  # Quad9 anycast, stable for years. Verify: `dig dns.quad9.net` should match.
+  # Test after activation: `dscacheutil -q host -a name dns.quad9.net` (not
+  # `dig`, which bypasses /etc/hosts and /etc/resolver) and
+  # `sudo tcpdump -i any port 53` shows no query for dns.quad9.net.
+  #
+  # /etc/hosts is unmanaged today (see `ls -l /etc/hosts` vs `/etc/static`).
+  # Adding this makes nix-darwin own it, so first activation will require
+  # `sudo mv /etc/hosts /etc/hosts.before-nix-darwin` (the activation script
+  # checks the hash and aborts otherwise). Include the current stock entries
+  # plus the `fuse-t` line that is already on this machine.
+  environment.etc.hosts.text = ''
+    ##
+    # Host Database
+    #
+    # localhost is used to configure the loopback interface
+    # when the system is booting.  Do not change this entry.
+    ##
+    127.0.0.1	localhost
+    255.255.255.255	broadcasthost
+    ::1             localhost
+    127.0.0.1 fuse-t
+    9.9.9.9 dns.quad9.net
+    149.112.112.112 dns.quad9.net
+    2620:fe::fe dns.quad9.net
+    2620:fe::9 dns.quad9.net
+  '';
+
   # nix-darwin only touches users listed in knownUsers; uid must match the
   # existing account or activation refuses to touch it.
   users.knownUsers = [ "lillecarl" ];
