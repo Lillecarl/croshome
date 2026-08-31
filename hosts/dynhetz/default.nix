@@ -83,6 +83,10 @@
       "nvme"
       "xhci_pci"
       "ahci"
+      # ../initrd-ssh.nix brings up eth0 inside the initrd itself, before
+      # switch-root -- the driver has to already be in the initrd's own
+      # module set for that, not just the post-switch-root system's.
+      "igb"
     ];
     boot.kernelModules = [
       "igb"
