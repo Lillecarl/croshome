@@ -52,6 +52,24 @@ in
   boot.initrd.systemd.users.root.shell = "${initrdUnlockShell}";
   boot.initrd.systemd.storePaths = [ initrdUnlockShell ];
 
+  # A second login name, purely for convenience: `ssh lillecarl@host` instead
+  # of `ssh root@host` to unlock, matching the name used everywhere else. Not
+  # uid 0 -- NixOS's own initrd-systemd-users module asserts uids are unique,
+  # so aliasing to root isn't an option here. It doesn't need to be root
+  # anyway: systemd's ask-password socket is meant to be answerable by an
+  # unprivileged agent (that's how desktop session agents supply LUKS
+  # passphrases too), so any uid can run the unlock agent. initrd-ssh.nix's
+  # own module only auto-populates /etc/ssh/authorized_keys.d/root; its
+  # sshd_config still matches any other %u against
+  # /etc/ssh/authorized_keys.d/%u, so that file is the only other piece a
+  # second login name needs.
+  boot.initrd.systemd.users.lillecarl = {
+    uid = 1000;
+    group = "root";
+    shell = "${initrdUnlockShell}";
+  };
+  boot.initrd.systemd.contents."/etc/ssh/authorized_keys.d/lillecarl".text = lib.readFile ../../lillecarl.pub;
+
   # A physical keyboard never times out waiting for a LUKS passphrase; this
   # ssh path has to behave the same way, and by default it doesn't.
   # systemd's ~90s DefaultDeviceTimeoutSec applies to the .device units
