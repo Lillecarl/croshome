@@ -31,11 +31,17 @@ in
         if ! (
           set -e
           ${pkgs.rsync}/bin/rsync -a --delete ${espMain}/ ${espMirror}/
-          if [ "''${NIXOS_INSTALL_BOOTLOADER:-}" = 1 ]; then
-            ${config.systemd.package}/bin/bootctl --esp-path=${espMirror} ${graceful} install
-          else
-            ${config.systemd.package}/bin/bootctl --esp-path=${espMirror} ${graceful} update
-          fi
+          # Always `install`, never `update`: rsync just copied every file
+          # `update` would touch anyway (the loader binary, entries,
+          # random-seed), so the only thing bootctl still adds here is the
+          # NVRAM entry -- and `install` is documented safe to re-run.
+          # `update`'s plain CLI form isn't: on this systemd (261), it exits
+          # 1 with no error text once the loader binary is already current,
+          # which nixpkgs' own installer sidesteps by driving bootctl over
+          # Varlink instead of trusting that exit code -- this hook shells
+          # out directly, so it inherited the bug. Confirmed on the real
+          # machine: rsync exit 0, `bootctl ... update` exit 1, no stderr.
+          ${config.systemd.package}/bin/bootctl --esp-path=${espMirror} ${graceful} install
         ); then
           echo "" >&2
           echo "boot-mirror: failed to refresh the secondary ESP at ${espMirror}." >&2
