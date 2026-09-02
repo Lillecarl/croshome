@@ -111,5 +111,16 @@
       ServerAliveCountMax = 3;
       TCPKeepAlive = true;
     };
+
+    # dynhetz's initrd and its real system both listen on :22 at this one
+    # IP, each with its own host key (../../hosts/dynhetz/initrd-ssh.nix).
+    # OpenSSH's UpdateHostKeys ("self-healing known_hosts") fetches
+    # whichever one just answered and prunes known_hosts entries that
+    # don't match it, so connecting to one kept silently evicting the
+    # other's pinned key -- every switch between them looked like the host
+    # key had changed. Off here so both stay pinned.
+    settings."37.27.129.237" = {
+      UpdateHostKeys = "no";
+    };
   };
 }
