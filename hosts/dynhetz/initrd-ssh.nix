@@ -53,22 +53,24 @@ in
   boot.initrd.systemd.storePaths = [ initrdUnlockShell ];
 
   # A second login name, purely for convenience: `ssh lillecarl@host` instead
-  # of `ssh root@host` to unlock, matching the name used everywhere else. Not
-  # uid 0 -- NixOS's own initrd-systemd-users module asserts uids are unique,
-  # so aliasing to root isn't an option here. It doesn't need to be root
-  # anyway: systemd's ask-password socket is meant to be answerable by an
-  # unprivileged agent (that's how desktop session agents supply LUKS
-  # passphrases too), so any uid can run the unlock agent. initrd-ssh.nix's
-  # own module only auto-populates /etc/ssh/authorized_keys.d/root; its
-  # sshd_config still matches any other %u against
-  # /etc/ssh/authorized_keys.d/%u, so that file is the only other piece a
-  # second login name needs.
+  # of `ssh root@host` to unlock, matching the name used everywhere else.
+  # Has to be uid 0, not just group root: /run/systemd/ask-password is
+  # root-only, and answering a boot-critical password request (the LUKS
+  # passphrase) is deliberately a privileged operation in systemd -- a
+  # uid-1000 lillecarl authenticated fine and got a shell, but the agent
+  # inside it could never actually answer the pending request. Confirmed on
+  # the real machine: root still unlocked, lillecarl connected but couldn't.
+  # NixOS's own module normally forbids a second account at uid 0 (it
+  # enforces unique uids for exactly this kind of accident), so that check
+  # is turned off below -- this is a deliberate alias, not a mistake, the
+  # same trick as the classic `toor` account.
   boot.initrd.systemd.users.lillecarl = {
-    uid = 1000;
+    uid = 0;
     group = "root";
     shell = "${initrdUnlockShell}";
   };
   boot.initrd.systemd.contents."/etc/ssh/authorized_keys.d/lillecarl".text = lib.readFile ../../lillecarl.pub;
+  users.enforceIdUniqueness = false;
 
   # A physical keyboard never times out waiting for a LUKS passphrase; this
   # ssh path has to behave the same way, and by default it doesn't.
