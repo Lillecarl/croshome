@@ -95,7 +95,22 @@ in
   # requiring a keypress at the console to continue even though nothing was
   # actually broken. The VM test never caught this because its scripted
   # unlock answers in under 2 seconds, nothing like a real operator's pace.
-  boot.initrd.systemd.settings.Manager.DefaultDeviceTimeoutSec = "infinity";
+  #
+  # Not `"infinity"` -- that was tried first and made things worse. It
+  # applies to every initrd .device unit, not just the ones gated on a
+  # human typing a passphrase, so a genuine downstream failure (LVM
+  # autoactivation not firing, a mount that never appears, anything
+  # unrelated to the passphrase) now waits forever too, with nothing left
+  # to time out and drop to a rescue shell. Confirmed on the real machine:
+  # /dev/mainpool/root sat as "a start job is running ... no limit"
+  # indefinitely, ssh to the initrd stopped answering, and only a hard
+  # reset via the KVM recovered it -- worse than the original ~90s trip,
+  # which was at least recoverable. Three separate real boots showed LVM
+  # activation itself completing in well under a second once cryptsetup
+  # finished, so the slow, human-paced part is entirely the passphrase
+  # prompt; a generous but finite window covers that while still leaving a
+  # real timeout for anything that isn't waiting on a human.
+  boot.initrd.systemd.settings.Manager.DefaultDeviceTimeoutSec = "45min";
 
   environment.etc."secrets/initrd/ssh_host_ed25519_key" = {
     source = ./initrd_ssh_host_ed25519_key;
