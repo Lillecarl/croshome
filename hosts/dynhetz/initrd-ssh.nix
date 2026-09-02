@@ -5,7 +5,25 @@
 # fallback, not something to depend on. This brings up the same static
 # network the real OS uses and runs sshd in the initrd, so the passphrase can
 # be typed in over ssh instead.
-{ lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
+let
+  # `ssh root@host` alone leaves you at a bare shell with nothing pending
+  # visibly -- unlocking still means knowing to run
+  # systemd-tty-ask-password-agent yourself. Run it automatically instead,
+  # but not via `exec`: an operator who ctrl-c's out of a wait (because the
+  # prompt isn't a LUKS passphrase after all, or they want a shell for other
+  # initrd troubleshooting) lands in a real shell rather than losing the ssh
+  # session.
+  initrdUnlockShell = pkgs.writeShellScript "initrd-unlock-shell" ''
+    ${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --query --watch
+    exec ${pkgs.bashInteractive}/bin/bash
+  '';
+in
 {
   boot.initrd.network = {
     enable = true;
@@ -27,6 +45,12 @@
       authorizedKeys = [ (lib.readFile ../../lillecarl.pub) ];
     };
   };
+
+  # boot.initrd.network.ssh's own `shell` option is for the legacy
+  # dropbear-based initrd; systemd-based initrd (boot.initrd.systemd.enable,
+  # true here) reads the login shell from here instead.
+  boot.initrd.systemd.users.root.shell = "${initrdUnlockShell}";
+  boot.initrd.systemd.storePaths = [ initrdUnlockShell ];
 
   environment.etc."secrets/initrd/ssh_host_ed25519_key" = {
     source = ./initrd_ssh_host_ed25519_key;
