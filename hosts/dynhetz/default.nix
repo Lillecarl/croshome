@@ -42,6 +42,7 @@
     ./btrfs.nix
     ./nix-gc.nix
     ./terminfo.nix
+    ./mdmonitor-mail.nix
     ../../secrets
   ];
   config = {
