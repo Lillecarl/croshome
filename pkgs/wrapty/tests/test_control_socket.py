@@ -11,8 +11,10 @@ handler, which is exactly where asyncio would have sent a traceback.
 
 import asyncio
 import json
+import os
 import socket
 import struct
+import tempfile
 
 import pytest
 from jsonrpc import Dispatcher
@@ -20,10 +22,24 @@ from jsonrpc import Dispatcher
 from wrapty import wrapper as wrapty
 
 
-def serve(tmp_path, client):
+@pytest.fixture
+def sock_path():
+    """A socket path short enough to bind.
+
+    macOS caps sun_path at 104 bytes, and pytest's tmp_path puts the test's
+    own name under the build directory. On darwin that reaches 113 bytes and
+    bind() fails with "AF_UNIX path too long". So the socket gets a short
+    directory of its own.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        path = os.path.join(d, "s")
+        assert len(path.encode()) < 100, f"socket path too long: {path}"
+        yield path
+
+
+def serve(sock_path, client):
     """Run the real connection handler against `client`, a blocking function
     that gets the socket path. Returns (client result, escaped exceptions)."""
-    sock_path = str(tmp_path / "control.sock")
     escaped = []
 
     dispatcher = Dispatcher()
@@ -79,37 +95,37 @@ def send(sock_path, payload, read=True, reset=False):
     return None
 
 
-def test_a_valid_request_is_answered(tmp_path):
-    reply, escaped = serve(tmp_path, lambda p: send(p, PING + b"\n"))
+def test_a_valid_request_is_answered(sock_path):
+    reply, escaped = serve(sock_path, lambda p: send(p, PING + b"\n"))
     assert json.loads(reply)["result"] == "pong"
     assert escaped == []
 
 
-def test_a_malformed_line_is_answered_not_raised(tmp_path):
-    reply, escaped = serve(tmp_path, lambda p: send(p, b"this is not json\n"))
+def test_a_malformed_line_is_answered_not_raised(sock_path):
+    reply, escaped = serve(sock_path, lambda p: send(p, b"this is not json\n"))
     assert json.loads(reply)["error"]["code"] == -32700
     assert escaped == []
 
 
-def test_undecodable_bytes_are_answered_not_raised(tmp_path):
+def test_undecodable_bytes_are_answered_not_raised(sock_path):
     """A truncated multi-byte character must not reach .decode() unguarded."""
-    reply, escaped = serve(tmp_path, lambda p: send(p, b"\xff\xfe broken\n"))
+    reply, escaped = serve(sock_path, lambda p: send(p, b"\xff\xfe broken\n"))
     assert json.loads(reply)["error"]["code"] == -32700
     assert escaped == []
 
 
-def test_a_caller_that_leaves_before_reading_is_silent(tmp_path):
+def test_a_caller_that_leaves_before_reading_is_silent(sock_path):
     """The statusline does this. Claude Code starts it and does not wait."""
-    _, escaped = serve(tmp_path, lambda p: send(p, PING + b"\n", read=False))
+    _, escaped = serve(sock_path, lambda p: send(p, PING + b"\n", read=False))
     assert escaped == []
 
 
-def test_a_caller_that_resets_the_connection_is_silent(tmp_path):
-    _, escaped = serve(tmp_path, lambda p: send(p, PING + b"\n", read=False, reset=True))
+def test_a_caller_that_resets_the_connection_is_silent(sock_path):
+    _, escaped = serve(sock_path, lambda p: send(p, PING + b"\n", read=False, reset=True))
     assert escaped == []
 
 
-def test_several_requests_on_one_connection(tmp_path):
+def test_several_requests_on_one_connection(sock_path):
     def client(sock_path):
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.connect(sock_path)
@@ -123,7 +139,7 @@ def test_several_requests_on_one_connection(tmp_path):
         finally:
             s.close()
 
-    replies, escaped = serve(tmp_path, client)
+    replies, escaped = serve(sock_path, client)
     codes = [json.loads(line) for line in replies.strip().split("\n")]
     assert codes[0]["result"] == "pong"
     assert codes[1]["error"]["code"] == -32700
