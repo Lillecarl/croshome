@@ -112,6 +112,34 @@ in
   # real timeout for anything that isn't waiting on a human.
   boot.initrd.systemd.settings.Manager.DefaultDeviceTimeoutSec = "45min";
 
+  # What the 45 minute timeout above actually leads to, once it trips:
+  # nothing, on its own. NixOS's initrd drops to emergency.target on a
+  # failure like this, which runs `sulogin` -- and `emergencyAccess` isn't
+  # set below, so root's password is locked (`*`) and sulogin can never
+  # authenticate. The "press enter at the KVM to continue" from before
+  # wasn't a real rescue shell; it was `sulogin`'s "Control-D to continue"
+  # path re-triggering the same stuck target, which only ever helped
+  # because the passphrase had *already* been typed by then. A genuine
+  # failure would just sit at that unusable prompt forever, needing a hard
+  # reset -- exactly what "the boot must never fail" rules out.
+  #
+  # NixOS already ships the fix for this, gated behind a kernel command
+  # line flag: `services.panic-on-fail` in the initrd systemd module is
+  # `wantedBy = [ "emergency.target" ]` and, when
+  # `boot.panic_on_fail`/`stage1panic` is on the command line, does
+  # `echo c > /proc/sysrq-trigger` -- a deliberate kernel panic -- as soon
+  # as emergency.target is reached, covering every path into it, not just
+  # this specific device timeout. `panic=10` is the other half: without
+  # it, the kernel's default behaviour after a panic is to halt, not
+  # reboot, which would just trade one unrecoverable hang for another.
+  # With it, the kernel reboots itself 10s after any panic -- not only
+  # this deliberate one, but a genuine kernel panic on the fully booted
+  # system too, which is exactly the outcome wanted there as well.
+  boot.kernelParams = [
+    "panic=10"
+    "boot.panic_on_fail"
+  ];
+
   environment.etc."secrets/initrd/ssh_host_ed25519_key" = {
     source = ./initrd_ssh_host_ed25519_key;
     mode = "0600";
