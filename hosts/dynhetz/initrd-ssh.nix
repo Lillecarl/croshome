@@ -19,7 +19,19 @@ let
   # prompt isn't a LUKS passphrase after all, or they want a shell for other
   # initrd troubleshooting) lands in a real shell rather than losing the ssh
   # session.
+  #
+  # `trap : INT` is load-bearing, not decoration. Without it this never
+  # actually worked: a non-interactive script has no job control, so a
+  # ctrl-c-generated SIGINT hits the whole foreground process group --
+  # script and agent both -- and bash's default reaction to SIGINT in a
+  # non-interactive script is to exit immediately, before it ever reaches
+  # `exec bash`. Confirmed on the real machine: ctrl-c during the wait just
+  # dropped the ssh session instead of handing back a shell. Trapping SIGINT
+  # with a real (no-op) handler keeps the script itself alive; the trap
+  # is *not* inherited across exec, so the agent child still gets SIGINT's
+  # normal default (terminate) and the wait still ends there.
   initrdUnlockShell = pkgs.writeShellScript "initrd-unlock-shell" ''
+    trap : INT
     ${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --query --watch
     exec ${pkgs.bashInteractive}/bin/bash
   '';
