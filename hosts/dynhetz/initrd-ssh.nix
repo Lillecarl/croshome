@@ -52,6 +52,19 @@ in
   boot.initrd.systemd.users.root.shell = "${initrdUnlockShell}";
   boot.initrd.systemd.storePaths = [ initrdUnlockShell ];
 
+  # A physical keyboard never times out waiting for a LUKS passphrase; this
+  # ssh path has to behave the same way, and by default it doesn't.
+  # systemd's ~90s DefaultDeviceTimeoutSec applies to the .device units
+  # downstream of cryptroot (Initrd Root Device, /sysroot, ...), and that
+  # clock starts at boot -- not when an operator finally notices the reboot
+  # and gets a passphrase typed in over ssh. Confirmed on the real machine:
+  # those units failed at t+~80s, cascading into emergency mode, while the
+  # LUKS unlock itself (however long the human took) hadn't happened yet --
+  # requiring a keypress at the console to continue even though nothing was
+  # actually broken. The VM test never caught this because its scripted
+  # unlock answers in under 2 seconds, nothing like a real operator's pace.
+  boot.initrd.systemd.settings.Manager.DefaultDeviceTimeoutSec = "infinity";
+
   environment.etc."secrets/initrd/ssh_host_ed25519_key" = {
     source = ./initrd_ssh_host_ed25519_key;
     mode = "0600";
