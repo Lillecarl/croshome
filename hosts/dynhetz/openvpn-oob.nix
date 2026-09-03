@@ -21,8 +21,19 @@
 #
 # One shared TUN server subnet, 192.168.90.0/24, with client-to-client so
 # the MikroTik and the Mac can reach each other and dynhetz's own
-# 192.168.90.1 directly -- no bridge, no dummy interface, no second
-# server, no NAT.
+# 192.168.90.1 directly -- no bridge, no dummy interface, no NAT.
+#
+# A second server instance listens on tcp/443 too, for whichever client
+# is behind a firewall that blocks outbound UDP or anything but port 443
+# -- the client config lists both remotes and falls back automatically.
+# It's a genuinely separate `mode server` process with its own address
+# pool (192.168.91.0/24, not 192.168.90.0/24): two independent server
+# instances can't share one pool without risking the same address handed
+# to two different clients, one on each protocol. The trade-off is that
+# a client connected over TCP can't reach one connected over UDP through
+# this VPN directly (different subnets, no route between them) -- an
+# acceptable gap given only one of the two is ever actually needed at a
+# time in practice.
 #
 # Meant to come down once the gear is provisioned -- hence the shared
 # "fixed" client credential (one certificate, used by both the MikroTik
@@ -38,8 +49,14 @@
   # no reason to have its key material committed anywhere).
   systemd.services.openvpn-oob-pki = {
     description = "Generate the OpenVPN OOB server's self-signed PKI";
-    wantedBy = [ "openvpn-oob.service" ];
-    before = [ "openvpn-oob.service" ];
+    wantedBy = [
+      "openvpn-oob.service"
+      "openvpn-oob-tcp.service"
+    ];
+    before = [
+      "openvpn-oob.service"
+      "openvpn-oob-tcp.service"
+    ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -102,8 +119,8 @@
       cat <<EOF > oob-client.ovpn
       client
       dev tun
-      proto udp4
-      remote 37.27.129.237 1194
+      remote 37.27.129.237 1194 udp4
+      remote 37.27.129.237 443 tcp4
       resolv-retry infinite
       nobind
       persist-key
@@ -161,5 +178,34 @@
     '';
   };
 
+  services.openvpn.servers.oob-tcp = {
+    config = ''
+      dev tun-oob-tcp
+      dev-type tun
+      proto tcp4-server
+      port 443
+
+      mode server
+      tls-server
+      duplicate-cn
+
+      topology subnet
+      server 192.168.91.0 255.255.255.0
+      client-to-client
+
+      ca /var/lib/openvpn-oob/pki/ca.crt
+      cert /var/lib/openvpn-oob/pki/server.crt
+      key /var/lib/openvpn-oob/pki/server.key
+      dh none
+      tls-crypt /var/lib/openvpn-oob/pki/ta.key
+
+      keepalive 10 60
+      persist-key
+      persist-tun
+      verb 3
+    '';
+  };
+
   networking.firewall.allowedUDPPorts = [ 1194 ];
+  networking.firewall.allowedTCPPorts = [ 443 ];
 }
