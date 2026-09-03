@@ -62,6 +62,24 @@ RESUME_SETTLE_DELAY = float(os.environ.get("WRAPTY_RESUME_SETTLE_DELAY", "2"))
 CONTINUE_TEXT = os.environ.get("WRAPTY_CONTINUE_TEXT", "Continue with your task.")
 
 
+# A full-screen TUI (the wrapped child) can leave the real terminal in a
+# mode this wrapper's raw pass-through never interprets or tracks --
+# alternate screen buffer, hidden cursor, mouse tracking, bracketed paste
+# (Claude Code's own paste-vs-type detection, see ENTER_DELAY above, implies
+# it drives at least the last of these). The child is never told a suspend
+# is happening (the suspend keystroke is intercepted before it ever reaches
+# the child), so it gets no chance to leave those modes cleanly on its own.
+# Resetting them by hand before actually stopping is what hands the shell
+# back a terminal it can actually use, rather than one still sitting behind
+# whatever mode the TUI last set.
+TERMINAL_RESET = (
+    b"\x1b[?1049l"  # exit alternate screen buffer
+    b"\x1b[?25h"  # show cursor
+    b"\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l"  # mouse tracking off
+    b"\x1b[?2004l"  # bracketed paste off
+)
+
+
 def _sync_winsize(stdin_fd, master_fd):
     try:
         winsize = fcntl.ioctl(stdin_fd, termios.TIOCGWINSZ, b"\0" * 8)
@@ -107,10 +125,118 @@ async def _handle_client(reader, writer, dispatcher):
 async def _run(argv):
     wapty_id = secrets.token_hex(4)
 
-    pid, master_fd = pty.fork()
-    if pid == 0:
-        os.environ["WAPTY_ID"] = wapty_id
-        os.execvp(argv[0], argv)
+    master_fd, slave_fd = pty.openpty()
+
+    # A NEW session for the child gives it clean isolation from the outer
+    # terminal (see _suspend_self below), but a solitary session leader's
+    # own process group is -- by POSIX's own definition -- orphaned: no
+    # other process in that session, in a different group, is the parent
+    # of one of its members. A STOP-class signal (SIGTSTP included) sent to
+    # an orphaned group is discarded outright, unconditionally, regardless
+    # of who sends it. Claude Code's own native suspend keystroke does
+    # exactly that: self-sends SIGTSTP. Run as a lone session leader, that
+    # is a silent no-op -- it prints its own "suspended" banner and just
+    # keeps running, wedged, since nothing really stopped it and nothing
+    # will ever send the SIGCONT it's presumably waiting on.
+    #
+    # A shepherd process fixes this the way a real shell fixes it for its
+    # own foreground jobs: it becomes the session leader and stays alive
+    # (never exec'ing), and the real child runs as ITS child, in a
+    # different process group within that same session. That is the
+    # textbook non-orphan bridge, so the child's self-SIGTSTP now actually
+    # stops it, as a real, observable kernel event.
+    #
+    # It's observable to the *shepherd*, though, not to us -- only a
+    # process's direct parent can wait()/waitid() on it, and the shepherd
+    # is the child's parent now, not this process. child_state_r is how
+    # the shepherd forwards what it sees (one byte, b"T" stopped / b"C"
+    # continued) so this process can mirror it (see _on_child_state below).
+    read_child_pid, write_child_pid = os.pipe()
+    child_state_r, child_state_w = os.pipe()
+    shepherd_pid = os.fork()
+    if shepherd_pid == 0:
+        os.close(read_child_pid)
+        os.close(child_state_r)
+        os.close(master_fd)
+        os.setsid()
+        fcntl.ioctl(slave_fd, termios.TIOCSCTTY, 0)
+
+        child_pid = os.fork()
+        if child_pid == 0:
+            os.close(child_state_w)
+            try:
+                os.setpgid(0, 0)
+            except OSError:
+                pass
+            os.dup2(slave_fd, 0)
+            os.dup2(slave_fd, 1)
+            os.dup2(slave_fd, 2)
+            if slave_fd > 2:
+                os.close(slave_fd)
+            os.environ["WAPTY_ID"] = wapty_id
+            os.execvp(argv[0], argv)
+            os._exit(127)
+
+        # Both sides set the child's pgid -- classic fork/setpgid race
+        # (APUE 9.9): whichever of shepherd or child runs first, it's
+        # right by the time either depends on it.
+        try:
+            os.setpgid(child_pid, child_pid)
+        except OSError:
+            pass
+        os.tcsetpgrp(slave_fd, child_pid)
+        os.close(slave_fd)
+        os.write(write_child_pid, str(child_pid).encode())
+        os.close(write_child_pid)
+
+        def _shepherd_on_sigchld(signum, frame):
+            # WNOWAIT: peek without reaping, so this can't race the real
+            # termination wait below -- that one call is the only one
+            # allowed to actually consume the child's exit.
+            try:
+                info = os.waitid(
+                    os.P_PID, child_pid, os.WNOHANG | os.WSTOPPED | os.WCONTINUED | os.WNOWAIT
+                )
+            except ChildProcessError:
+                return
+            if info is None:
+                return
+            if info.si_code == os.CLD_STOPPED:
+                os.write(child_state_w, b"T")
+            elif info.si_code == os.CLD_CONTINUED:
+                os.write(child_state_w, b"C")
+
+        signal.signal(signal.SIGCHLD, _shepherd_on_sigchld)
+
+        # Blocks until the child actually terminates; a caught SIGCHLD
+        # for a mere stop/continue interrupts it, but os.waitpid retries
+        # automatically on EINTR (PEP 475), so this only ever returns once
+        # for real.
+        _, status = os.waitpid(child_pid, 0)
+        os.close(child_state_w)
+        # Exit the same way the child did, so wrapty's own wait on the
+        # shepherd (see the very end of this function) still reports the
+        # child's real exit condition.
+        if os.WIFSIGNALED(status):
+            # No signal.signal() reset needed first -- this process never
+            # installed a handler for anything but SIGCHLD, so every other
+            # signal, including this one, is already at its OS default.
+            # (SIGKILL/SIGSTOP couldn't be reset even if it were needed --
+            # the kernel refuses to let anyone touch their disposition.)
+            sig = os.WTERMSIG(status)
+            try:
+                os.kill(os.getpid(), sig)
+            except OSError:
+                pass
+            os._exit(128 + sig)  # in case that signal didn't kill us
+        os._exit(os.WEXITSTATUS(status))
+
+    os.close(write_child_pid)
+    os.close(child_state_w)
+    os.close(slave_fd)
+    pid = shepherd_pid  # waited on at the very end, for the final exit code
+    child_pid = int(os.read(read_child_pid, 32))
+    os.close(read_child_pid)
 
     runtime_dir = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "wrapty")
     os.makedirs(runtime_dir, exist_ok=True)
@@ -405,20 +531,76 @@ async def _run(argv):
             return
         os.write(stdout_fd, data)
 
+    # Set the instant the SIGCHLD handler below observes the child having
+    # genuinely stopped (see the shepherd comment above for why that now
+    # actually happens), cleared once we've woken it back up. Lets both
+    # _suspend_self and the handler agree on whether the child still needs
+    # a real SIGCONT, versus just a redraw nudge.
+    child_stopped = [False]
+
     def _suspend_self():
         """Stop this process the way a real terminal would on the suspend
-        keystroke: restore cooked mode so the shell gets a sane terminal
-        back, actually stop (so job control -- fg/bg -- works), then
-        re-enter raw mode once resumed. The wrapped child lives in its own
-        session (pty.fork() called setsid() for it) so it's unaffected and
-        keeps running while we're stopped -- that's the whole point."""
+        keystroke: reset the modes the wrapped TUI may have left on (see
+        TERMINAL_RESET), restore cooked mode so the shell gets a sane
+        terminal back, actually stop (so job control -- fg/bg -- works),
+        then re-enter raw mode once resumed. Called both when THIS process
+        catches the suspend keystroke directly, and when
+        on_child_state_readable below notices the child stopped itself --
+        in the latter case the terminal reset still applies (the child's
+        TUI never got a chance to leave its own modes cleanly either
+        way)."""
         if old_attrs is not None:
+            os.write(stdout_fd, TERMINAL_RESET)
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_attrs)
         os.kill(os.getpid(), signal.SIGTSTP)
         # execution resumes here once the shell sends SIGCONT (e.g. `fg`)
         if old_attrs is not None:
             tty.setraw(sys.stdin)
             _sync_winsize(stdin_fd, master_fd)
+            if child_stopped[0]:
+                # The child stopped for real (see the shepherd comment
+                # above) -- only an actual SIGCONT resumes a stopped
+                # process, so it needs one of its own; our own SIGCONT
+                # doesn't reach it, they're different processes.
+                child_stopped[0] = False
+                try:
+                    os.kill(child_pid, signal.SIGCONT)
+                except ProcessLookupError:
+                    pass
+            else:
+                # The child never knew any of this happened -- it wasn't
+                # suspended, and has no idea the terminal was reset out
+                # from under it. SIGWINCH is the same nudge a real resize
+                # sends; most full-screen TUIs treat it as "redraw
+                # everything", which re-asserts whatever modes (alt
+                # screen, cursor, mouse) the child actually needs.
+                try:
+                    os.kill(child_pid, signal.SIGWINCH)
+                except ProcessLookupError:
+                    pass
+
+    def on_child_state_readable():
+        """Notices the child stopping itself -- its own native suspend
+        keystroke handling self-sends SIGTSTP, which the shepherd process
+        (see the top of this function) turns into a real, observable stop
+        instead of a silent no-op, and forwards here over child_state_r
+        since only the shepherd, as the child's actual parent, can wait()
+        on it."""
+        try:
+            data = os.read(child_state_r, 4096)
+        except BlockingIOError:
+            return
+        if not data:
+            loop.remove_reader(child_state_r)
+            return
+        # Only the most recent byte matters -- a stop and continue since
+        # the last time this ran collapse to whatever state it's in now.
+        if data[-1:] == b"T":
+            if old_attrs is not None and not child_stopped[0]:
+                child_stopped[0] = True
+                _suspend_self()
+        elif data[-1:] == b"C":
+            child_stopped[0] = False
 
     def on_stdin_readable():
         try:
@@ -443,6 +625,8 @@ async def _run(argv):
         loop.add_reader(stdin_fd, on_stdin_readable)
     except OSError:
         pass  # e.g. stdin is /dev/null: kqueue refuses to poll it, nothing to forward anyway
+    os.set_blocking(child_state_r, False)
+    loop.add_reader(child_state_r, on_child_state_readable)
 
     old_attrs = None
     suspend_byte = None
@@ -470,6 +654,10 @@ async def _run(argv):
             loop.remove_writer(master_fd)
         try:
             loop.remove_reader(stdin_fd)
+        except (ValueError, OSError):
+            pass
+        try:
+            loop.remove_reader(child_state_r)
         except (ValueError, OSError):
             pass
         server.close()
