@@ -31,6 +31,7 @@
     ./initrd-ssh.nix
     ./installscript.nix
     ./podman.nix
+    ./libvirt.nix
     ./ollama.nix
     ./ttyd.nix
     # pynixd moved into the nanopynix monorepo, so its NixOS module comes from
@@ -56,6 +57,7 @@
       extraGroups = [
         "wheel"
         "podman"
+        "libvirtd"
       ];
       hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
       isNormalUser = true;
