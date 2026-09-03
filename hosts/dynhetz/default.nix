@@ -33,6 +33,7 @@
     ./podman.nix
     ./libvirt.nix
     ./libvirt-lab-net.nix
+    ./libvirt-lab-storage.nix
     ./wireguard.nix
     ./ollama.nix
     ./ttyd.nix
