@@ -125,36 +125,33 @@
     networking.hostName = "dynhetz";
     networking.usePredictableInterfaceNames = false;
     networking.useDHCP = false;
-    networking.interfaces.eth0 = {
-      ipv4.addresses = [
+    # Moved from scripted networking (networking.interfaces.eth0 +
+    # networking.defaultGateway{,6}) to networkd, so this host's main
+    # networking backend matches its own initrd's (../initrd-ssh.nix's
+    # boot.initrd.systemd.network.networks."10-eth0" -- systemd's initrd is
+    # networkd-only regardless of what the real system uses, so that alone
+    # was never a reason to switch this too). The addresses, routes and the
+    # on-link quirk below are copied from that file verbatim: same NIC, same
+    # subnet, same gateway, already verified working on the real machine
+    # there. See its own comment for why GatewayOnLink is needed for IPv4
+    # but not IPv6.
+    networking.useNetworkd = true;
+    systemd.network.networks."10-eth0" = {
+      matchConfig.Name = "eth0";
+      address = [
+        "37.27.129.237/26"
+        "2a01:4f9:3071:11d7::2/64"
+      ];
+      routes = [
         {
-          address = "37.27.129.237";
-          prefixLength = 26;
+          Gateway = "37.27.129.193";
+          GatewayOnLink = true;
+        }
+        {
+          Gateway = "fe80::1";
         }
       ];
-      ipv6.addresses = [
-        {
-          address = "2a01:4f9:3071:11d7::2";
-          prefixLength = 64;
-        }
-      ];
-      # The gateway lives outside our subnet -- Hetzner routes the whole /26 to
-      # this MAC -- so the host route has to exist before the default route can
-      # resolve through it.
-      ipv4.routes = [
-        {
-          address = "37.27.129.193";
-          prefixLength = 32;
-        }
-      ];
-    };
-    networking.defaultGateway = {
-      address = "37.27.129.193";
-      interface = "eth0";
-    };
-    networking.defaultGateway6 = {
-      address = "fe80::1";
-      interface = "eth0";
+      networkConfig.DHCP = "no";
     };
     networking.nameservers = [
       "185.12.64.1"
