@@ -646,6 +646,41 @@ async def _run(argv):
 
         loop.add_signal_handler(signal.SIGCONT, _on_sigcont)
 
+    def _on_terminate():
+        """The terminal going away (SIGHUP -- e.g. the SSH session
+        dropping) or an ordinary `kill` (SIGTERM) would otherwise skip the
+        `finally` below entirely: the real terminal is left in whatever
+        raw/alt-screen state the TUI last set (moot for SIGHUP, the
+        terminal's already gone, but not for a SIGTERM from something
+        else), and the shepherd + child are orphaned with nothing left to
+        reap or terminate them.
+
+        SIGCONT first: a signal sent to a currently-stopped process (see
+        child_stopped above) stays merely pending, not delivered, until
+        it's resumed -- without it, a child stopped at the moment of
+        teardown would never actually see the SIGTERM that follows.
+
+        Best-effort, not a guaranteed-bounded kill: a child that ignores
+        SIGTERM is not escalated to SIGKILL. Doing that correctly needs the
+        final os.waitpid below to stop blocking the event loop, which is
+        more machinery than a child ignoring SIGTERM warrants here."""
+        if old_attrs is not None:
+            try:
+                os.write(stdout_fd, TERMINAL_RESET)
+                termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old_attrs)
+            except OSError:
+                pass
+        try:
+            os.killpg(child_pid, signal.SIGCONT)
+            os.killpg(child_pid, signal.SIGTERM)
+        except OSError:
+            pass
+        if not done.done():
+            done.set_result(None)
+
+    loop.add_signal_handler(signal.SIGTERM, _on_terminate)
+    loop.add_signal_handler(signal.SIGHUP, _on_terminate)
+
     try:
         await done
     finally:
@@ -666,6 +701,8 @@ async def _run(argv):
             os.unlink(sock_path)
         except FileNotFoundError:
             pass
+        loop.remove_signal_handler(signal.SIGTERM)
+        loop.remove_signal_handler(signal.SIGHUP)
         if old_attrs is not None:
             loop.remove_signal_handler(signal.SIGWINCH)
             loop.remove_signal_handler(signal.SIGCONT)
