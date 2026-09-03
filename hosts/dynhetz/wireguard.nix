@@ -26,6 +26,19 @@
 # so this only ever carries traffic to dynhetz itself, never general
 # internet traffic.
 #
+# Sub-range allocation within the /64, so future networks don't collide
+# with this one by accident: each network gets its own /80, chosen by
+# the fifth hextet (the first 16 bits after the routed /64).
+#
+#   2a01:4f9:3071:11d7:0090::/80  -- wg-dynhetz (this file). Only the
+#                                    /112 at ::90:: is actually in use.
+#   2a01:4f9:3071:11d7:00a0::/80  -- reserved for a libvirt bridge, for
+#                                    IPv6-only lab VMs (NixOS, maybe
+#                                    Talos, for a lab Kubernetes
+#                                    cluster). Not built yet.
+#
+# The next network after that takes ::00b0::/80, and so on.
+#
 # Not a systemd.network.netdevs entry like ../openvpn-oob.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in
 # systemd's own netdev format (unlike PrivateKeyFile/PresharedKeyFile),
