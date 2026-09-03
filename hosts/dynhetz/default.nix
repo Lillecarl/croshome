@@ -32,6 +32,7 @@
     ./installscript.nix
     ./podman.nix
     ./libvirt.nix
+    ./libvirt-lab-net.nix
     ./wireguard.nix
     ./ollama.nix
     ./ttyd.nix
