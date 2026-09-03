@@ -43,6 +43,7 @@
     ./nix-gc.nix
     ./terminfo.nix
     ./mdmonitor-mail.nix
+    ./openvpn-oob.nix
     ../../secrets
   ];
   config = {
