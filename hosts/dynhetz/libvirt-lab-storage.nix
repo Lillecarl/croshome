@@ -29,15 +29,27 @@
 #
 # The LV is thin, and XFS is mounted with `discard`, so a deleted VM
 # disk hands its extents back to the pool instead of holding them.
-# 400 GiB of virtual size against a 654 GiB pool is deliberate
-# overcommit headroom, not a reservation: nothing is consumed until a VM
-# disk actually writes.
+#
+# The size is a ceiling, not a reservation -- a thin LV consumes only
+# what is written to it, so an unused gigabyte here costs nothing. It is
+# still deliberately well under the pool's 654 GiB rather than close to
+# it: the filesystem cannot then promise more space than the pool can
+# actually deliver, however many other things start using the pool
+# later. 200 GiB holds roughly eight 24 GiB lab nodes plus their base
+# images. Growing it later is `lvextend` followed by `xfs_growfs`, both
+# online.
+#
+# Note that changing this number only affects a machine that does not
+# have the LV yet: the service below creates and never resizes, and XFS
+# cannot shrink at all, so making an existing volume smaller means
+# destroying it and its contents by hand. That is a deliberate refusal
+# to have an activation script silently reformat a disk.
 { pkgs, ... }:
 let
   vg = "mainpool";
   thinPool = "thinpool";
   lv = "lab-images";
-  virtualSize = "400G";
+  virtualSize = "200G";
   mountPoint = "/var/lib/libvirt/lab-images";
 in
 {
