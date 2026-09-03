@@ -562,9 +562,25 @@ async def _run(argv):
                 # above) -- only an actual SIGCONT resumes a stopped
                 # process, so it needs one of its own; our own SIGCONT
                 # doesn't reach it, they're different processes.
+                #
+                # killpg, not kill: the child's own self-suspend handling
+                # (whatever mechanism it uses -- observed empirically, not
+                # from its source) stops its own process GROUP, not just
+                # its own pid, so anything it has spawned that inherited
+                # that group (e.g. an MCP server subprocess it launched)
+                # stops right along with it. A plain kill(child_pid,
+                # SIGCONT) only wakes the child itself, leaving those
+                # siblings stopped forever with nothing left to resume
+                # them -- confirmed live: wrapty-mcp, spawned by Claude
+                # Code and sharing its pgid, stayed in T state
+                # indefinitely after a real ^Z/fg cycle woke Claude Code
+                # itself back up. child_pid is its own process group
+                # leader (see os.setpgid(child_pid, child_pid) in the
+                # shepherd above), so killpg(child_pid, ...) reaches
+                # exactly that group.
                 child_stopped[0] = False
                 try:
-                    os.kill(child_pid, signal.SIGCONT)
+                    os.killpg(child_pid, signal.SIGCONT)
                 except ProcessLookupError:
                     pass
             else:
@@ -573,9 +589,12 @@ async def _run(argv):
                 # from under it. SIGWINCH is the same nudge a real resize
                 # sends; most full-screen TUIs treat it as "redraw
                 # everything", which re-asserts whatever modes (alt
-                # screen, cursor, mouse) the child actually needs.
+                # screen, cursor, mouse) the child actually needs. Sent to
+                # the whole group for the same reason as the SIGCONT
+                # above -- a real resize reaches every process in the
+                # foreground group, not just the one leading it.
                 try:
-                    os.kill(child_pid, signal.SIGWINCH)
+                    os.killpg(child_pid, signal.SIGWINCH)
                 except ProcessLookupError:
                     pass
 
