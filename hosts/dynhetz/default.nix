@@ -32,6 +32,7 @@
     ./installscript.nix
     ./podman.nix
     ./libvirt.nix
+    ./wireguard.nix
     ./ollama.nix
     ./ttyd.nix
     # pynixd moved into the nanopynix monorepo, so its NixOS module comes from
