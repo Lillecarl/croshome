@@ -160,6 +160,7 @@ let
   shared = [
     "autonomy.md"
     "next-thing.md"
+    "tools.md"
     "commits.md"
     "prose.md"
   ];
