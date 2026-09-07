@@ -18,6 +18,26 @@
 # objects: they carry no `ekn.dev/discriminator` label, so they are outside the
 # scope kluctl lists back.
 #
+# What a UEFI guest needs here, which is not the obvious thing
+# ------------------------------------------------------------
+# A virtual machine that boots through UEFI -- Talos among them -- needs both
+# of these, and neither one alone is enough:
+#
+#   firmware.bootloader.efi.secureBoot = false;
+#   features.smm.enabled = true;
+#
+# KubeVirt hands qemu OVMF_CODE.secboot.fd whatever `secureBoot` says, and that
+# firmware cannot read an EFI system partition without SMM. Without the second
+# line it reports `BdsDxe: No bootable option or device was found` on a disk
+# that is provably fine, which reads as a broken image and is not one.
+#
+# Measured rather than reasoned: with `secureBoot = true` the same disk gets
+# one step further and fails with `Access Denied`, which is Secure Boot
+# refusing the signature. So the firmware can read the partition once SMM is
+# on, and the only remaining question is whether it trusts what it finds.
+# Talos is signed by Sidero, whose key is not in OVMF's database, so Secure
+# Boot stays off.
+#
 # The release YAML, not a chart
 # -----------------------------
 # KubeVirt publishes one file per release and no Helm chart. `pkgs.fetchurl`
