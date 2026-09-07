@@ -22,5 +22,6 @@
     ./multus.nix
     ./kubevirt.nix
     ./topolvm.nix
+    ./cdi.nix
   ];
 }

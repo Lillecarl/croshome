@@ -2,8 +2,13 @@
 #
 # KubeVirt gives a VM a disk by giving its pod a volume. TopoLVM is a CSI
 # driver that makes those volumes logical volumes on the node, so a Talos root
-# disk is an LV rather than a file on the root filesystem: no filesystem in a
+# disk gets its own LV out of the thin pool rather than a file on the root
 # filesystem, and `lvs` shows what the cluster is holding.
+#
+# One LV per volume, not one raw LV per disk. ./cdi.nix has to ask for
+# Filesystem volumes rather than Block ones -- read that file for why -- so the
+# LV carries xfs and the VM's disk is a file on it. The LV, its size and its
+# lifetime are still per-volume, which is what this driver is for.
 #
 # There is one node, so node-local storage costs nothing that a network volume
 # would buy back. A PersistentVolume that only one node can mount is only a
