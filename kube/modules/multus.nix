@@ -343,6 +343,23 @@ in
       # inside a Kubernetes object rather than expressed as one -- so it is
       # JSON encoded here rather than nested.
       NetworkAttachmentDefinition.${network.pod.name}.spec.config = builtins.toJSON network.pod;
+
+      # The network virtual machines sit on, named `talos`.
+      #
+      # Not a default network and never delegated to automatically: a machine
+      # asks for it by name, with
+      #
+      #   k8s.v1.cni.cncf.io/networks: kube-system/talos
+      #
+      # and gets an interface on the bridge with no address on it. It sets its
+      # own -- ../../hosts/dynhetz/kubernetes/network.nix says why that is the
+      # only place the address can live for a Talos node.
+      #
+      # ../../hosts/dynhetz/kubernetes/vm-network.nix owns the bridge and the
+      # gateway this attaches to. Nothing here creates either, so the network
+      # is up whether or not this cluster is and ./kube-nuke does not take it
+      # out from under the machines.
+      NetworkAttachmentDefinition.${network.vm.name}.spec.config = builtins.toJSON network.vm;
     };
   };
 }
