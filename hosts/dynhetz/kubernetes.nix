@@ -61,8 +61,7 @@
 # A pod has no IPv4 address, so an IPv4-only host is unreachable from inside
 # the cluster -- github.com and ghcr.io among them. Image pulls are unaffected,
 # because containerd runs on the host and the host is dual-stack. NAT64 and
-# DNS64 are the answer to the rest. Neither is built yet, so today a pod
-# simply cannot open a connection to an IPv4-only host.
+# DNS64 are the answer to the rest, and they live in ./nat64.nix.
 {
   config,
   lib,
@@ -406,7 +405,11 @@ in
       # to. Hetzner's own resolvers, IPv6 only: a pod has no IPv4 address, so
       # the 185.12.64.x pair in ../dynhetz/default.nix would be a timeout here
       # rather than a fallback.
-      "kubernetes/resolv.conf".text = ''
+      # mkDefault, for the same reason the forwarding sysctls above use it:
+      # ./nat64.nix replaces these resolvers with a DNS64 in front of them, and
+      # two plain definitions of one option are a conflict rather than an
+      # override. This file keeps the definition the day that one goes away.
+      "kubernetes/resolv.conf".text = lib.mkDefault ''
         nameserver 2a01:4ff:ff00::add:1
         nameserver 2a01:4ff:ff00::add:2
       '';

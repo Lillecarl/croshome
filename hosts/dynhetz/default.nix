@@ -35,6 +35,7 @@
     ./libvirt-lab-net.nix
     ./libvirt-lab-storage.nix
     ./kubernetes.nix
+    ./nat64.nix
     ./wireguard.nix
     ./ollama.nix
     ./ttyd.nix
