@@ -14,6 +14,10 @@
 #                       evaluation which cannot read a NixOS option.
 #   ./runtime.nix       containerd, the CNI bridge, and the kernel settings
 #                       that make pod traffic behave.
+#   ./vm-network.nix    the second bridge, the one virtual machines sit on.
+#                       Owned by the host rather than by a CNI plugin,
+#                       because a Talos node's address has to exist before
+#                       the node does.
 #   ./control-plane.nix what the cluster is configured to be: the kubeadm
 #                       documents, and the build-time check over them.
 #   ./provision.nix     how the node becomes a cluster: kubeadm.service, run
@@ -104,6 +108,7 @@ in
 {
   imports = [
     ./runtime.nix
+    ./vm-network.nix
     ./control-plane.nix
     ./provision.nix
     ./node.nix

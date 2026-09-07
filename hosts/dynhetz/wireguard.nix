@@ -42,13 +42,21 @@
 #                                    (fd00:10:96::/108) and take nothing
 #                                    from here, because a ClusterIP never
 #                                    leaves the node.
+#   2a01:4f9:3071:11d7:00c0::/80  -- virtual machines run by KubeVirt in that
+#                                    cluster, on the talos0 bridge. In use:
+#                                    ../dynhetz/kubernetes/vm-network.nix. A
+#                                    machine's address is chosen by whoever
+#                                    declares it, not handed out, because a
+#                                    Talos node's API certificate names its
+#                                    own address and is written before the
+#                                    node exists.
 #
 # ../dynhetz/nat64.nix takes nothing from this table. It translates into
 # 64:ff9b::/96, which RFC 6052 reserves globally for exactly that, and Jool
 # hooks PREROUTING rather than owning an interface -- so there is no device
 # here wanting an address of its own.
 #
-# The next network takes ::00c0::/80, and so on.
+# The next network takes ::00d0::/80, and so on.
 #
 # Not a systemd.network.netdevs entry like ../openvpn-oob.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in

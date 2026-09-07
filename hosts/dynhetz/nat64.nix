@@ -55,6 +55,11 @@ let
   # avoids.
   inherit (config.dynhetz.kubernetes) podSubnet nodeIP;
 
+  # The virtual machine subnet comes straight from the data file rather than
+  # from an option, because ./kubernetes/network.nix is where both this host
+  # and ../../kube read it -- see that file for why it is not a module.
+  inherit (import ./kubernetes/network.nix) vmSubnet;
+
   # RFC 6052's well-known prefix. The one value both halves have to agree on:
   # DNS64 writes addresses into it, NAT64 listens for them.
   nat64Prefix = "64:ff9b::/96";
@@ -249,10 +254,19 @@ in
           # cni0 and opens no port on eth0, and 53 is not among the ports it
           # opens, so a query from the internet is dropped before unbound sees
           # it. Neither layer is load-bearing on its own.
+          #
+          # The virtual machine subnet is here for a sharper reason than the
+          # pods are. Talos pulls its own installer from ghcr.io, which has no
+          # IPv6 address, so a node on that bridge reaches the image it is
+          # made of only through this resolver and Jool. A public resolver
+          # would answer with nothing it can use.
+          # ./kubernetes/vm-network.nix opens 53 on that bridge to match; both
+          # are needed, and either one alone fails quietly.
           access-control = [
             "::/0 refuse"
             "0.0.0.0/0 refuse"
             "${podSubnet} allow"
+            "${vmSubnet} allow"
             "${nodeIP}/128 allow"
             "::1/128 allow"
           ];

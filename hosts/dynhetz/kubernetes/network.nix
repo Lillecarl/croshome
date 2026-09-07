@@ -19,6 +19,25 @@ rec {
   # needs the same string and cannot read a NixOS option.
   podSubnet = "2a01:4f9:3071:11d7:b0::/80";
 
+  # Addresses virtual machines get, and the bridge they sit on.
+  #
+  # A second network, separate from the pod network, because a Talos node
+  # cannot use the pod network. Its API certificate names its own address, and
+  # that certificate is written when the machine configuration is rendered --
+  # before the node exists. host-local IPAM hands out a different address on
+  # every restart, so a node addressed that way can never be reached by the
+  # tool that configured it: the port answers and the name on the certificate
+  # is wrong. Measured, with `x509: certificate is valid for ... not ...`.
+  #
+  # So an address here is chosen by whoever declares the machine, not by an
+  # allocator, and ./vm-network.nix keeps the bridge and its route on the host
+  # where they do not depend on a cluster being up.
+  #
+  # ::c0::/80 is the next free /80 in ../wireguard.nix's allocation table.
+  vmSubnet = "2a01:4f9:3071:11d7:c0::/80";
+  vmGateway = "2a01:4f9:3071:11d7:c0::1";
+  vmBridge = "talos0";
+
   # The pod network, written from Nix rather than after the fact.
   #
   # A multi-node cluster cannot do this: kube-controller-manager carves a
@@ -82,5 +101,50 @@ rec {
     capabilities.portMappings = true;
     logLevel = "verbose";
     logToStderr = true;
+  };
+
+  # The virtual machine network, as multus delegates it.
+  #
+  # Never the default network, unlike `pod` above. This one is only ever
+  # reached through a `k8s.v1.cni.cncf.io/networks` annotation, so it is a
+  # NetworkAttachmentDefinition and nothing writes it to /etc/cni/net.d.
+  #
+  # `isGateway` is false and there is no `ipam.subnet`, which is the difference
+  # that matters. ./vm-network.nix puts the gateway address on the bridge and
+  # keeps it there whether or not the cluster is running, so the plugin must
+  # not also try to own it -- two things adding the same address to the same
+  # link is one netlink error.
+  #
+  # No IPAM at all, which is the whole point rather than an omission.
+  #
+  # This network attaches a machine to the bridge and assigns it nothing. The
+  # machine sets its own address, because a Talos node's machine configuration
+  # already has to carry that address -- its API certificate is written from
+  # it. Anything assigned here would be a second answer to a question the
+  # machine configuration has already answered, and the two would be free to
+  # disagree.
+  #
+  # KubeVirt's bridge binding is what makes that work: it moves the pod
+  # interface into the guest rather than translating for it, so an address the
+  # guest configures is the address on the wire. The gateway is
+  # ./vm-network.nix's, and the machine names it in the same place it names its
+  # own address.
+  #
+  # An earlier attempt used `static` IPAM with multus's `ips` capability, so
+  # the address came from the annotation instead. The bridge plugin rejected
+  # it -- `IPAM plugin returned missing IP config` -- and it was the wrong
+  # shape anyway: it put the address in two files.
+  vm = {
+    cniVersion = "1.0.0";
+    name = "talos";
+    plugins = [
+      {
+        type = "bridge";
+        bridge = vmBridge;
+        isGateway = false;
+        ipMasq = false;
+        hairpinMode = true;
+      }
+    ];
   };
 }
