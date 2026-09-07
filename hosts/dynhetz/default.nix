@@ -33,6 +33,9 @@
     ./podman.nix
     ./libvirt.nix
     ./libvirt-lab-net.nix
+    # Temporary, for one job. Delete it and this line once mainpool/lab-images
+    # is gone -- see the file.
+    ./lab-images.nix
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix
