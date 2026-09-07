@@ -1,6 +1,6 @@
 # NAT64 and DNS64, so an IPv6-only pod can reach an IPv4-only host.
 #
-# ./kubernetes.nix gives every pod a real, world-routable IPv6 address and no
+# ./kubernetes gives every pod a real, world-routable IPv6 address and no
 # IPv4 address at all. That is the right shape, and it costs the cluster
 # github.com, ghcr.io, and every other host that never turned IPv6 on. Image
 # pulls do not care, because containerd runs on the host and the host is
@@ -49,8 +49,15 @@
 # That is a NAT64 followed by an ordinary NAT44. Two translations where Jool
 # would do one, and the pool caps concurrent pods at ~254. For a single-node
 # lab cluster that is not a limit anyone will reach.
-{ ... }:
+{ config, ... }:
 let
+  # The cluster's own numbers, read rather than repeated. ./kubernetes declares
+  # these as options for exactly this: the pod subnet appears in a firewall
+  # rule, a CNI conflist, a kubeadm document and the access-control list below,
+  # and one of those silently not matching the others is the failure this
+  # avoids.
+  inherit (config.dynhetz.kubernetes) podSubnet nodeIP;
+
   # RFC 6052's well-known prefix. The one value both halves have to agree on:
   # DNS64 writes addresses into it, NAT64 listens for them.
   nat64Prefix = "64:ff9b::/96";
@@ -69,16 +76,13 @@ let
   nat64PoolPrefixLength = 24;
   taygaAddress = "192.168.255.1";
 
-  # eth0's addresses, named rather than discovered, for the same reason
-  # ./kubernetes.nix names the node address: this host has several of each
-  # family and the right one is not the one a rule picks by default.
-  nodeIP = "2a01:4f9:3071:11d7::2";
+  # eth0's IPv4, named rather than discovered, for the same reason
+  # ./kubernetes/default.nix names the node address: this host has several
+  # addresses of each family and the right one is not the one a rule picks by
+  # default.
   nodeIPv4 = "37.27.129.237";
 
-  # ./kubernetes.nix's pod subnet. The only clients this resolver serves.
-  podSubnet = "2a01:4f9:3071:11d7:b0::/80";
-
-  # Hetzner's own resolvers, IPv6 only. The same pair ./kubernetes.nix used to
+  # Hetzner's own resolvers, IPv6 only. The same pair ./kubernetes/node.nix used to
   # hand pods directly, before this file put a DNS64 in front of them.
   upstream = [
     "2a01:4ff:ff00::add:1"
@@ -188,7 +192,7 @@ in
           # a public address is an amplifier for somebody else's attack.
           #
           # This one is unbound's: everything is refused but the pods and the
-          # host itself. The other is the firewall's -- ./kubernetes.nix trusts
+          # host itself. The other is the firewall's -- ./kubernetes/default.nix trusts
           # cni0 and opens no port on eth0, and 53 is not among the ports it
           # opens, so a query from the internet is dropped before unbound sees
           # it. Neither layer is load-bearing on its own.
@@ -227,7 +231,7 @@ in
     };
 
     # What every pod gets as its /etc/resolv.conf, and what CoreDNS forwards
-    # to. ./kubernetes.nix names the Hetzner resolvers here with mkDefault, so
+    # to. ./kubernetes/node.nix names the Hetzner resolvers here with mkDefault, so
     # that it stands on its own the day this file goes away; a plain definition
     # takes over while this file exists. That is the same split the two files
     # already use for the IPv6 forwarding sysctls.

@@ -37,7 +37,7 @@
 #                                    VMs. In use: ../dynhetz/libvirt-lab-net.nix.
 #   2a01:4f9:3071:11d7:00b0::/80  -- pods of the single-node Kubernetes
 #                                    cluster on this host, on cni0. In
-#                                    use: ../dynhetz/kubernetes.nix. That
+#                                    use: ../dynhetz/kubernetes. That
 #                                    cluster's Services are ULA
 #                                    (fd00:10:96::/108) and take nothing
 #                                    from here, because a ClusterIP never
