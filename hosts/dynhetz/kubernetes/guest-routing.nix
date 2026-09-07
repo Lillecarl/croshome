@@ -100,8 +100,24 @@ in
   config = {
     services.frr.bgpd.enable = true;
 
+    # Policy first, router second. FRR reads this file from top to bottom. A
+    # `neighbor ... route-map X` line that names a route-map the file has not
+    # defined yet logs "The route-map 'X' does not exist" and leaves the
+    # reference unresolved. FRR does resolve it later in the same read, when
+    # the route-map appears, so the order below is not the difference between
+    # working and broken. It is the difference between a filter that is
+    # definitely there and one that is there because a second mechanism caught
+    # up -- and this filter decides what a guest cluster can put in this
+    # host's routing table. Define it first and the question does not arise.
     services.frr.config = ''
       frr defaults traditional
+      !
+      ${lib.concatMapStrings guestPolicy guests}
+      ! FRR since 7.4 refuses to exchange anything on an eBGP session that has
+      ! no policy, which is a good default and satisfied below -- every
+      ! neighbour has a route-map in both directions. This is the outbound one:
+      ! nothing is announced to a guest, see the header for why.
+      route-map announce-nothing deny 10
       !
       router bgp ${toString hostASN}
        ! A router id is 32 bits and there is no IPv4 address on the interface
@@ -117,13 +133,6 @@ in
        address-family ipv6 unicast
       ${lib.concatMapStrings activateLines guests}
        exit-address-family
-      !
-      ${lib.concatMapStrings guestPolicy guests}
-      ! FRR since 7.4 refuses to exchange anything on an eBGP session that has
-      ! no policy, which is a good default and satisfied above -- every
-      ! neighbour has a route-map in both directions. This is the outbound one:
-      ! nothing is announced to a guest, see the header for why.
-      route-map announce-nothing deny 10
       !
     '';
 
