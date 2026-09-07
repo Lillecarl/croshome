@@ -9,6 +9,9 @@
 # ---------------------
 #   ./default.nix       this file. The addresses every other one reads, and
 #                       the two rules about who may reach the API.
+#   ./network.nix       the CNI configurations, as plain data. Not a module:
+#                       ../../../kube imports it too, and that is a separate
+#                       evaluation which cannot read a NixOS option.
 #   ./runtime.nix       containerd, the CNI bridge, and the kernel settings
 #                       that make pod traffic behave.
 #   ./control-plane.nix what the cluster is configured to be: the kubeadm
@@ -120,8 +123,9 @@ in
 
     podSubnet = str ''
       Addresses pods get. See the allocation table in ../wireguard.nix, and
-      keep the two in step.
-    '' "2a01:4f9:3071:11d7:b0::/80";
+      keep the two in step. Defined in ./network.nix rather than here, because
+      ../../../kube needs the same string and cannot read a NixOS option.
+    '' (import ./network.nix).podSubnet;
 
     serviceSubnet = str ''
       Addresses ClusterIPs get. ULA, because a ClusterIP never leaves the node.

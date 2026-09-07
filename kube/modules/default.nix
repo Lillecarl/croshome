@@ -19,5 +19,6 @@
 {
   imports = [
     ./namespaces.nix
+    ./multus.nix
   ];
 }

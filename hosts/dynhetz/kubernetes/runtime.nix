@@ -15,44 +15,8 @@ let
 
   json = pkgs.formats.json { };
 
-  # The pod network, written from Nix rather than after the fact.
-  #
-  # A multi-node cluster cannot do this: kube-controller-manager carves a subnet
-  # per node out of the pod subnet, and no node knows its own until the cluster
-  # exists. Here there is one node and it gets the whole /80, so the value is
-  # known at eval time and the conflist can be a plain file.
-  #
-  # isDefaultGateway implies isGateway and makes the bridge plugin add the pod's
-  # default route itself, through the gateway it derives from the range -- the
-  # first address of the pod subnet, which it puts on cni0. Naming ::/0 in
-  # ipam.routes as well -- which most published conflists do -- adds it twice:
-  # the plugin only recognises an existing default route as its own if that
-  # route names a gateway, and an ipam route does not, so the second netlink add
-  # returns EEXIST and no pod ever gets a sandbox.
-  #
-  # ipMasq is off. The whole point of spending a routable /80 is that a pod's
-  # source address is real on the way out.
-  cniConfig = json.generate "10-dynhetz.conflist" {
-    cniVersion = "1.0.0";
-    name = "dynhetz";
-    plugins = [
-      {
-        type = "bridge";
-        bridge = "cni0";
-        isDefaultGateway = true;
-        hairpinMode = true;
-        ipMasq = false;
-        ipam = {
-          type = "host-local";
-          ranges = [ [ { subnet = cfg.podSubnet; } ] ];
-        };
-      }
-      {
-        type = "portmap";
-        capabilities.portMappings = true;
-      }
-    ];
-  };
+  # ./network.nix says what these are and why they are a separate file.
+  network = import ./network.nix;
 in
 {
   config = {
@@ -70,10 +34,18 @@ in
         plugins."io.containerd.cri.v1.runtime" = {
           containerd.runtimes.runc.options.SystemdCgroup = true;
           # No copy into /opt/cni/bin. Nothing writes to these binaries and the
-          # store path is already on the node. Multus will want the conventional
-          # directory when KubeVirt arrives; bin_dirs is a list, so that is one
-          # more entry rather than a change of approach.
-          cni.bin_dirs = [ "${pkgs.cni-plugins}/bin" ];
+          # store path is already on the node, so a store path is both the
+          # binary and the version pin.
+          #
+          # This is also the reason multus's upstream DaemonSet cannot install
+          # itself here: its init container copies multus-shim into
+          # /host/opt/cni/bin, a directory this node does not have and would
+          # not let it write to. ../../../kube/modules/multus.nix drops that
+          # container, because the binary is already on this line.
+          cni.bin_dirs = [
+            "${pkgs.cni-plugins}/bin"
+            "${pkgs.multus-cni}/bin"
+          ];
           cni.conf_dir = "/etc/cni/net.d";
         };
         plugins."io.containerd.cri.v1.images".pinned_images.sandbox = cfg.sandboxImage;
@@ -113,7 +85,22 @@ in
     };
 
     environment.etc = {
-      "cni/net.d/10-dynhetz.conflist".source = cniConfig;
+      # /etc/cni/net.d is a real directory that root can write to -- only the
+      # files below are store symlinks. So multus could place its own config
+      # here and upstream's DaemonSet does exactly that. Nix places it instead,
+      # for one reason: removing ../../../kube/modules/multus.nix and applying
+      # again leaves the file behind, and a 00-multus.conf naming a daemon that
+      # is gone stops every pod on the node from starting. A file Nix owns
+      # disappears on the next switch.
+      #
+      # containerd reads the lexically first configuration in this directory,
+      # so 00-multus.conf is the default network and 10-dynhetz.conflist is
+      # what multus-daemon delegates to -- not directly, but through the
+      # NetworkAttachmentDefinition built from the same value. It stays on disk
+      # because it is what the node falls back to with no multus at all, which
+      # is the state right after ./kube-nuke.nix runs.
+      "cni/net.d/00-multus.conf".source = json.generate "00-multus.conf" network.multusShim;
+      "cni/net.d/10-dynhetz.conflist".source = json.generate "10-dynhetz.conflist" network.pod;
 
       "crictl.yaml".text = ''
         runtime-endpoint: ${cfg.criSocket}
