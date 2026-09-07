@@ -20,5 +20,6 @@
   imports = [
     ./namespaces.nix
     ./multus.nix
+    ./kubevirt.nix
   ];
 }
