@@ -42,16 +42,13 @@
 #                                    (fd00:10:96::/108) and take nothing
 #                                    from here, because a ClusterIP never
 #                                    leaves the node.
-#   2a01:4f9:3071:11d7:00c0::/80  -- the NAT64 translator's tun device
-#                                    (nat64), which gives those pods a path
-#                                    to IPv4-only hosts. In use:
-#                                    ../dynhetz/nat64.nix. Only ::c0::1 is
-#                                    actually in use. The translation prefix
-#                                    itself is 64:ff9b::/96 and takes nothing
-#                                    from here: RFC 6052 reserves it
-#                                    globally for this.
 #
-# The next network after that takes ::00d0::/80, and so on.
+# ../dynhetz/nat64.nix takes nothing from this table. It translates into
+# 64:ff9b::/96, which RFC 6052 reserves globally for exactly that, and Jool
+# hooks PREROUTING rather than owning an interface -- so there is no device
+# here wanting an address of its own.
+#
+# The next network takes ::00c0::/80, and so on.
 #
 # Not a systemd.network.netdevs entry like ../openvpn-oob.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in

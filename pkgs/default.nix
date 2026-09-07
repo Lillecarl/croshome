@@ -8,7 +8,69 @@
 ###     exists on all three hosts -- cros included, which is otherwise kept
 ###     deliberately thin. Nix is lazy, so an attribute nothing references
 ###     costs nothing; `agenix` is referenced only by the two system hosts.
-inputs: final: prev: {
+inputs: final: prev:
+let
+  # Jool at 4.1.15 plus an unmerged upstream PR, because no released Jool
+  # builds against this kernel.
+  #
+  # ../hosts/dynhetz/nat64.nix wants Jool for NAT64. nixpkgs ships 4.1.14, and
+  # neither that nor 4.1.15 links against 7.2:
+  #
+  #   ERROR: modpost: "snmp_fold_field" [jool_common.ko] undefined!
+  #
+  # The kernel stopped exporting that symbol. NICMx/Jool#456, "stats: fix v7.2
+  # loss of snmp_fold_field()", is the fix. It is still open, and it was opened
+  # on 2026-08-11 -- months after 4.1.15 shipped -- so waiting for a release is
+  # not an option that exists yet. It touches one file, src/mod/common/stats.c,
+  # in two hunks.
+  #
+  # All three facts were checked by building, not by reading release notes:
+  # 4.1.14 fails, 4.1.15 fails the same way, 4.1.15 with the PR succeeds.
+  #
+  # The patch is pinned by hash, so a force-push to that PR fails the fetch
+  # loudly instead of quietly building something else.
+  #
+  # Drop this whole block when Jool releases a version carrying the fix.
+  joolVersion = "4.1.15";
+
+  joolSrc = final.fetchFromGitHub {
+    owner = "NICMx";
+    repo = "Jool";
+    tag = "v${joolVersion}";
+    hash = "sha256-I+cgxOONq8LZWlpVaqXW+MmEKts/dQAr7Hs8uC6N8/w=";
+  };
+
+  joolPr456 = final.fetchpatch {
+    url = "https://github.com/NICMx/Jool/pull/456.patch";
+    hash = "sha256-vYFZF0WFO6MNIj4cOdwmqV8UZsfOqrdLPP3E6dX9+q8=";
+  };
+in
+{
+  # The kernel module. `patches = [ ]` drops the Alpine kernel-6.18 patch
+  # nixpkgs carries for 4.1.14: 4.1.15 already has those changes and the patch
+  # no longer applies, which is how a plain version bump fails first.
+  linuxPackages_latest = prev.linuxPackages_latest.extend (
+    _: kprev: {
+      jool = kprev.jool.overrideAttrs (_: {
+        version = joolVersion;
+        src = joolSrc;
+        patches = [ joolPr456 ];
+      });
+    }
+  );
+
+  # The CLI, moved in lockstep. Jool's netlink protocol is versioned and the
+  # tool refuses a module it does not match, so bumping one alone trades a
+  # build failure for a runtime one.
+  #
+  # No `patches` override here: nixpkgs' own validate-config.patch adds the
+  # `jool file check` subcommand that the NixOS module's build-time validation
+  # runs, and it still applies to 4.1.15 -- checked by building it.
+  jool-cli = prev.jool-cli.overrideAttrs (_: {
+    version = joolVersion;
+    src = joolSrc;
+  });
+
   # The agenix CLI, for `agenix -e` and `agenix -r`. Built from the input
   # source tree rather than from nixpkgs, which has no `agenix` -- only
   # `ragenix`, a separate Rust reimplementation with its own file format
