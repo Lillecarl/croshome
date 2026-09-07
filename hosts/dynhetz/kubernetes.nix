@@ -53,15 +53,16 @@
 #     /80, which is what a single-node cluster wants.
 #   - The service CIDR must be /108 or smaller. /107 is rejected outright.
 #
-# ./kubernetes-check.nix turns those three into a build-time check, so a
-# nixpkgs bump that moves them fails the rebuild instead of the machine.
+# The kubeadmCheck derivation below turns those three into a build-time check,
+# so a nixpkgs bump that moves them fails the rebuild instead of the machine.
 #
 # What pods cannot reach
 # ----------------------
 # A pod has no IPv4 address, so an IPv4-only host is unreachable from inside
 # the cluster -- github.com and ghcr.io among them. Image pulls are unaffected,
 # because containerd runs on the host and the host is dual-stack. NAT64 and
-# DNS64 are the answer to the rest and live in ./nat64.nix.
+# DNS64 are the answer to the rest. Neither is built yet, so today a pod
+# simply cannot open a connection to an IPv4-only host.
 {
   config,
   lib,
@@ -94,7 +95,7 @@ let
   # image is the one thing it pulls on its own. Its version tracks containerd
   # releases by default and has to track kubeadm's instead: the two agree today,
   # and the day they stop, every sandbox fails to start over an image nothing in
-  # this file mentions. ./kubernetes-check.nix asserts the two still match.
+  # this file mentions. kubeadmCheck below asserts the two still match.
   sandboxImage = "registry.k8s.io/pause:3.10.2";
 
   json = pkgs.formats.json { };
