@@ -190,6 +190,27 @@ let
       taints = [ ];
       kubeletExtraArgs = args { node-ip = nodeIP; };
     };
+    # How long kubeadm waits on the two things that can hang, cut from the
+    # 4m0s each that it defaults to.
+    #
+    # This machine reaches "control-plane has initialized successfully" ten
+    # seconds after `kubeadm init` starts, reset included, once the images are
+    # local. The wait-control-plane phase is at most five of those. 90s is
+    # eighteen times the observed time, so it fails only when something is
+    # actually wrong.
+    #
+    # These are the numbers that matter, not the unit's TimeoutStartSec below.
+    # A wait that kubeadm ends prints which component never answered. A wait
+    # that systemd ends is SIGKILL and an empty journal. So kubeadm's limit
+    # has to be the one that fires, and the unit's has to sit above it.
+    #
+    # Only these two are on the init path. discovery and tlsBootstrap belong to
+    # `kubeadm join`, upgradeManifests to `kubeadm upgrade`, and no node here
+    # ever runs either.
+    timeouts = {
+      controlPlaneComponentHealthCheck = "90s";
+      kubeletHealthCheck = "90s";
+    };
   };
 
   kubeletConfiguration = {
@@ -512,10 +533,16 @@ in
       serviceConfig = {
         Type = "oneshot";
         RemainAfterExit = true;
-        # etcd and the API server both have to come up and answer before
-        # `kubeadm init` returns. On a machine this size that is a couple of
-        # minutes, not the default's worth of patience.
-        TimeoutStartSec = "20min";
+        # A backstop, and only a backstop. The init path's own limits are
+        # `timeouts` in the InitConfiguration above, and they are what should
+        # end a bad run, because kubeadm says what it was waiting for and
+        # systemd does not.
+        #
+        # So this covers the one part those limits do not: pulling the control
+        # plane images. That happens in preflight, before any wait kubeadm
+        # bounds, and it took 19s here on a cold store. Five minutes leaves
+        # room for a slow pull on top of a 90s health check.
+        TimeoutStartSec = "5min";
       };
       script = ''
         set -euo pipefail
