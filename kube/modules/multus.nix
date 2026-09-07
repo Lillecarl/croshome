@@ -308,6 +308,26 @@ in
                       mountPath = "/etc/cni/net.d/multus.d";
                       readOnly = true;
                     }
+                    # This pod pins every host mount that existed when it
+                    # started, and that outlives the mount.
+                    #
+                    # `hostroot` is / and `host-run` is /run, and containerd
+                    # keeps this container's own rootfs bind under /run. So
+                    # the /hostroot subtree is visible a second time, through
+                    # /host/run/containerd/.../rootfs/hostroot/... -- and a
+                    # copy reached that way is not covered by the propagation
+                    # below, so unmounting on the host leaves it behind.
+                    #
+                    # What that looks like: `umount` succeeds, `findmnt` on
+                    # the host shows nothing, and `lvremove` still refuses
+                    # because the device is open. Measured while removing the
+                    # libvirt lab volume. `kubectl -n kube-system rollout
+                    # restart ds/kube-multus-ds` clears it -- the path carries
+                    # the container id, so a new pod does not inherit it.
+                    #
+                    # So: after removing a host filesystem that existed when
+                    # this pod started, restart this DaemonSet before touching
+                    # the device under it.
                     {
                       name = "hostroot";
                       mountPath = "/hostroot";
