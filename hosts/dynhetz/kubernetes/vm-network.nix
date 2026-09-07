@@ -57,6 +57,22 @@ in
     # A dummy is the cheapest thing that holds a bridge up: it has carrier
     # whenever it is up, moves no packets, and needs no hardware. The bridge is
     # then genuinely online rather than excused from being checked.
+    #
+    # It has a second use nothing configures it for. Because this port is the
+    # only one this host ever attaches, the bridge's port list answers one
+    # question exactly:
+    #
+    #   ip -br link show master talos0
+    #
+    # Only the carrier means no machine exists. Any veth beside it means at
+    # least one does. That distinction is worth knowing because the tools above
+    # this layer hide it: a Terraform `depends_on` between a VirtualMachine
+    # object and a bootstrap resource guarantees only that the OBJECT was
+    # applied, not that a guest booted. When something upstream fails -- an
+    # image import, a scheduler, a volume -- the error surfaces as a bootstrap
+    # timeout naming a guest address, which reads exactly like a routing fault
+    # on this host and is not one. The port list separates the two from outside
+    # the cluster, in one command, with nothing running.
     systemd.network.netdevs."20-${vmBridge}-carrier" = {
       netdevConfig = {
         Name = "${vmBridge}-carrier";
