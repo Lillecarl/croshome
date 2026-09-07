@@ -21,5 +21,6 @@
     ./namespaces.nix
     ./multus.nix
     ./kubevirt.nix
+    ./topolvm.nix
   ];
 }
