@@ -109,6 +109,7 @@ in
   imports = [
     ./runtime.nix
     ./vm-network.nix
+    ./guest-routing.nix
     ./control-plane.nix
     ./provision.nix
     ./node.nix
