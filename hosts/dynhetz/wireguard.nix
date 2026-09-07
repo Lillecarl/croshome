@@ -32,12 +32,18 @@
 #
 #   2a01:4f9:3071:11d7:0090::/80  -- wg-dynhetz (this file). Only the
 #                                    /112 at ::90:: is actually in use.
-#   2a01:4f9:3071:11d7:00a0::/80  -- reserved for a libvirt bridge, for
-#                                    IPv6-only lab VMs (NixOS, maybe
-#                                    Talos, for a lab Kubernetes
-#                                    cluster). Not built yet.
+#   2a01:4f9:3071:11d7:00a0::/80  -- the libvirt lab bridge
+#                                    (virbr-nixlab2), for IPv6-only lab
+#                                    VMs. In use: ../dynhetz/libvirt-lab-net.nix.
+#   2a01:4f9:3071:11d7:00b0::/80  -- pods of the single-node Kubernetes
+#                                    cluster on this host, on cni0. In
+#                                    use: ../dynhetz/kubernetes.nix. That
+#                                    cluster's Services are ULA
+#                                    (fd00:10:96::/108) and take nothing
+#                                    from here, because a ClusterIP never
+#                                    leaves the node.
 #
-# The next network after that takes ::00b0::/80, and so on.
+# The next network after that takes ::00c0::/80, and so on.
 #
 # Not a systemd.network.netdevs entry like ../openvpn-oob.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in

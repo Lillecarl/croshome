@@ -56,9 +56,16 @@
 #     cloud-init-consuming OS would.
 #
 #   - A second lab network, if one's ever needed (say, an isolated
-#     cluster with no WAN-reachable pods), takes the next reserved /80
-#     in ../wireguard.nix's table (2a01:4f9:3071:11d7:00b0::/80) --
-#     update that table when it happens.
+#     cluster with no WAN-reachable pods), takes the next free /80 in
+#     ../wireguard.nix's table. ::00b0::/80 is no longer it: the
+#     single-node Kubernetes cluster in ./kubernetes.nix took that one
+#     for its pods, so the next free /80 is ::00c0::/80. Update that
+#     table when it happens.
+#
+# The sysctls below are also what ./kubernetes.nix's cni0 bridge needs,
+# for exactly the reason spelled out here. That file sets them again
+# rather than depending on this one, because this lab is on its way out:
+# the VMs move to KubeVirt on that cluster.
 {
   boot.kernel.sysctl = {
     "net.ipv6.conf.all.forwarding" = 1;
