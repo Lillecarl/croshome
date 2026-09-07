@@ -180,6 +180,21 @@ rec {
       modules = [ ./hosts/cros/home.nix ];
     };
 
+  # dynhetz's Kubernetes cluster, as manifests. Deliberately not a NixOS
+  # module and not reachable from `dynhetz`: see ./kube/default.nix for why
+  # applying is its own step rather than part of activation.
+  #
+  #   nix run --file . cluster.deploymentScript
+  #   nix run --file . cluster.validationScript
+  #   nix build --file . cluster.manifestYAMLFile
+  cluster = clusterFor currentSystem;
+  clusterFor =
+    system:
+    import ./kube {
+      inherit inputs;
+      pkgs = pkgsFor system;
+    };
+
   hetztop-options = lib.pipe (pkgs.lib.optionAttrSetToDocList hetztop.options) [
     (lib.filter (v: v.visible && !v.internal))
     (lib.foldl' (

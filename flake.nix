@@ -99,6 +99,29 @@
       url = "github:Lillecarl/nanopynix";
       flake = false;
     };
+
+    # The umbrella that owns easykubenix, which ./kube uses to turn Nix into
+    # Kubernetes manifests for dynhetz's cluster.
+    #
+    # The umbrella and not easykubenix itself. easykubenix reads its siblings
+    # -- nanopynix, adios -- through the umbrella's own `nix/wire.nix`, and it
+    # only skips fetching one of its own when it can already see one next to
+    # it. Pinning the umbrella and importing the project inside it is what
+    # makes that true, so nothing is fetched at evaluation time beyond this
+    # entry.
+    #
+    # `git+https` and `submodules=1`, not `github:`. Each project in the
+    # umbrella is a submodule, and a GitHub tarball carries none of them: the
+    # `easykubenix` directory arrives empty and every path into it fails. A git
+    # fetch carries them. easykubenix's own default.nix reaches for the same
+    # URL for the same reason.
+    #
+    # `flake = false` for the same reason as nanopynix above: it is a source
+    # tree, and the entry points here import what they want from it.
+    nixidae = {
+      url = "git+https://github.com/nixidae/nixidae?submodules=1";
+      flake = false;
+    };
   };
   outputs =
     inputs:

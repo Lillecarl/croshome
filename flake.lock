@@ -303,6 +303,24 @@
         "type": "github"
       }
     },
+    "nixidae": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788772676,
+        "narHash": "sha256-RRmh/AgnPMZCeRGpCxJPVl5T97u5a8KjSVmBYWTiWOY=",
+        "ref": "refs/heads/main",
+        "rev": "8f7bf6c1a42eeaa730c49084a8651195c264a553",
+        "revCount": 21,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/nixidae/nixidae"
+      },
+      "original": {
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/nixidae/nixidae"
+      }
+    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1787172299,
@@ -400,6 +418,7 @@
         "llm-agents": "llm-agents",
         "nanopynix": "nanopynix",
         "nix-darwin": "nix-darwin",
+        "nixidae": "nixidae",
         "nixpkgs": "nixpkgs",
         "nixpkgs-stable": "nixpkgs-stable",
         "phabfive": "phabfive",
