@@ -33,7 +33,6 @@
     ./podman.nix
     ./libvirt.nix
     ./libvirt-lab-net.nix
-    ./libvirt-lab-storage.nix
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix

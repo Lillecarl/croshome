@@ -19,9 +19,10 @@
 #    not data or the ability to unlock. Two logical volumes ride the decrypted
 #    PV: `root`, btrfs with the same subvolume scheme ../hetztop runs
 #    (`@root`, `@nix`, `@home`), and `thinpool`, a thin pool left unformatted
-#    for VM disks provisioned by hand with `lvcreate --thin` -- the reason for
-#    LVM here at all. Both sizes are LVM, so wrong is a resize away, not a
-#    reinstall.
+#    for VM disks -- the reason for LVM here at all. TopoLVM allocates out of
+#    it now, one logical volume per PersistentVolumeClaim; see
+#    ../../kube/modules/topolvm.nix. Both sizes are LVM, so wrong is a resize
+#    away, not a reinstall.
 #
 # Swap sits outside the mirror and the LUKS volume entirely -- 48 GiB on each
 # drive, 96 GiB total, half again the 64 GiB of RAM, both enabled at equal
@@ -137,8 +138,9 @@ in
       mainpool = {
         type = "lvm_vg";
         lvs = {
-          # Left unformatted on purpose -- VM disks are `lvcreate --thin`'d
-          # out of this by hand as they're needed, not declared here.
+          # Left unformatted on purpose. TopoLVM carves thin volumes out of
+          # this, one per PersistentVolumeClaim, so what is in it is decided by
+          # the cluster rather than declared here.
           thinpool = {
             size = "100%";
             lvm_type = "thin-pool";

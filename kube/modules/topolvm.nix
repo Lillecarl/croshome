@@ -21,17 +21,17 @@
 # and no space to grow the pool with. `thinpool` is therefore where TopoLVM
 # has to allocate, which makes the device class below `type: thin`.
 #
-# It is not the only consumer. ../../hosts/dynhetz/libvirt-lab-net.nix's
-# `lab-images` is a 400 GiB thin volume in the same pool, and TopoLVM counts
-# it: free space is the pool times `overprovision-ratio`, minus every thin
-# volume already in the pool, whoever made it. With a ratio of 1.0 the node
-# advertised capacity.topolvm.io/thin = 273330208768, which is the 654 GiB pool
-# less that 400 GiB claim. So 1.0 means "never promise more than the pool
-# holds", and the other consumer is subtracted rather than ignored.
+# `overprovision-ratio` is 1.0, which means TopoLVM never promises more than
+# the pool holds. Free space is the pool times that ratio, minus every thin
+# volume already in it, whoever made it -- so a second consumer is subtracted
+# rather than ignored. Measured while the libvirt lab still had a 400 GiB
+# volume here: the node advertised capacity.topolvm.io/thin = 273330208768,
+# the 654 GiB pool less that claim. That volume is gone and TopoLVM is now the
+# only consumer, so the whole pool is the cluster's.
 #
-# A ratio above 1.0 is what thin provisioning is for, and it is the wrong
-# choice here. `lab-images` claims 400 GiB and holds 18 GiB, so most of what
-# 1.0 gives away is already a promise nobody has collected on.
+# A ratio above 1.0 is what thin provisioning is for, and it is still the wrong
+# choice on one node. Nothing here watches the pool, and a thin pool that runs
+# out of data goes read-only under every volume at once.
 #
 # One number here is worth watching: the pool's metadata volume is 84 MiB. That
 # is LVM's own computed default for a pool this size, not a mistake, but a thin
