@@ -32,9 +32,12 @@
 #
 #   2a01:4f9:3071:11d7:0090::/80  -- wg-dynhetz (this file). Only the
 #                                    /112 at ::90:: is actually in use.
-#   2a01:4f9:3071:11d7:00a0::/80  -- the libvirt lab bridge
-#                                    (virbr-nixlab2), for IPv6-only lab
-#                                    VMs. In use: ../dynhetz/libvirt-lab-net.nix.
+#   2a01:4f9:3071:11d7:00a0::/80  -- FREE. Was the libvirt lab bridge
+#                                    (virbr-nixlab2), for IPv6-only lab VMs.
+#                                    That lab is replaced by KubeVirt: the
+#                                    bridge is gone, its storage pools are
+#                                    undefined and its volume is removed.
+#                                    Reuse it before taking a new one.
 #   2a01:4f9:3071:11d7:00b0::/80  -- pods of the single-node Kubernetes
 #                                    cluster on this host, on cni0. In
 #                                    use: ../dynhetz/kubernetes. That
@@ -50,13 +53,36 @@
 #                                    Talos node's API certificate names its
 #                                    own address and is written before the
 #                                    node exists.
+#   2a01:4f9:3071:11d7:00d0::/80  -- pods of the first guest cluster on those
+#                                    machines (nixlab2). One /80 per guest
+#                                    cluster, with its node mask set to /84 so
+#                                    each of its nodes gets a real sub-prefix
+#                                    and 16 of them fit. The next guest
+#                                    cluster takes the /80 after this one.
+#
+# Guest pods are global addresses out of this table rather than ULA, for the
+# same reason the host cluster's are: a pod's source address should be real on
+# the way out. The space is not the constraint people assume -- the fifth
+# hextet names the /80, so there are 65536 of them, and 4096 even at the
+# every-sixteenth spacing this table uses. One per guest cluster costs nothing.
+#
+# A global prefix here is only half the job. `2a01:4f9:3071:11d7::/64` is a
+# connected route on eth0, so an address in it with no more-specific route is
+# treated as on-link: the kernel sends a neighbour solicitation onto eth0,
+# nothing answers, and the packet is dropped. That applies to the return half
+# of an outbound connection too, so a guest pod prefix with no route is not
+# "reachable only outbound", it is not reachable at all. Every /80 above works
+# because something owns it on a local interface. A guest cluster's pods sit
+# behind ../dynhetz/kubernetes/vm-network.nix's bridge instead, one sub-prefix
+# per node, so they need a route per node -- which is what a routing daemon on
+# this host is for, and there is not one yet.
 #
 # ../dynhetz/nat64.nix takes nothing from this table. It translates into
 # 64:ff9b::/96, which RFC 6052 reserves globally for exactly that, and Jool
 # hooks PREROUTING rather than owning an interface -- so there is no device
 # here wanting an address of its own.
 #
-# The next network takes ::00d0::/80, and so on.
+# The next network takes ::00e0::/80, or ::00a0::/80 which is free again.
 #
 # Not a systemd.network.netdevs entry like ../openvpn-oob.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in
