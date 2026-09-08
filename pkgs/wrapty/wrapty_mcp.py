@@ -75,9 +75,19 @@ async def get_stats() -> dict:
 
 @mcp.tool()
 async def need_user() -> str:
-    """Flag that the agent is now blocked on the user (e.g. it finished
-    everything it can do autonomously, or needs a decision). Clears the
-    Stop-nudge counter so the next Stop is not treated as a silent one."""
+    """Hand the turn back to the user, and permit the next Stop.
+
+    Two things earn a stop. You finished everything you can do
+    autonomously, or you are blocked on a decision only the user can make.
+    Nothing else does.
+
+    Do not call this to deliver a summary or a progress report. Do not
+    call it to ask whether to keep going. If you know the next step, take
+    it instead -- the Stop hook exists to catch that stop and push you
+    back to work.
+
+    Clears the Stop-nudge counter, so the next Stop is not treated as a
+    silent one."""
     return await call(_session_id(), "need_user")
 
 

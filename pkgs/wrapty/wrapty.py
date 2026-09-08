@@ -362,6 +362,11 @@ async def _run(argv):
         # The permanent kind of stop: no resume, so nothing types the agent
         # back afterwards. That is the whole point -- it is now the human's
         # turn.
+        #
+        # The agent earns this call two ways: the work is done, or a decision
+        # only the human can make blocks it. A summary earns nothing. The
+        # nudge exists because agents stop to report progress and wait, and
+        # every one of those stops is work the agent could have finished.
         nudge_state["allow_stop"] = True
         nudge_state["resume"] = None
         nudge_state["stop_count"] = 0
