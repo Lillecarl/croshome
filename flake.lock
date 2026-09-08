@@ -405,6 +405,24 @@
         "type": "github"
       }
     },
+    "pyterm": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788892515,
+        "narHash": "sha256-pNZHwJrXTbmZLbEoTjWsdm3Xiv7O+amikrqK3tXMrUw=",
+        "ref": "refs/heads/main",
+        "rev": "e49fc30e9e8bbbc6ed54eeb05b12fa574d348e81",
+        "revCount": 249,
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/Lillecarl/pyterm"
+      },
+      "original": {
+        "submodules": true,
+        "type": "git",
+        "url": "https://github.com/Lillecarl/pyterm"
+      }
+    },
     "root": {
       "inputs": {
         "acpcli": "acpcli",
@@ -422,7 +440,8 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-stable": "nixpkgs-stable",
         "phabfive": "phabfive",
-        "pyproject-nix": "pyproject-nix_2"
+        "pyproject-nix": "pyproject-nix_2",
+        "pyterm": "pyterm"
       }
     },
     "systems": {

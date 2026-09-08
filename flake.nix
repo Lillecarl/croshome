@@ -122,6 +122,31 @@
       url = "git+https://github.com/nixidae/nixidae?submodules=1";
       flake = false;
     };
+
+    # pymux and the libraries it is built on. home/pymux.nix imports the
+    # home-manager module out of this tree.
+    #
+    # `git+https` and `submodules=1`, for the same reason as nixidae above.
+    # Each library is a submodule, and a GitHub tarball carries none of them.
+    # The home-manager module builds its default package with `import ../.`
+    # relative to itself, so an empty `pymux` directory fails that build.
+    #
+    # `flake = false` for the same reason as nanopynix. `default.nix` of pyterm
+    # takes `pkgs`, so this configuration's package set builds it and no second
+    # nixpkgs is instantiated. Its own flake wraps that same file for people
+    # who want a flake.
+    #
+    # **This one input needs an SSH key today.** The URL above is https, but
+    # `.gitmodules` in pyterm names every submodule as `git@github.com:...`,
+    # and nix follows those. A fetch with no key and a cold cache stops at
+    # `ssh://git@github.com/Lillecarl/python-prompt-toolkit.git`, verified.
+    # So this differs from every other input here, which any clone can fetch.
+    # The fix is https in pyterm's own `.gitmodules`; until then a keyless
+    # machine cannot evaluate this configuration.
+    pyterm = {
+      url = "git+https://github.com/Lillecarl/pyterm?submodules=1";
+      flake = false;
+    };
   };
   outputs =
     inputs:
