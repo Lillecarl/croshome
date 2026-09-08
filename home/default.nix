@@ -31,6 +31,7 @@
     ./kagi-mcp.nix
     ./opencode.nix
     ./packages.nix
+    ./pymux.nix
     ./tmux.nix
     ./vcs.nix
     ./wrapty.nix
