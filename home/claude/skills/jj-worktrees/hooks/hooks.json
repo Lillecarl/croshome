@@ -7,6 +7,10 @@
           {
             "type": "command",
             "command": "jj-block-git-write"
+          },
+          {
+            "type": "command",
+            "command": "jj-block-trailers"
           }
         ]
       }
