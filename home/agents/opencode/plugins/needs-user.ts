@@ -1,6 +1,13 @@
 // Enforces an explicit end-of-turn contract: the model must call the
 // `needs_user` tool before it may stop. Nothing else ends a turn.
 //
+// The point is to stop the model stopping when it should not. A model that
+// knows the next step still likes to write a summary, hand the turn back and
+// wait. That stop costs a full round trip and buys nothing. So the gate
+// treats a summary as work in progress, not as an ending: the model keeps
+// going, and says what it did on the way past. Only two things end a turn --
+// the work is done, or a decision only the user can make blocks it.
+//
 // Why: detecting *why* a turn died is a catalogue of failure modes -- empty
 // response, dropped stream, half-written reply. Under provider load a model
 // "just stops" in a hundred ways, and guessing at each one is brittle. One
@@ -32,11 +39,14 @@ const WINDOW_MS = Number(process.env.OPENCODE_NEEDS_USER_WINDOW_MS) || 3_600_000
 // One nudge phrasing is enough: the contract is singular, so a rotating pool
 // would only blur it. The template is machine-flavored enough to match by.
 const NUDGE = (detail: string) =>
-  `You ended your turn without calling needs_user (${detail}). If your work is complete, call needs_user to close out. Otherwise continue working.`
+  `You ended your turn without calling needs_user (${detail}). Two things end a turn: the work is done, or a decision only the user can make blocks you. A summary is neither. If you know the next step, take it now. If you are actually finished, call needs_user.`
 const NUDGE_PATTERN = /^You ended your turn without calling needs_user \(.+\)\. /
 
 const REMINDER =
-  "End-of-turn contract: before you stop responding, you MUST call the needs_user tool. If you are not finished, keep working instead of ending your turn."
+  "End-of-turn contract: before you stop responding, you MUST call the needs_user tool. " +
+  "Two things earn that call: the work is done, or a decision only the user can make blocks you. " +
+  "Do not stop to write a summary, to report progress, or to ask whether to continue. " +
+  "If you know the next step, take it in this turn and report it on the way past."
 
 // Fatal errors still must not be pushed through. Fixing them needs a person.
 const FATAL = new Set(["ProviderAuthError", "MessageAbortedError", "ContextOverflowError"])
@@ -165,8 +175,9 @@ export const NeedsUser: Plugin = async ({ client }) => {
     tool: {
       needs_user: {
         description:
-          "Call this when you need the user's input, or when your work is complete and you are about to end your turn. " +
-          "You MUST call this before ending a turn; ending without it is treated as a failure.",
+          "Call this when a decision only the user can make blocks you, or when the work is complete and you are about to end your turn. " +
+          "You MUST call this before ending a turn; ending without it is treated as a failure. " +
+          "Do not call it to deliver a summary, to report progress, or to ask whether to continue -- if you know the next step, take it instead.",
         args: {},
         execute: async (_args: Record<string, never>) => {
           return "User notified. You may end your turn."
