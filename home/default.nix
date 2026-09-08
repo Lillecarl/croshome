@@ -24,6 +24,7 @@
     ./claude-md.nix
     ./fish.nix
     ./fonts.nix
+    ./git-bug.nix
     ./github.nix
     ./gpg.nix
     ./helix.nix
