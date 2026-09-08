@@ -136,13 +136,12 @@
     # nixpkgs is instantiated. Its own flake wraps that same file for people
     # who want a flake.
     #
-    # **This one input needs an SSH key today.** The URL above is https, but
-    # `.gitmodules` in pyterm names every submodule as `git@github.com:...`,
-    # and nix follows those. A fetch with no key and a cold cache stops at
-    # `ssh://git@github.com/Lillecarl/python-prompt-toolkit.git`, verified.
-    # So this differs from every other input here, which any clone can fetch.
-    # The fix is https in pyterm's own `.gitmodules`; until then a keyless
-    # machine cannot evaluate this configuration.
+    # This needed an SSH key until pyterm's `.gitmodules` moved to https.
+    # It named every submodule as `git@github.com:...`, and nix follows those
+    # even from an https URL, so a keyless machine could not evaluate this
+    # configuration at all. Re-checked at the pin below with a cold cache and
+    # no key or agent: it fetches. Worth re-checking after an update, because
+    # nothing in pyterm's own tests would catch a URL going back.
     pyterm = {
       url = "git+https://github.com/Lillecarl/pyterm?submodules=1";
       flake = false;
