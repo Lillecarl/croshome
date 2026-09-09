@@ -11,6 +11,8 @@ import secrets
 import signal
 import sys
 import termios
+import time
+import traceback
 import tty
 
 from jsonrpc import Dispatcher
@@ -78,6 +80,46 @@ TERMINAL_RESET = (
     b"\x1b[?1000l\x1b[?1002l\x1b[?1003l\x1b[?1006l"  # mouse tracking off
     b"\x1b[?2004l"  # bracketed paste off
 )
+
+
+# Never write a diagnostic to stderr while the child runs. stderr is the real
+# terminal, and the child is a full-screen TUI that tracks what it drew there.
+# Text it did not write leaves its model of the screen wrong, and the display
+# stays corrupt until something forces a full repaint -- a resize, in practice.
+# So every traceback goes to this file instead, next to the control socket.
+# _run() sets it; before that there is no child and stderr is still safe.
+_log_path = None
+
+
+def _write_log(text):
+    if _log_path is None:
+        sys.stderr.write(text)
+        return
+    try:
+        with open(_log_path, "a") as f:
+            f.write(text)
+    except OSError:
+        pass  # a lost diagnostic is not worth taking the session down for
+
+
+def _log_exception(context):
+    """Record the exception being handled, with a timestamp and a note of
+    where it came from."""
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    _write_log(f"[{stamp}] {context}\n{traceback.format_exc()}\n")
+
+
+def _on_loop_exception(loop, context):
+    """The event loop's last line of defence. Anything that escapes a task, a
+    reader callback or a signal handler arrives here; asyncio's own handler
+    would print it to stderr."""
+    stamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    message = context.get("message", "unhandled exception in the event loop")
+    text = f"[{stamp}] {message}\n"
+    exception = context.get("exception")
+    if exception is not None:
+        text += "".join(traceback.format_exception(exception))
+    _write_log(text)
 
 
 def _sync_winsize(stdin_fd, master_fd):
@@ -241,6 +283,12 @@ async def _run(argv):
     runtime_dir = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "wrapty")
     os.makedirs(runtime_dir, exist_ok=True)
     sock_path = os.path.join(runtime_dir, f"{wapty_id}.sock")
+
+    # Redirect diagnostics off stderr from here on: the child is about to own
+    # the terminal. The log sits beside the socket, so it goes away with the
+    # runtime directory and is easy to find from the session id.
+    global _log_path
+    _log_path = os.path.join(runtime_dir, f"{wapty_id}.log")
 
     # os.write on a non-blocking fd can do a *partial* write -- accept fewer
     # bytes than given and return that count, with no exception at all -- so
@@ -512,6 +560,7 @@ async def _run(argv):
     )
 
     loop = asyncio.get_running_loop()
+    loop.set_exception_handler(_on_loop_exception)
     stdin_fd = sys.stdin.fileno()
     stdout_fd = sys.stdout.fileno()
     os.set_blocking(master_fd, False)
