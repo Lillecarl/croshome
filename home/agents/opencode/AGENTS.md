@@ -15,18 +15,17 @@
 - The exception is deliberate isolation: a subagent loading the jj skill *to
   keep* history out of the primary context is the good case.
 
-## Task Reuse (Critical)
-- **Before creating a new task, check if an existing task session already covers this goal.** If one exists, add your follow-up as a message in that session instead of spawning a new one.
-- Tasks are expensive to set up. Reusing an existing task session preserves all accumulated context and avoids redundant exploration.
-- If you are unsure whether a prior task is still relevant, summarize your new question and ask the existing task session first — it will tell you if it can answer or needs fresh context.
+## Task reuse
 
-### How to reuse a task session
-The Task tool has a `task_id` parameter. When you create a task, note its `task_id` from the output. For follow-up work on the same topic, call the Task tool again with the same `task_id` — this sends a new message into the existing child session instead of spinning up a fresh one. The child retains all prior context, tool outputs, and file reads.
+The Task tool takes a `task_id`. Note it when you create a task; passing it
+again sends a new message into that child session, which still holds its
+context, tool output and file reads. A fresh task throws all of that away and
+re-explores.
 
-Example: after spawning `@explore` with a research goal, the result includes a `task_id`. If you need to drill deeper, reuse that `task_id` rather than creating a new `@explore` session. This is how you "keep feeding it follow-up questions."
-
-### When NOT to reuse
-Do NOT reuse a task session when the new work is on a genuinely different topic — the old session's context will confuse the model and waste tokens. When in doubt, ask the existing session first: send it a brief summary of the new question and let it tell you if it can answer or if you should start fresh.
+Reuse it when the follow-up is on the same topic. Start fresh when the new work
+is genuinely unrelated — stale context confuses the model and costs tokens. In
+doubt, send the existing session a one-line summary of the new question and let
+it say whether it can answer.
 
 ## Editing Code (Critical)
 - **NEVER fix or refactor code using scripts** (e.g. `sed`, `awk`, `python -c`, or any inline script that mass-edits files). Every edit must go through the dedicated `edit` tool.
