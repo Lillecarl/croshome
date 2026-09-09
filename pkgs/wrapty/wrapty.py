@@ -18,7 +18,10 @@ import tty
 from jsonrpc import Dispatcher
 from jsonrpc.exceptions import (
     JSONRPCDispatchException,
+    JSONRPCInvalidRequest,
+    JSONRPCInvalidRequestException,
     JSONRPCMethodNotFound,
+    JSONRPCParseError,
     JSONRPCServerError,
 )
 from jsonrpc.jsonrpc2 import JSONRPC20Request, JSONRPC20Response
@@ -138,7 +141,14 @@ async def _dispatch(request_str, dispatcher):
     gets "ok" when the text has actually been typed, not when typing merely
     started. Scoped to this project's actual usage (single, non-batch
     requests, always with an id) rather than the full spec."""
-    request = JSONRPC20Request.from_json(request_str)
+    try:
+        request = JSONRPC20Request.from_json(request_str)
+    except JSONRPCInvalidRequestException:
+        return JSONRPC20Response(_id=None, error=JSONRPCInvalidRequest()._data)
+    except ValueError:
+        # Not JSON at all, or a line that arrived truncated.
+        return JSONRPC20Response(_id=None, error=JSONRPCParseError()._data)
+
     try:
         method = dispatcher[request.method]
     except KeyError:
