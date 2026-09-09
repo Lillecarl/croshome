@@ -16,52 +16,47 @@ Read "before substantive work" as "before hard work".
 
 ## Layout
 
-Three machines share one configuration.
+Four hosts, one configuration.
 
-| Path            | What it is                                                    |
-| --------------- | ------------------------------------------------------------- |
-| `default.nix`   | The entry point. Builds `pkgs` and each host.                  |
-| `hosts/macbook` | nix-darwin. `./rebuild build`, `./rebuild switch`, or `ai-rebuild` (NOPASSWD, for agents). |
-| `hosts/hetztop` | NixOS. `ai-rebuild` (NOPASSWD, for agents).                |
-| `hosts/dynhetz` | NixOS on a dedicated server: Ryzen 7700, 64G, 2×1TB NVMe mirror. |
-| `hosts/cros`    | home-manager alone on ChromeOS. Deliberately small.            |
-| `home/`         | Shared home-manager config. `macbook` and `hetztop` import it. |
-| `home/darwin/`  | Loaded only on macOS.                                          |
-| `home/linux/`   | Loaded only on Linux.                                          |
-| `pkgs/`         | The overlay, applied to every host.                            |
+| Path            | What it is                                                     |
+| --------------- | -------------------------------------------------------------- |
+| `default.nix`   | Entry point. Builds `pkgs` and each host.                       |
+| `hosts/macbook` | nix-darwin. `./rebuild build\|switch`, or `ai-rebuild`.          |
+| `hosts/hetztop` | NixOS. `ai-rebuild`.                                            |
+| `hosts/dynhetz` | NixOS, dedicated server: Ryzen 7700, 64G, 2×1TB NVMe mirror. `ai-rebuild`. |
+| `hosts/cros`    | home-manager alone on ChromeOS. Deliberately small.             |
+| `home/`         | Shared home-manager config. macbook, hetztop and dynhetz import it. |
+| `home/darwin/`  | macOS only.                                                     |
+| `home/linux/`   | Linux only.                                                     |
+| `pkgs/`         | The overlay, applied to every host.                             |
 
-ChromeOS has no wrapper script. Build and run the activation package:
+`ai-rebuild` is NOPASSWD, for agents, on the three hosts that have it.
+
+ChromeOS has no wrapper script:
 
 ```sh
 nix-build . --attr cros.activationPackage && ./result/activate
 ```
 
-`home-manager switch --file .` does **not** work here. That flag takes a module
-to build a configuration from, and `hosts/cros/home.nix` is one half of a
-configuration that `default.nix` has already assembled.
+`home-manager switch --file .` does **not** work here: that flag takes a module
+to build a configuration from, and `hosts/cros/home.nix` is half of one that
+`default.nix` has already assembled.
 
-Three rules to keep in mind when you edit this repo:
+Three rules when editing:
 
-- **Do not read `pkgs` to decide an `imports` list.** `imports` is resolved
-  before `config` exists, so reading `pkgs` there makes the module system
-  recurse. Use the `platform` specialArg, which `default.nix` builds from the
-  system string with `lib.systems.elaborate`. It has `isDarwin` and `isLinux`.
-- **`hosts/cros` does not import `home/`.** That machine is very slow, and it
-  only has to run foot and reach the other two. Add to it by name, not by
-  sharing.
-- **Run the binary before you call a package Linux-only.** `home/linux/` is for
-  things that cannot work on macOS, and three different signals all lie about
-  which those are:
-  - `meta.platforms` says a package is *allowed* on a platform, not that it
-    works there.
-  - A green build says it *compiled*, not that it runs.
-  - A red build often means `versionCheckPhase` got no output from the binary
-    inside the sandbox, while the same store path runs fine outside it. Build
-    with `doInstallCheck = false` and run it before believing the failure.
-
-  `opencode` and `kilocode-cli` sat in `home/linux/` for exactly this reason
-  and both run on macOS. Check the upstream release assets too: `opencode`
-  publishes a macOS CLI, and the comment claiming otherwise was wrong.
+- **Never read `pkgs` to decide an `imports` list.** `imports` resolves before
+  `config` exists, so reading `pkgs` there makes the module system recurse. Use
+  the `platform` specialArg — `isDarwin`, `isLinux` — which `default.nix`
+  elaborates from the system string.
+- **`hosts/cros` does not import `home/`.** Very slow machine; it only runs
+  foot and reaches the other three. Add to it by name, not by sharing.
+- **Run the binary before you call a package Linux-only.** Three signals lie
+  about this: `meta.platforms` says *allowed*, not *works*; a green build says
+  *compiled*, not *runs*; a red build is often `versionCheckPhase` getting no
+  output inside the sandbox while the store path runs fine outside it — rebuild
+  with `doInstallCheck = false` and run it before believing the failure.
+  `opencode` and `kilocode-cli` both sat in `home/linux/` wrongly. Check
+  upstream release assets too; `opencode` publishes a macOS CLI.
 
 ## The Linux builders on the MacBook
 
