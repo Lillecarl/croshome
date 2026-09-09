@@ -10,12 +10,16 @@ requires-python = ">=3.9"
 dependencies = ["mcp", "json-rpc", "jinja2"]
 
 [project.scripts]
-wrapty = "wrapty:main"
-wrapty-mcp = "wrapty_mcp:main"
-wrapty-monitor = "wrapty_monitor:main"
-wrapty-statusline = "wrapty_statusline:main"
-wrapty-hook-stop = "wrapty_hooks:main_stop"
-wrapty-hook-posttooluse = "wrapty_hooks:main_posttooluse"
+# These command names are referenced by hand-written JSON outside this
+# package -- the plugin manifest in home/claude/skills/wrapty/ and the
+# statusLine key wrapty-patch-statusline merges into ~/.claude/settings.json.
+# The module behind a name may move; the name may not.
+wrapty = "wrapty.wrapper:main"
+wrapty-mcp = "wrapty.mcp:main"
+wrapty-monitor = "wrapty.monitor:main"
+wrapty-statusline = "wrapty.statusline:main"
+wrapty-hook-stop = "wrapty.hooks:main_stop"
+wrapty-hook-posttooluse = "wrapty.hooks:main_posttooluse"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -24,4 +28,7 @@ testpaths = ["tests"]
 ignore-vcs = true
 
 [tool.hatch.build.targets.wheel]
-only-include = ["wrapty.py", "wrapty_mcp.py", "wrapty_monitor.py", "wrapty_client.py", "wrapty_statusline.py", "wrapty_hooks.py", "prompts"]
+# One package, so the wheel needs no hand-maintained file list and nothing
+# lands at the top of site-packages. The prompts ship inside it, and
+# hooks.py finds them relative to its own __file__.
+packages = ["src/wrapty"]

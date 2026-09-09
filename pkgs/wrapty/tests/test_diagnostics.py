@@ -7,7 +7,7 @@ halves: what reaches the file, and that nothing reaches stderr.
 
 import pytest
 
-import wrapty
+from wrapty import wrapper as wrapty
 
 
 @pytest.fixture

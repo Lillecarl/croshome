@@ -7,7 +7,7 @@ render whatever it gets.
 
 import pytest
 
-import wrapty_statusline as sl
+from wrapty import statusline as sl
 
 NOW = 1_000_000.0
 

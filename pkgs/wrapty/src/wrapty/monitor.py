@@ -36,7 +36,7 @@ import os
 import socket
 import sys
 
-from wrapty_client import call, runtime_dir
+from wrapty.client import call, runtime_dir
 
 
 def _inbox_dir() -> str:

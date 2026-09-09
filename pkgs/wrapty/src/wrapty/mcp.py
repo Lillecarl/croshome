@@ -10,7 +10,7 @@ import os
 
 from mcp.server.fastmcp import FastMCP
 
-from wrapty_client import call
+from wrapty.client import call
 
 mcp = FastMCP("wrapty")
 

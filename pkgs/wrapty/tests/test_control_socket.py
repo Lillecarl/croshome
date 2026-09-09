@@ -17,7 +17,7 @@ import struct
 import pytest
 from jsonrpc import Dispatcher
 
-import wrapty
+from wrapty import wrapper as wrapty
 
 
 def serve(tmp_path, client):

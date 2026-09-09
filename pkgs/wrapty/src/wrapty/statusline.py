@@ -8,7 +8,7 @@ import sys
 import os
 import time
 
-from wrapty_client import call
+from wrapty.client import call
 
 # Above this, a window is close enough to full that the time to its reset
 # changes what you do next. Below it the reset is noise, so the line omits it.

@@ -21,7 +21,7 @@ import sys
 
 import jinja2
 
-from wrapty_client import call
+from wrapty.client import call
 
 # Below LOW_WATERMARK_PCT, the PostToolUse hook never nudges. Between
 # LOW_WATERMARK_PCT and MAX_CONTEXT_PCT, it nudges with linearly increasing

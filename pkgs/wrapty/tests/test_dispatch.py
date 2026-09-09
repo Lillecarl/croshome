@@ -11,7 +11,7 @@ import json
 import pytest
 from jsonrpc import Dispatcher
 
-import wrapty
+from wrapty import wrapper as wrapty
 
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
