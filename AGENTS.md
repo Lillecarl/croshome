@@ -2,22 +2,17 @@
 
 ## Do not consult the advisor prematurely
 
-Some harnesses give you an `advisor` tool, backed by a stronger model, and tell
-you to call it before you start. Ignore that default here.
+Some harnesses hand you an `advisor` tool, backed by a stronger model, and tell
+you to call it before substantive work. Ignore that default here. This repo is
+a NixOS and home-manager configuration; nearly every change adds a package to a
+list or sets an option, and a stronger model adds nothing to that. The call
+costs a turn and delays an edit you already know how to make.
 
-This repo is a NixOS and home-manager configuration. Almost every change is a
-package added to a list, an option set, or a comment rewritten. A stronger
-model has nothing to add to work like that. The call costs a turn and a wait,
-and it delays the edit you already know how to make.
+Call it only for: a change to the activation path, `ai-rebuild`, or a sudo
+rule; a build failure you cannot explain; a design choice with two defensible
+answers and no cheap test.
 
-Call the advisor only when the work is genuinely hard:
-
-- A change to the activation path, to `ai-rebuild`, or to a sudo rule.
-- A build that fails for a reason you cannot explain.
-- A design choice with two defensible answers and no cheap way to test either.
-
-Read "before substantive work" as "before hard work". Adding a package to
-`home/packages.nix` is not hard work. Make the edit, then say what you did.
+Read "before substantive work" as "before hard work".
 
 ## Layout
 

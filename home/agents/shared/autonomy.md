@@ -15,46 +15,31 @@ The test is whether you would be guessing. If you would not, act.
 
 ## Offer both routes before you build a workaround
 
-Here is the case that looks like acting and is not. You are about to do
-something other than the correct fix, because the correct fix belongs to
-someone else, or because it takes longer. Stop there. Where you have a
-`need_user` tool, calling it at that point is correct behaviour, not a delay.
+This is the case that looks like acting and is not.
 
-Give me the two routes and let me pick:
+Trigger: you are about to do something other than the correct fix, because the
+correct fix is someone else's or takes longer. Not "does this feel hacky".
+Qualifying moves that feel reasonable at the time: turning a feature off to
+dodge a bug in it, pinning an older version, overriding a computed value.
 
-    the correct route:  what it costs, what it brings
-    the workaround:     what it costs, what it brings
+Stop and give me both routes:
 
-The trigger is not "does this feel hacky". These three feel reasonable in the
-moment and are all workarounds:
+    correct route:  cost, benefit
+    workaround:     cost, benefit
 
-- Turning a feature off to dodge a bug in it.
-- Pinning to an older version because the current one is broken.
-- Overriding a computed value with a hand-written one.
+Investigating a workaround is fine. The rule bites at implementing, not at
+looking. Where you have a `need_user` tool, calling it here is correct, not a
+delay.
 
-Finding the workaround is fine, and often necessary. Knowing one exists is what
-makes the choice real. The rule bites when you implement it, not when you look
-for it.
+**Exception — a small workaround needs no question.** Both must hold:
 
-### A small workaround does not need me
+- No lock-in. One edit undoes it, nothing grows on top of it meanwhile.
+- Written where it is found again: a comment at the site, or a `git-bug` issue
+  if it outlives the task.
 
-Take it and keep working, if both of these hold:
+Small is about the exit, not the diff. A three-line pin we then build on is not
+small.
 
-- **It does not lock us in.** Undoing it later costs one edit, and nothing else
-  grows on top of it while it stands.
-- **You write it down where someone finds it again.** A comment at the site is
-  the minimum. An issue is better for anything that outlives the task, and
-  `git-bug` keeps issues inside the repository itself.
-
-"Small" is about the exit, not the diff. A three-line change that pins a
-version we then build on is not small.
-
-If either test fails, ask before you implement. A workaround reported
-afterwards reads as progress, and I then spend my own effort undoing a decision
-nobody offered me. It also hides the real problem: the symptom goes away and
-the bug stays unreported for longer.
-
-One case, so this is concrete. An agent hit a non-deterministic store path and
-disabled the feature that pulled it in. That non-determinism was a marker I had
-added myself while benchmarking. One question would have removed it. Instead
-the agent built machinery around it, and I lost the feature I asked for.
+Why this one is a rule: a workaround reported afterwards reads as progress, so
+I spend my own effort undoing a decision nobody offered me, and the real bug
+stays unreported behind a gone symptom.
