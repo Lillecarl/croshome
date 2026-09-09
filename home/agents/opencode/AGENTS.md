@@ -27,15 +27,19 @@ is genuinely unrelated — stale context confuses the model and costs tokens. In
 doubt, send the existing session a one-line summary of the new question and let
 it say whether it can answer.
 
-## Editing Code (Critical)
-- **NEVER fix or refactor code using scripts** (e.g. `sed`, `awk`, `python -c`, or any inline script that mass-edits files). Every edit must go through the dedicated `edit` tool.
-- **Always follow read -> edit -> read pattern.** First read the file to understand its full context, then make targeted edits, then read the result to verify correctness. Do not skip the verification read unless explicitly told otherwise.
-- If the `edit` tool is not available (e.g. subagents without edit access), use `write` to rewrite the entire file after reading it — never use `sed` or similar to patch files.
+## Editing code
 
-## Working Copy Hygiene
-- **Before starting any new work, verify the working copy is clean.** The agent should check status (`jj status` via the jj skill) and report any uncommitted changes.
-- If there are uncommitted changes: **commit or shelve them first** before beginning new work, so context is preserved and new changes don't get mixed in.
-- Ask the user for direction rather than discarding or overwriting uncommitted work.
+- **Never mass-edit with a script**: no `sed`, `awk`, `python -c`, no inline
+  rewriting. Every edit goes through the `edit` tool.
+- read → edit → read. The verification read is not optional.
+- No `edit` tool (some subagents): read the file, then `write` it whole. Still
+  never `sed`.
+
+## Working copy hygiene
+
+Check `jj status` through the jj skill before starting new work, and report
+what is uncommitted. Commit or shelve it first, so it does not mix into the new
+work. Ask for direction; never discard or overwrite it.
 
 ## Explore Agent
 An **explore** subagent is available via `@explore`. This agent is for library/codebase research:
