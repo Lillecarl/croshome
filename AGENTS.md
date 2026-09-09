@@ -191,25 +191,24 @@ in its NixOS module like any other machine.
 
 Never activate without reading the diff first.
 
-- `./rebuild diff` lists the packages a switch would add, drop or move.
-- `./rebuild diff-drv` says *why* a derivation differs, for when no version
-  moved and everything rebuilt anyway.
+- `./rebuild diff` — packages a switch would add, drop or move.
+- `./rebuild diff-drv` — *why* a derivation differs, for when no version moved
+  and everything rebuilt anyway.
 
-Those two are the MacBook wrapper. hetztop has no equivalent script, so the
-same two questions are asked by hand — build without activating, then diff the
-result against the running system:
+Both are the MacBook wrapper. The NixOS hosts have no equivalent script, so ask
+the same two questions by hand: build without activating, then diff against the
+running system.
 
 ```sh
-nix-build . --attr hetztop.config.system.build.toplevel --out-link /tmp/next
+nix-build . --attr <host>.config.system.build.toplevel --out-link /tmp/next
 nix run --file . pkgs.nvd -- diff /run/current-system /tmp/next
 nix run --file . pkgs.nix-diff -- --environment --skip-already-compared \
   --word-oriented --context 4 /run/current-system /tmp/next
 ```
 
-Read both. nvd answers "what packages moved", and it is blind to a package
-whose *contents* changed while its version did not — which is exactly what a
-local-checkout input override does. nix-diff is what catches that. Worth
-checking beyond either tool, since neither reports it:
+Read both. nvd answers "what packages moved" and is blind to a package whose
+*contents* changed while its version did not — exactly what a local-checkout
+input override does. nix-diff catches that. Neither reports these:
 
 ```sh
 diff -rq /run/current-system/etc /tmp/next/etc     # /etc, incl. sudoers
@@ -218,13 +217,12 @@ diff <(ls /run/current-system/etc/systemd/system) \
 readlink -f /run/current-system/kernel /tmp/next/kernel   # same kernel?
 ```
 
-Then activate with `ai-rebuild`, no sudo in front of it. It evaluates and
-builds as the calling user, so it shares that user's fetcher cache, and
-elevates once at the end for the profile flip and the switch. It is NOPASSWD
-for `lillecarl` on both machines that run agents — see
-`hosts/hetztop/ai-rebuild.nix` and `hosts/macbook/ai-rebuild.nix`, and read
-either grant as full root rather than narrow root. `ai-rebuild-pynixd` is the
-same switch routed through the pynixd store.
+Then activate with `ai-rebuild`, no sudo in front of it. It evaluates and builds
+as the calling user, sharing that user's fetcher cache, and elevates once at the
+end for the profile flip and the switch. NOPASSWD for `lillecarl` on macbook,
+hetztop and dynhetz — see each `hosts/*/ai-rebuild.nix`, and read the grant as
+full root, not narrow root. `ai-rebuild-pynixd` (hetztop only) is the same
+switch routed through the pynixd store.
 
 ## Version Control
 
