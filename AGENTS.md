@@ -172,21 +172,20 @@ Measured rather than read, and easy to get wrong:
 ### The persistent Linux VM
 
 `hosts/macbook/linux-vm` is a second guest on the same Virtualization.framework
-stack — persistent root disk, started and stopped by hand, and deliberately not
-a builder. It hosts kernel-required workloads (Kubernetes and friends); what it
-runs is defined in its NixOS module like any other machine.
+stack: persistent root disk, started and stopped by hand, deliberately not a
+builder. It hosts kernel-required workloads (Kubernetes and friends), defined
+in its NixOS module like any other machine.
 
-- `linux-vm start|stop|restart|status|ssh|console|activate`. All of it works
-  without sudo: the VM runs as a launchd user agent, never at login.
-- macOS activation deploys to it over SSH when it is running, and skips
-  quietly when it is not — a later start boots the new configuration anyway.
-  If the guest is up but the deploy fails, activation warns loudly instead of
-  failing; `linux-vm restart` always converges.
-- A guest that has been up across several Mac rebuilds cannot see store paths
-  built since it booted — its view of the shared lower store froze at boot.
-  Activation therefore pushes the new closure's missing paths into the guest's
-  own store with `nix copy` before switching. The why lives in
-  ./linux-vm/default.nix.
+- `linux-vm start|stop|restart|status|ssh|console|activate`. No sudo needed —
+  the VM runs as a launchd user agent, never at login.
+- macOS activation deploys to it over SSH when it runs, and skips quietly when
+  it does not; a later start boots the new configuration anyway. If the guest
+  is up and the deploy fails, activation warns loudly rather than failing.
+  `linux-vm restart` always converges.
+- A guest up across several Mac rebuilds cannot see store paths built since it
+  booted — its view of the shared lower store froze at boot. Activation
+  therefore `nix copy`s the new closure's missing paths into the guest's own
+  store before switching. Why: `hosts/macbook/linux-vm/default.nix`.
 
 ## Reading a change before activating it
 
