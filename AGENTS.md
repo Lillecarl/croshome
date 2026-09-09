@@ -226,38 +226,34 @@ switch routed through the pynixd store.
 
 ## Version Control
 
-This repo uses **jj (Jujutsu)** as its VCS. Always use jj commands instead of git.
+This repo uses **jj (Jujutsu)**. Never use `git` directly.
 
-- Load the **jj** skill before performing any version control operations
-- Use `jj --no-pager` for all jj commands to avoid pager issues
-- Prefer `jj commit -m "msg"` over `jj describe` when finishing a task
+- Load the **jj** skill before any version control operation.
+- `jj --no-pager` on every jj command, to avoid the pager.
+- Prefer `jj commit -m "msg"` over `jj describe` when finishing a task.
 - Split a mixed working copy with `jj split <paths> -m '...'`, repeated. For
-  finer-than-file granularity there is a `jj-hunk` CLI on PATH, documented by
-  `references/jj-hunk.md` inside the jj skill. There is no separate jj-hunk
-  *skill* to load, which an earlier version of this list claimed.
-- Never use `git` directly — use jj equivalents instead
+  finer-than-file granularity use the `jj-hunk` CLI on PATH, documented in
+  `references/jj-hunk.md` inside the jj skill. There is no jj-hunk *skill*.
 
-That last rule is enforced, not merely advised. `home/claude/skills/jj-worktrees`
+The git ban is enforced, not merely advised. `home/claude/skills/jj-worktrees`
 installs a PreToolUse hook that denies any git command outside a small
-read-only allowlist, whenever the working directory is a jj repo. Three things
-follow from how it decides:
+read-only allowlist, whenever the working directory is a jj repo. How it
+decides:
 
-- It is deliberately fail-open. No `jj` on PATH, or a directory that is not a
-  jj repo, both mean the command goes through. The ban applies *inside* jj
-  repos, not everywhere.
+- Fail-open by design. No `jj` on PATH, or a directory that is not a jj repo,
+  and the command goes through. The ban applies *inside* jj repos, not
+  everywhere.
 - `jj git push` and friends are exempt, including behind jj's own global
-  options (`jj --no-pager git fetch`). If a command you expect to be allowed
-  gets denied, treat that as a hook bug rather than something to route around.
-- It parses the command into shell words and only looks at words in *command
-  position*, so text that merely mentions the tool — a commit message, a
-  heredoc body, a grep pattern — is not an invocation. Nested shell is still
-  caught, because `sh -c`, `$(...)`, backticks and prefix runners like `sudo`
-  and `env` are each handled explicitly.
-- A false positive costs more than a false negative, and every doubt is
-  resolved that way. It guards against forgetting which VCS this repo uses,
-  not against a determined caller — anything that cannot be lexed is allowed
-  rather than blocked.
+  options (`jj --no-pager git fetch`). A denial you did not expect is a hook
+  bug, not something to route around.
+- It lexes the command and reads only words in *command position*, so a commit
+  message, heredoc body or grep pattern that mentions git is not an invocation.
+  Nested shell is still caught: `sh -c`, `$(...)`, backticks and prefix runners
+  like `sudo` and `env` are each handled explicitly.
+- Doubt resolves to allowing, because a false positive costs more than a false
+  negative. Anything unlexable goes through. It guards against forgetting which
+  VCS this repo uses, not against a determined caller.
 
-The hook is built by `home/agents.nix` and installed as `jj-block-git-write`,
-so editing its script needs a rebuild to take effect — unlike the rest of
-`home/claude/skills/`, which is an out-of-store symlink and applies at once.
+`home/agents.nix` builds the hook and installs it as `jj-block-git-write`, so
+editing its script needs a rebuild — unlike the rest of `home/claude/skills/`,
+an out-of-store symlink that applies at once.
