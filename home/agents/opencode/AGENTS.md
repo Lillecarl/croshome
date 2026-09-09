@@ -1,22 +1,19 @@
 # Global OpenCode Rules
 
 ## Version Control
-- **Before any version control operation, load the jj skill** (`skill({ name: "jj" })`).
-- Once loaded, use the **jj** skill for all version control operations.
-- **Never call `jj` or `git` directly** — always go through the skill.
-- For read-only git-style queries (e.g. `git log`, `git diff`), the jj skill wraps these safely.
-- **If a repo contains a `.jj` folder, it is a jj repo — do not use git for any write operations.** The jj skill covers this in more detail.
-- Subagents **can** load the jj skill if they need to browse file history, diffs, or changelogs — this is a valid use case since VCS history is context-intensive and better isolated from the primary agent session.
 
-> **!! CRITICAL: Subagents must NOT use VCS tools unless explicitly asked by the user.**
-> Version control queries (log, diff, show, blame, annotate) are extremely context-heavy.
-> Running them inside a subagent pollutes that session context and can make the model useless for the rest of the task.
-> Before executing any VCS operation, a subagent should:
-> 1. Confirm with the user that this is what they want right now
-> 2. Warn about the context cost: "This will load potentially hundreds of lines of diff/history into the session context. Continue?"
-> 3. Suggest alternatives — if the goal is to understand a code change, suggest reading the current file state + a targeted summary from the primary agent instead
->
-> If you are the user: please do not casually ask subagents to "check git log" or "look at the diff." Only do this when you genuinely need historical context that is not available in the current working tree.
+- Load the **jj** skill (`skill({ name: "jj" })`) before any VCS operation and
+  go through it. Never call `jj` or `git` directly.
+- A `.jj` folder means a jj repo: no git write operations. Read-only git-style
+  queries (`git log`, `git diff`) the skill wraps safely.
+- **Subagents must not use VCS tools unless the user asked.** log, diff, show,
+  blame and annotate load hundreds of lines into the child context and can
+  waste that session for everything after. A subagent that believes it needs
+  one: confirm with the user, state the context cost, and offer the
+  alternative — current file state plus a targeted summary from the primary
+  agent.
+- The exception is deliberate isolation: a subagent loading the jj skill *to
+  keep* history out of the primary context is the good case.
 
 ## Task Reuse (Critical)
 - **Before creating a new task, check if an existing task session already covers this goal.** If one exists, add your follow-up as a message in that session instead of spawning a new one.
