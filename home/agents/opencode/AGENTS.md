@@ -41,34 +41,13 @@ Check `jj status` through the jj skill before starting new work, and report
 what is uncommitted. Commit or shelve it first, so it does not mix into the new
 work. Ask for direction; never discard or overwrite it.
 
-## Explore Agent
-An **explore** subagent is available via `@explore`. This agent is for library/codebase research:
-- **Read-only** — it can read files, search code, fetch docs, but must not modify anything.
-- **Long-lived** — once spawned, it persists as a child session. Keep feeding it follow-up questions rather than creating a new @explore each time.
-- **Summarizes on handoff** — when returning control to the primary agent, it should provide a concise summary of findings so the primary context doesn't bloat.
+## Subagents
 
-### Usage Pattern
-1. Primary agent hits an unknown library or codebase area.
-2. Primary agent invokes `@explore` with a clear research goal.
-3. Explore agent researches, summarizes, and stays alive in its child session.
-4. Primary agent (or other agents) asks follow-ups **in the same child session**.
-5. Only spawn a **new** @explore if the topic is genuinely unrelated to any existing session.
+| Agent | For | Notes |
+| --- | --- | --- |
+| `@explore` | library and codebase research | Read-only: reads, searches, fetches docs, modifies nothing. Long-lived — summarises on handoff so the primary context stays small. |
+| `@d4fdo` | executing an orchestrator's plan | DeepSeek V4 Flash via OpenCode Zen. Full tools. Executes faithfully without redesigning, then reports what changed and what broke. |
+| `@general` | multi-step research and tasks needing tool access | |
 
-## Doer Agent (d4fdo)
-A **d4fdo** subagent (`@d4fdo`) is available for executing tasks delegated by an architect/orchestrator agent:
-- **Model**: DeepSeek V4 Flash (via OpenCode Zen) — fast and cost-effective
-- **Full tool access**: can read, write, search, run bash, fetch web content, and load skills
-- **No analysis/design** — it executes faithfully without questioning the approach
-- **Concise reporting** — reports what was done, what changed, and any issues
-
-### Usage Pattern
-1. Architect agent analyzes a problem and produces a plan.
-2. Architect delegates implementation to `@d4fdo` with clear, specific instructions.
-3. d4fdo executes and reports back.
-4. Architect reviews the result and may delegate follow-up work.
-
-## For Subagents
-- Use the **general** subagent (`@general`) for multi-step research and tasks that need tool access.
-- Use **@explore** specifically for library/codebase investigation.
-- Use **@d4fdo** for executing concrete tasks assigned by an orchestrator.
-- Do not create throwaway subagent instances for questions that an existing session can answer.
+Never create a throwaway subagent for a question an existing session can
+answer. See **Task reuse** above.
