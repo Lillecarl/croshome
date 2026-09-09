@@ -70,20 +70,18 @@ Three rules when editing:
 | Swap | 16G on /dev/vdb | none |
 | State | **in use** | kept, `enable = false` |
 
-x86_64-linux only works on the VZ one. Rosetta-for-Linux is a
-Virtualization.framework feature, so no amount of QEMU configuration reaches
-it.
+x86_64-linux works only on the VZ one. Rosetta-for-Linux is a
+Virtualization.framework feature, unreachable from QEMU at any configuration.
 
-The QEMU one is disabled but deliberately not deleted: it is the way back if
-the VZ builder breaks. If the VZ *guest* is what needs fixing, turn
-`nix.linux-vz-builder.enable` off in the same edit -- the guest is an
-aarch64-linux system, so building a changed one needs a Linux builder, and
-that is the deadlock. It is not hypothetical; see the commit that added the
-activation check.
+The QEMU one is disabled, not deleted — it is the way back if the VZ builder
+breaks. **Fixing the VZ *guest* means turning `nix.linux-vz-builder.enable` off
+in the same edit.** The guest is an aarch64-linux system, so building a changed
+one needs a Linux builder: that is the deadlock, and it is not hypothetical.
+See the commit that added the activation check.
 
-To use the VZ builder, just build something: connecting to 127.0.0.1:31122 is
-what starts it. `hosts/macbook/vz-builder/guest.nix` is a whole NixOS system,
-so changing it means an aarch64-linux rebuild.
+Using the VZ builder: build anything. Connecting to 127.0.0.1:31122 starts it.
+`hosts/macbook/vz-builder/guest.nix` is a whole NixOS system, so changing it
+means an aarch64-linux rebuild.
 
 ### Running Linux commands: `vzrun`
 
