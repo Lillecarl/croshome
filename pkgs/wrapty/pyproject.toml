@@ -17,6 +17,9 @@ wrapty-statusline = "wrapty_statusline:main"
 wrapty-hook-stop = "wrapty_hooks:main_stop"
 wrapty-hook-posttooluse = "wrapty_hooks:main_posttooluse"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.hatch.build]
 ignore-vcs = true
 
