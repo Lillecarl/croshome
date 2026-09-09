@@ -102,6 +102,15 @@
     tree
 
     # Nix
+    # The CLI only. Every machine that imports this directory already pulls
+    # from lillecarl.cachix.org as a substituter, which its own host file sets
+    # up; this is for pushing. It reads its auth token from
+    # ~/.config/cachix/cachix.dhall, which stays hand-managed and is not in
+    # this repository.
+    #
+    # Shared rather than macbook-only, which is where it used to be. Pushing a
+    # store path is not a property of that machine.
+    cachix
     deadnix
     nixd
     nixfmt

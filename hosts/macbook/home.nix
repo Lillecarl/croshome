@@ -35,10 +35,6 @@ in
   };
 
   home.packages = [
-    # The CLI only. Pulling from lillecarl.cachix.org is already set up as a
-    # substituter in ./default.nix; this is for pushing, and it keeps its auth
-    # token in ~/.config/cachix/cachix.dhall, which stays hand-managed.
-    pkgs.cachix
     pkgs.autossh
   ];
 }
