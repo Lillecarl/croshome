@@ -157,11 +157,24 @@ async def _dispatch(request_str, dispatcher):
 
 
 async def _handle_client(reader, writer, dispatcher):
-    async for line in reader:
-        response = await _dispatch(line.decode(), dispatcher)
-        writer.write(response.json.encode() + b"\n")
-        await writer.drain()
-    writer.close()
+    """One control socket connection. Nothing escapes: this runs as an asyncio
+    server callback, so an exception here reaches the loop handler, and the
+    caller going away mid-call is ordinary rather than exceptional. A
+    statusline or hook process that exits before reading its reply is the
+    common case -- Claude Code starts and abandons those freely."""
+    try:
+        async for line in reader:
+            # errors="replace" so a truncated multi-byte character becomes a
+            # parse error the caller is told about, not an exception here.
+            response = await _dispatch(line.decode(errors="replace"), dispatcher)
+            writer.write(response.json.encode() + b"\n")
+            await writer.drain()
+    except (ConnectionResetError, BrokenPipeError):
+        pass  # the caller left before reading its reply; nothing to report
+    except Exception:
+        _log_exception("control socket connection")
+    finally:
+        writer.close()
 
 
 async def _run(argv):
