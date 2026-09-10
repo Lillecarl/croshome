@@ -27,21 +27,33 @@ NOW = 1_000_000.0
         (3 * 3600, "3h"),
         (86399, "23h59m"),
         (86400, "1d"),
-        (86400 + 5 * 60, "1d5m"),  # zero hours are left out, not printed
         (2 * 86400, "2d"),
-        (2 * 86400 + 3 * 3600 + 20 * 60, "2d3h20m"),
-        (7 * 86400 - 1, "6d23h59m"),  # the widest the 7d window gets
+        (86400 + 3600, "1d1h"),
+        (2 * 86400 + 3 * 3600 + 20 * 60, "2d3h"),
+        (7 * 86400 - 1, "6d23h"),  # the widest the 7d window gets
     ],
 )
-def test_until_shows_every_unit_that_is_not_zero(seconds, expected):
+def test_until_shows_at_most_two_units(seconds, expected):
+    assert sl._until(NOW + seconds, NOW) == expected
+
+
+@pytest.mark.parametrize(
+    "seconds, expected",
+    [
+        (86400 + 5 * 60, "1d"),  # zero hours go, and the minutes with them
+        (86400 + 3600 + 5 * 60, "1d1h"),
+        (3 * 86400 + 59 * 60, "3d"),
+    ],
+)
+def test_minutes_are_dropped_once_the_answer_is_in_days(seconds, expected):
     assert sl._until(NOW + seconds, NOW) == expected
 
 
 def test_until_truncates_rather_than_rounds():
-    """59m59s is still 59m. Rounding up would show a reset that has not
-    happened."""
+    """59m59s is still 59m, and 23h59m is still 23h once days are in play.
+    Rounding up would show a reset that has not happened."""
     assert sl._until(NOW + 3599, NOW) == "59m"
-    assert sl._until(NOW + 86400 + 3599, NOW) == "1d59m"
+    assert sl._until(NOW + 86400 + 23 * 3600 + 3599, NOW) == "1d23h"
 
 
 def test_a_quiet_window_omits_its_reset():

@@ -23,11 +23,12 @@ WINDOWS = (
 
 def _until(epoch, now):
     """The time to `epoch`, largest unit first, with the zero units left out:
-    `2d3h20m`, `23h59m`, `45m`. A unit that is zero says nothing, so `1d5m`
-    keeps the hours out rather than printing `1d0h5m`.
+    `2d3h`, `23h59m`, `45m`. A unit that is zero says nothing, so `1d` never
+    prints as `1d0h`.
 
-    One unit alone was too coarse to act on. "2d" covered anything from two
-    days to nearly three, which is the difference between waiting and not."""
+    One unit alone was too coarse to act on: "2d" covered anything from two
+    days to nearly three. Two units is the whole of it -- once the answer is
+    in days, the minutes change nothing you would do, so they drop."""
     seconds = int(epoch - now)
     if seconds <= 0:
         return "now"
@@ -36,11 +37,11 @@ def _until(epoch, now):
     hours, seconds = divmod(seconds, 3600)
     minutes = seconds // 60
 
-    parts = [
-        f"{value}{unit}"
-        for value, unit in ((days, "d"), (hours, "h"), (minutes, "m"))
-        if value
-    ]
+    units = [(days, "d"), (hours, "h")]
+    if not days:
+        units.append((minutes, "m"))
+
+    parts = [f"{value}{unit}" for value, unit in units if value]
     # Under a minute every part is zero, and "0m" would read as "already
     # reset" when the reset has not happened yet.
     return "".join(parts) or "<1m"
