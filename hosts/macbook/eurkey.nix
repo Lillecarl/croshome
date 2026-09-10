@@ -17,8 +17,35 @@ let
 
     # scripts/validate_layouts.py runs at the end of the build. It compares
     # every layout against the v1.3 specification. It imports only the standard
-    # library, so plain python3 is enough.
+    # library, so plain python3 is enough. postPatch below reuses it.
     nativeBuildInputs = [ pkgs.python3 ];
+
+    # Apple's ISO keyboards report the physical key left of 1 as virtual
+    # key 10 (the "section" key), and every one of these layouts assigns it
+    # section-sign/plus-minus (and, on some modifiers, an EurKEY-specific
+    # extra glyph). Every other machine this user types on treats that
+    # physical position as grave/tilde instead, which lives here as virtual
+    # key 50 -- unreachable on this ISO board, since it has no separate key
+    # for it.
+    #
+    # `system.keyboard.nonUS.remapTilde` (hosts/macbook/default.nix) tries to
+    # fix this the "normal" way, by relabelling the key's raw HID usage
+    # before macOS turns it into a virtual keycode. Confirmed live with
+    # `hidutil property --get UserKeyMapping`, and confirmed to do nothing:
+    # this Mac's built-in keyboard driver resolves the ISO corner key to
+    # virtual key 10 by hardware position, not by the HID usage hidutil can
+    # relabel, so nothing downstream of that ever sees the swap.
+    #
+    # This works below that: it overwrites what virtual key 10 itself
+    # outputs, using virtual key 50's own value for every modifier
+    # combination, so the physical key produces backtick/tilde however it is
+    # pressed. This drops the section/plus-minus glyphs and, on EurKEY Next,
+    # the option+command `ẞ` and control-combo `0` it also parked here --
+    # never used, going by "I have never written ± or § intentionally in my
+    # entire life".
+    postPatch = ''
+      python3 ${./remap-iso-key.py} src/keylayouts/*.keylayout
+    '';
 
     buildPhase = ''
       runHook preBuild

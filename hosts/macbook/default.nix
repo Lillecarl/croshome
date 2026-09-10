@@ -327,9 +327,13 @@
   # System Settings. It records the verified map in the per-host preference
   # domain, where it covers both Fn event variants on this M5 Pro keyboard.
   system.keyboard.swapLeftCtrlAndFn = false;
-  # Apple ISO keyboards report the key left of 1 as Non-US \ (0x64), which
-  # US-style layouts render as §/±; remap it to Grave/Tilde (0x35).
-  system.keyboard.nonUS.remapTilde = true;
+  # system.keyboard.nonUS.remapTilde tried to fix the ISO section key
+  # (left of 1) the same way as swapLeftCtrlAndFn above: relabel its raw HID
+  # usage before macOS turns it into a virtual keycode. Confirmed live with
+  # `hidutil property --get UserKeyMapping` and confirmed to do nothing --
+  # this Mac's built-in keyboard driver resolves that key by hardware
+  # position, not by the HID usage hidutil can relabel. ./eurkey.nix fixes it
+  # below that instead, in the keyboard layout itself.
 
   # GUI apps go here: nix-darwin rsyncs their .app bundles into
   # /Applications/Nix Apps, which Spotlight and Launchpad index.
