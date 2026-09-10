@@ -20,4 +20,18 @@ Set the shape up right early. One step now, saved on every iteration after.
 
 ## Building with Nix
 
-Prefer `nix build --file . <attribute>` over `nix-build -A <attribute>`.
+Use the `nix` subcommands, never the older separate binaries. Spell flags
+long: `--file`, not `-f`.
+
+| use | not |
+| --- | --- |
+| `nix build --file . <attr>` | `nix-build -A <attr>` |
+| `nix eval --file . <attr>` | `nix-instantiate --eval -A <attr>` |
+| `nix run --file . <attr>` | — |
+| `nix shell --file . <attr>` | `nix-env -i` |
+| `nix develop --file .` | `nix-shell` |
+| `nix profile` | `nix-env` |
+| `nix store gc` | `nix-collect-garbage` |
+
+`nix-env -p /nix/var/nix/profiles/system --set` is the exception: the system
+profile has no `nix profile` equivalent that keeps generations the same way.
