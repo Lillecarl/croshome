@@ -66,53 +66,10 @@ let
     '';
   };
 
-  # Merges `mcp.kagi` into ~/.config/opencode/opencode.json, touching
-  # nothing else in the file. Same read-modify-write pattern as
-  # ./opencode.nix for `instructions`, so a crash never leaves the file
-  # truncated. The rest of opencode.json stays hand-managed.
-  # E231 and E501: the `expected` dict holds a store path, one long line
-  # with no spaces after commas. Both are deliberate.
-  patchKagiMcp = pkgs.writers.writePython3Bin "opencode-patch-kagi-mcp" { flakeIgnore = [ "E231" "E501" ]; } ''
-    import json
-    import os
-
-    expected = {
-        "type": "local",
-        "command": ["${lib.getExe kagiWrapped}"],
-        "enabled": True,
-    }
-
-
-    def main() -> None:
-        path = os.path.expanduser("~/.config/opencode/opencode.json")
-        try:
-            with open(path) as f:
-                cfg = json.load(f)
-        except FileNotFoundError:
-            cfg = {}
-        except json.JSONDecodeError:
-            cfg = {}
-
-        mcp = cfg.get("mcp")
-        if not isinstance(mcp, dict):
-            mcp = {}
-            cfg["mcp"] = mcp
-
-        if mcp.get("kagi") == expected:
-            return
-        mcp["kagi"] = expected
-
-        tmp_path = path + ".tmp"
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(tmp_path, "w") as f:
-            json.dump(cfg, f, indent=2)
-            f.write("\n")
-        os.replace(tmp_path, path)
-
-
-    if __name__ == "__main__":
-        main()
-  '';
+  # Merges `mcp.kagi` into ~/.config/opencode/opencode.json through
+  # ./merged-file.nix, alongside ./opencode.nix's `instructions`: both name
+  # the same file and their settings merge. The rest of opencode.json stays
+  # hand-managed.
 in
 {
   # Home agenix secret. Decrypted to $XDG_RUNTIME_DIR/agenix/kagi-token
@@ -126,8 +83,12 @@ in
     kagiWrapped
   ];
 
-  home.activation.opencodeKagiMcp = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    run mkdir -p "$HOME/.config/opencode"
-    run ${lib.getExe patchKagiMcp}
-  '';
+  home.mergedFile.".config/opencode/opencode.json" = {
+    format = "json";
+    settings.mcp.kagi = {
+      type = "local";
+      command = [ (lib.getExe kagiWrapped) ];
+      enabled = true;
+    };
+  };
 }
