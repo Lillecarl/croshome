@@ -65,6 +65,13 @@ in
       {
         format = "json";
         settings.instructions = instructions;
+
+        # Reads outside the project root: the store (plugins, MCP wrappers)
+        # and the other checkouts under ~/Code. Everything else still asks.
+        settings.permission.external_directory = {
+          "/nix/store/**" = "allow";
+          "~/Code/**" = "allow";
+        };
       };
 
     # Global plugins directory. opencode auto-loads every .ts/.js file in
