@@ -151,6 +151,17 @@
     # fish completions that ../home/fish.nix picks up without being told.
     (import "${inputs.phabfive}" { inherit pkgs; }).phabfive
 
+    # Shells
+    # The vendored xonsh bundle, built by the overlay entry of the same name
+    # (../pkgs/default.nix). Installed, but deliberately not made anyone's
+    # shell: it is still rounds away from ready, and fish stays the login
+    # shell until it is. Launch it as `anyxonsh` to try it.
+    #
+    # Shared rather than per-host, which is where it used to be. Both Linux
+    # hosts carried this same block, and the shell is `lib.platforms.unix`, so
+    # the MacBook builds it too. One copy here beats a third copy there.
+    anyxonsh
+
     # Kubernetes
     kubectl
     kubectl-explore
