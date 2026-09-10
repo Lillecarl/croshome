@@ -35,7 +35,7 @@ Four hosts, one configuration.
 ChromeOS has no wrapper script:
 
 ```sh
-nix-build . --attr cros.activationPackage && ./result/activate
+nix build --file . cros.activationPackage && ./result/activate
 ```
 
 `home-manager switch --file .` does **not** work here: that flag takes a module
@@ -144,7 +144,7 @@ Access:
   profiling:
 
 ```sh
-key="$(nix eval --raw -f . inputs.nixpkgs)/nixos/modules/profiles/keys/ssh_host_ed25519_key"
+key="$(nix eval --raw --file . inputs.nixpkgs)/nixos/modules/profiles/keys/ssh_host_ed25519_key"
 ssh -i "$key" -p 31122 builder@127.0.0.1 systemd-analyze blame
 ssh -i "$key" -p 31122 root@127.0.0.1 systemctl poweroff   # beats waiting out the idle timer
 ```
@@ -200,7 +200,7 @@ the same two questions by hand: build without activating, then diff against the
 running system.
 
 ```sh
-nix-build . --attr <host>.config.system.build.toplevel --out-link /tmp/next
+nix build --file . <host>.config.system.build.toplevel --out-link /tmp/next
 nix run --file . pkgs.nvd -- diff /run/current-system /tmp/next
 nix run --file . pkgs.nix-diff -- --environment --skip-already-compared \
   --word-oriented --context 4 /run/current-system /tmp/next
