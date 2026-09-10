@@ -67,6 +67,14 @@
 #   2a01:4f9:3071:11d7:00e1::/80  -- OpenVPN clients on tcp/443, in use: same
 #                                    file. Its own pool because the two server
 #                                    instances cannot share one.
+#   2a01:4f9:3071:11d7:00e2::/80  -- LoadBalancer services for the nixlab2
+#                                    guest cluster. Only the first /112 out of
+#                                    it is committed:
+#                                    2a01:4f9:3071:11d7:e2::/112. The rest of
+#                                    the /80 is free. Like every prefix here,
+#                                    the range is unreachable until something
+#                                    owns or announces it -- handing the guest
+#                                    agent this /112 does not route it.
 #
 # Guest pods are global addresses out of this table rather than ULA, for the
 # same reason the host cluster's are: a pod's source address should be real on
@@ -90,7 +98,8 @@
 # hooks PREROUTING rather than owning an interface -- so there is no device
 # here wanting an address of its own.
 #
-# The next network takes ::00e2::/80.
+# The next network takes ::00e3::/80 (::00e2::/80's first /112 is taken
+# above, its remainder is free).
 #
 # Not a systemd.network.netdevs entry like ../openvpn.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in
