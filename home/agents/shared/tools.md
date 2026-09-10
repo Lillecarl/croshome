@@ -35,3 +35,17 @@ long: `--file`, not `-f`.
 
 `nix-env -p /nix/var/nix/profiles/system --set` is the exception: the system
 profile has no `nix profile` equivalent that keeps generations the same way.
+
+## Reading nixpkgs
+
+`/etc/nixpkgs` is the pinned nixpkgs these machines build from, and `NIX_PATH`
+points at it. Read it instead of guessing at an option, a setup hook or the
+shape of a package, and instead of cloning nixpkgs somewhere — a clone drifts
+from the tree that actually builds this system.
+
+```sh
+grep -rl pytestCheckHook /etc/nixpkgs/pkgs/development/python-modules | head
+grep -rn "buildPythonApplication" /etc/nixpkgs/doc/languages-frameworks/python.section.md
+```
+
+It is a store path, so it is read-only and it moves when the lock moves.
