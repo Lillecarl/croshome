@@ -250,6 +250,15 @@ in
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
+  # The Nextcloud desktop sync client. nixpkgs' nextcloud-client is
+  # lib.platforms.linux only, so this is a darwin build that extracts the
+  # official .app from the upstream pkg instead of running its root installer.
+  nextcloud-client =
+    if prev.stdenv.hostPlatform.isDarwin then
+      final.callPackage ./nextcloud-client.nix { }
+    else
+      prev.nextcloud-client;
+
   # vfkit with the memory balloon reachable over its REST API. Darwin only: it
   # wraps Apple's Virtualization.framework and does not exist elsewhere, so
   # naming prev.vfkit unconditionally would break evaluation on the Linux hosts.

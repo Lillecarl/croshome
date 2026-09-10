@@ -341,6 +341,7 @@
   environment.systemPackages = [
     pkgs.kitty
     pkgs.firefox-bin # pkgs.firefox is a source build on darwin and is not cached
+    pkgs.nextcloud-client
   ];
 
   # Symlinked into /Library/Fonts/Nix Fonts, so every user and every
