@@ -249,8 +249,9 @@ in
           # Two layers keep this off the internet, because an open resolver on
           # a public address is an amplifier for somebody else's attack.
           #
-          # This one is unbound's: everything is refused but the pods and the
-          # host itself. The other is the firewall's -- ./kubernetes/default.nix trusts
+          # This one is unbound's: everything is refused but the pods, the
+          # virtual machines, the OpenVPN clients and the host itself. The
+          # other is the firewall's -- ./kubernetes/default.nix trusts
           # cni0 and opens no port on eth0, and 53 is not among the ports it
           # opens, so a query from the internet is dropped before unbound sees
           # it. Neither layer is load-bearing on its own.
@@ -267,6 +268,12 @@ in
             "0.0.0.0/0 refuse"
             "${podSubnet} allow"
             "${vmSubnet} allow"
+            # OpenVPN clients, whose pools are owned by ./openvpn.nix
+            # (::e0::/80 on udp/1194, ::e1::/80 on tcp/443). The server pushes
+            # this resolver as their DNS, so without these lines every name
+            # they resolve is refused.
+            "2a01:4f9:3071:11d7:e0::/80 allow"
+            "2a01:4f9:3071:11d7:e1::/80 allow"
             "${nodeIP}/128 allow"
             "::1/128 allow"
           ];
