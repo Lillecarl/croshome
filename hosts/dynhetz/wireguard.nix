@@ -1,5 +1,6 @@
-# General-purpose access to dynhetz itself -- not OOB provisioning
-# (../openvpn-oob.nix is the separate, temporary thing for that), and not
+# General-purpose access to dynhetz itself -- not the lab-VPN role
+# (../openvpn.nix is the TLS-based one for that, for clients behind
+# restrictive firewalls), and not
 # scoped to any particular service: this just gets a peer (today,
 # lillecarl's MacBook) a real address dynhetz will route to, for whatever
 # dynhetz ends up hosting.
@@ -60,7 +61,7 @@
 #                                    and 16 of them fit. The next guest
 #                                    cluster takes the /80 after this one.
 #   2a01:4f9:3071:11d7:00e0::/80  -- OpenVPN clients on udp/1194, in use:
-#                                    ../openvpn-oob.nix. IPv6-only pool, and
+#                                    ../openvpn.nix. IPv6-only pool, and
 #                                    the pushed route for the whole /64 that
 #                                    gets a client to everything else here.
 #   2a01:4f9:3071:11d7:00e1::/80  -- OpenVPN clients on tcp/443, in use: same
@@ -91,13 +92,13 @@
 #
 # The next network takes ::00e2::/80.
 #
-# Not a systemd.network.netdevs entry like ../openvpn-oob.nix's dummy/
+# Not a systemd.network.netdevs entry like ../openvpn.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in
 # systemd's own netdev format (unlike PrivateKeyFile/PresharedKeyFile),
 # so it would have to be a literal value baked into this file at Nix
 # eval time -- meaning either committing key material to the repo, or a
 # separate script writing back into the checkout, neither of which fits
-# "generated once, locally, kept out of the repo" (see ../openvpn-oob.nix
+  # "generated once, locally, kept out of the repo" (see ../openvpn.nix
 # for the same reasoning applied to its PKI). Configuring the interface
 # imperatively via `wg set`, entirely at activation time, sidesteps that.
 { pkgs, ... }:
@@ -127,7 +128,7 @@
       fi
       # Only one peer today (lillecarl's MacBook), sharing the same
       # "generate once, hand out the whole client config" approach as
-      # ../openvpn-oob.nix -- unlike that file's shared OpenVPN cert
+      # ../openvpn.nix -- unlike that file's shared OpenVPN cert
       # though, a second real peer here would need its own keypair and
       # its own `wg set ... peer` line, WireGuard has no equivalent of a
       # certificate CN multiple peers can share.

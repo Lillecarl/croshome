@@ -21,7 +21,7 @@
 # networking.firewall.filterForward, which would be a silent no-op here.
 # Nothing else in this repo sets a FORWARD policy either (dynhetz used
 # to, through networking.nat, before that was dropped along with the
-# bridge/TAP OOB design -- see ./openvpn-oob.nix's own history), so the
+# bridge/TAP OOB design -- see ./openvpn.nix's own history), so the
 # kernel's default policy (ACCEPT) already lets forwarded traffic
 # through once the sysctls below turn forwarding on at all. That means a
 # VM is reachable on any port it opens, world-routable straight off the

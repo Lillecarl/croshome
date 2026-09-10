@@ -147,7 +147,7 @@ in
         # Three things go with it. The port needs its own pool4 entry, outside
         # the dynamic range above, or Jool has not reserved it. It must be a
         # port nothing on this host already answers on -- 443 is taken by
-        # ./openvpn-oob.nix. And the IPv6 side has to be an address that stays
+        # ./openvpn.nix. And the IPv6 side has to be an address that stays
         # put: a pod address is rebuilt with the pod, so aim at a Service with
         # a fixed address out of the pod /80. A ULA ClusterIP is the tempting
         # target and is not a tested one -- whether Jool's reinjected packet

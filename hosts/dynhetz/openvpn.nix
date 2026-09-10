@@ -42,7 +42,7 @@
 #
 # The PKI is self-signed and generated once on the machine itself, kept
 # out of the Nix store (world readable) and out of the repo. To start over,
-# delete /var/lib/openvpn-oob and rerun.
+# delete /var/lib/openvpn-lab and rerun.
 { pkgs, lib, ... }:
 let
   nodeIPv4 = "37.27.129.237";
@@ -71,13 +71,40 @@ let
     username-as-common-name
 
     push "route-ipv6 ${lanPrefix}"
+
+    # Default-route IPv6 through the tunnel: the client sends all v6 traffic
+    # here, and it leaves for the internet from this host. No NAT is needed
+    # for that -- the client pools are world-routable space Hetzner already
+    # routes here, so replies find their way back and forwarding carries
+    # them to the tunnel. IPv4 is untouched (there is none inside the
+    # tunnel): to egress v4 locally, or everything locally, disable the VPN.
+    push "redirect-gateway ipv6"
+
+    # DNS follows the tunnel: clients resolve through this host's own
+    # resolver (see ../nat64.nix), so they get the same DNS64 answers pods
+    # get -- an IPv4-only name answers with a 64:ff9b::/96 address Jool then
+    # translates, which is the whole point of reaching the lab over v6. A
+    # literal address, so reaching it needs no bootstrap lookup.
+    push "dhcp-option DNS ${nodeIPv6}"
     client-to-client
 
-    ca /var/lib/openvpn-oob/pki/ca.crt
-    cert /var/lib/openvpn-oob/pki/server.crt
-    key /var/lib/openvpn-oob/pki/server.key
+    # MTU discipline for the tunnel. tun-mtu 1400 caps what the kernel hands
+    # the tunnel (so PMTUD reports 1400, never 1500) and mssfix keeps TCP
+    # small. v6 inside over v4-or-v6 transport is the worst case at ~90
+    # bytes of overhead, so outer datagrams stay under ~1490 on a standard
+    # 1500 path with no IP fragmentation involved. Notably absent: fragment.
+    # It is not negotiated or pushed, so it must match on both ends by hand
+    # -- and it cannot: it is a fatal options error under any TCP proto, and
+    # the client file below serves both. A one-sided fragment garbles the
+    # channel into "unknown IP version" noise and flaps the tunnel.
+    tun-mtu 1400
+    mssfix 1360
+
+    ca /var/lib/openvpn-lab/pki/ca.crt
+    cert /var/lib/openvpn-lab/pki/server.crt
+    key /var/lib/openvpn-lab/pki/server.key
     dh none
-    tls-crypt /var/lib/openvpn-oob/pki/ta.key
+    tls-crypt /var/lib/openvpn-lab/pki/ta.key
 
     keepalive 10 60
     persist-key
@@ -89,15 +116,15 @@ in
   # Self-signed CA + one server cert + one shared client cert, generated
   # once on the machine itself and kept out of the Nix store (world
   # readable) and out of the repo.
-  systemd.services.openvpn-oob-pki = {
-    description = "Generate the OpenVPN OOB server's self-signed PKI";
+  systemd.services.openvpn-lab-pki = {
+    description = "Generate the OpenVPN lab server's self-signed PKI";
     wantedBy = [
-      "openvpn-oob.service"
-      "openvpn-oob-tcp.service"
+      "openvpn-lab.service"
+      "openvpn-lab-tcp.service"
     ];
     before = [
-      "openvpn-oob.service"
-      "openvpn-oob-tcp.service"
+      "openvpn-lab.service"
+      "openvpn-lab-tcp.service"
     ];
     serviceConfig = {
       Type = "oneshot";
@@ -109,22 +136,30 @@ in
     ];
     script = ''
       set -euo pipefail
-      pki=/var/lib/openvpn-oob/pki
+
+      # Renamed from openvpn-oob: carry the PKI across once, so already
+      # enrolled clients keep working. A fresh machine never has the old
+      # directory and skips this.
+      if [ ! -d /var/lib/openvpn-lab ] && [ -d /var/lib/openvpn-oob ]; then
+        mv /var/lib/openvpn-oob /var/lib/openvpn-lab
+      fi
+
+      pki=/var/lib/openvpn-lab/pki
       install -d -m 0700 "$pki"
       cd "$pki"
 
       # Skips regenerating anything that already exists, so a rebuild
       # doesn't invalidate the client cert every client already has
       # installed -- but still falls through past this, unconditionally,
-      # to reassemble oob-client.ovpn below on every run, cheaply, in
+      # to reassemble lab-client.ovpn below on every run, cheaply, in
       # case it's ever missing without the certs themselves being touched.
       if [ ! -f ca.crt ]; then
         openssl ecparam -name prime256v1 -genkey -noout -out ca.key
         openssl req -x509 -new -key ca.key -sha256 -days 3650 \
-          -subj "/CN=dynhetz-oob-ca" -out ca.crt
+          -subj "/CN=dynhetz-lab-ca" -out ca.crt
 
         openssl ecparam -name prime256v1 -genkey -noout -out server.key
-        openssl req -new -key server.key -subj "/CN=dynhetz-oob-server" -out server.csr
+        openssl req -new -key server.key -subj "/CN=dynhetz-lab-server" -out server.csr
         openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
           -days 3650 -sha256 \
           -extfile <(printf 'extendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n') \
@@ -134,7 +169,7 @@ in
         # Shared by all clients -- one identity is fine because PAM names
         # the user separately (see username-as-common-name above).
         openssl ecparam -name prime256v1 -genkey -noout -out client.key
-        openssl req -new -key client.key -subj "/CN=oob-client" -out client.csr
+        openssl req -new -key client.key -subj "/CN=lab-client" -out client.csr
         openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
           -days 3650 -sha256 \
           -extfile <(printf 'extendedKeyUsage=clientAuth\nkeyUsage=digitalSignature\n') \
@@ -159,7 +194,7 @@ in
       # each connect. Written here, at activation, because this service
       # already runs as root with the key material on hand -- no separate
       # script for someone to remember to run with their own sudo later.
-      cat <<EOF > oob-client.ovpn
+      cat <<EOF > lab-client.ovpn
       client
       dev tun
       remote ${nodeIPv4} 1194 udp
@@ -174,6 +209,17 @@ in
       auth-user-pass
       verb 3
 
+      # Match the server's MTU discipline (see above): tun-mtu and mssfix are
+      # safe under either transport. fragment is deliberately absent: it is
+      # a fatal options error under TCP, so listing it here would break the
+      # tcp/443 fallback this file's remotes promise.
+      tun-mtu 1400
+      mssfix 1360
+
+      # DNS arrives as a server push (dhcp-option DNS). The official clients
+      # and NetworkManager apply it themselves; a plain CLI client on Linux
+      # needs update-resolv-conf or systemd-resolved handling to honor it.
+
       <ca>
       $(cat ca.crt)
       </ca>
@@ -187,13 +233,13 @@ in
       $(cat ta.key)
       </tls-crypt>
       EOF
-      chmod 600 oob-client.ovpn
+      chmod 600 lab-client.ovpn
     '';
   };
 
-  services.openvpn.servers.oob = {
+  services.openvpn.servers.lab = {
     config = ''
-      dev tun-oob
+      dev tun-lab
       dev-type tun
       proto udp
       port 1194
@@ -204,9 +250,9 @@ in
     '';
   };
 
-  services.openvpn.servers.oob-tcp = {
+  services.openvpn.servers.lab-tcp = {
     config = ''
-      dev tun-oob-tcp
+      dev tun-lab-tcp
       dev-type tun
       proto tcp-server
       port 443
@@ -224,8 +270,8 @@ in
   # opening each port individually -- and nothing on these interfaces can
   # come from anywhere but an authenticated client.
   networking.firewall.trustedInterfaces = [
-    "tun-oob"
-    "tun-oob-tcp"
+    "tun-lab"
+    "tun-lab-tcp"
   ];
 
   # Forwarding for the pushed /64. Stated here rather than relied on from
