@@ -59,6 +59,13 @@
 #                                    each of its nodes gets a real sub-prefix
 #                                    and 16 of them fit. The next guest
 #                                    cluster takes the /80 after this one.
+#   2a01:4f9:3071:11d7:00e0::/80  -- OpenVPN clients on udp/1194, in use:
+#                                    ../openvpn-oob.nix. IPv6-only pool, and
+#                                    the pushed route for the whole /64 that
+#                                    gets a client to everything else here.
+#   2a01:4f9:3071:11d7:00e1::/80  -- OpenVPN clients on tcp/443, in use: same
+#                                    file. Its own pool because the two server
+#                                    instances cannot share one.
 #
 # Guest pods are global addresses out of this table rather than ULA, for the
 # same reason the host cluster's are: a pod's source address should be real on
@@ -82,7 +89,7 @@
 # hooks PREROUTING rather than owning an interface -- so there is no device
 # here wanting an address of its own.
 #
-# The next network takes ::00e0::/80, or ::00a0::/80 which is free again.
+# The next network takes ::00e2::/80.
 #
 # Not a systemd.network.netdevs entry like ../openvpn-oob.nix's dummy/
 # bridge devices: WireGuardPeer's PublicKey has no file-based option in
