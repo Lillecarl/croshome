@@ -54,9 +54,14 @@ let
       name = "nixlab2";
       asn = 64513;
       podSubnet = "2a01:4f9:3071:11d7:d0::/80";
+      # LoadBalancer VIPs, first /112 out of the 00e2::/80 the allocation
+      # table in ../wireguard.nix reserves for them.
+      lbSubnet = "2a01:4f9:3071:11d7:e2::/112";
       peers = [
         "2a01:4f9:3071:11d7:c0::10"
         "2a01:4f9:3071:11d7:c0::11"
+        "2a01:4f9:3071:11d7:c0::12"
+        "2a01:4f9:3071:11d7:c0::13"
       ];
     }
   ];
@@ -64,12 +69,14 @@ let
   # The inbound filter is a security control, not tidiness. Without it a guest
   # cluster -- misconfigured or compromised -- could announce this host's own
   # pod prefix, or ::/0, and this host would install it and hand that traffic
-  # to a virtual machine. Each guest is confined to the prefix the allocation
-  # table gives it, and `le 128` admits the per-node sub-prefixes inside it.
+  # to a virtual machine. Each guest is confined to the prefixes the allocation
+  # table gives it, and `le 128` admits the per-node sub-prefixes and the /128
+  # VIPs inside them.
   guestPolicy = guest: ''
     ipv6 prefix-list ${guest.name}-pods seq 10 permit ${guest.podSubnet} le 128
+    ipv6 prefix-list ${guest.name}-lb seq 10 permit ${guest.lbSubnet} le 128
     route-map ${guest.name}-in permit 10
-     match ipv6 address prefix-list ${guest.name}-pods
+     match ipv6 address prefix-list ${guest.name}-pods ${guest.name}-lb
     !
   '';
 
