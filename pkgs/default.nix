@@ -207,6 +207,8 @@ in
 
   kagi-mcp = final.python3.pkgs.callPackage ./kagi-mcp { };
 
+  merged-file = final.python3.pkgs.callPackage ./merged-file { };
+
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
   # vfkit with the memory balloon reachable over its REST API. Darwin only: it

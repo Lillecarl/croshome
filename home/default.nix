@@ -30,6 +30,7 @@
     ./helix.nix
     ./k9s.nix
     ./kagi-mcp.nix
+    ./merged-file.nix
     ./opencode.nix
     ./packages.nix
     ./pymux.nix
