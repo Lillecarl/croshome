@@ -22,15 +22,28 @@ WINDOWS = (
 
 
 def _until(epoch, now):
-    """The time to `epoch` in one short unit: `40m`, `3h`, `2d`."""
+    """The time to `epoch`, largest unit first, with the zero units left out:
+    `2d3h20m`, `23h59m`, `45m`. A unit that is zero says nothing, so `1d5m`
+    keeps the hours out rather than printing `1d0h5m`.
+
+    One unit alone was too coarse to act on. "2d" covered anything from two
+    days to nearly three, which is the difference between waiting and not."""
     seconds = int(epoch - now)
     if seconds <= 0:
         return "now"
-    if seconds < 3600:
-        return f"{seconds // 60}m"
-    if seconds < 86400:
-        return f"{seconds // 3600}h"
-    return f"{seconds // 86400}d"
+
+    days, seconds = divmod(seconds, 86400)
+    hours, seconds = divmod(seconds, 3600)
+    minutes = seconds // 60
+
+    parts = [
+        f"{value}{unit}"
+        for value, unit in ((days, "d"), (hours, "h"), (minutes, "m"))
+        if value
+    ]
+    # Under a minute every part is zero, and "0m" would read as "already
+    # reset" when the reset has not happened yet.
+    return "".join(parts) or "<1m"
 
 
 def _window(data, label, now):
