@@ -28,46 +28,17 @@ _IDENTITY = None
 
 
 def _identity():
-    """(name, session) this MCP server answers for.
-
-    The opencode stophook plugin registers the session under its real
-    opencode session id, stamped with the session's cwd. The MCP server
-    gets no session identity from opencode, so it finds that registration
-    here: the most recent entry with our name in our directory. Two
-    sessions born at once in one directory can cross-wire; set
-    OCAHUB_SESSION to pin the identity in that case.
-    """
-    global _IDENTITY
-    if _IDENTITY:
-        return _IDENTITY
     name = os.environ.get("OCAHUB_NAME") or "opencode"
-    pinned = os.environ.get("OCAHUB_SESSION")
-    if pinned:
-        _IDENTITY = (name, pinned)
-        return _IDENTITY
-    cwd = _cwd()
-    c = Client()
-    try:
-        candidates = [
-            s
-            for s in c.who().get("sessions", [])
-            if s.get("name") == name and s.get("cwd") and P.cwd_match(s["cwd"], cwd)
-        ]
-    except (Unreachable, HubError):
-        candidates = []
-    finally:
-        c.close()
-    if candidates:
-        _IDENTITY = (name, max(candidates, key=lambda s: s["last_seen"])["session"])
-    else:
-        # Nothing registered us (plugin absent or hub young): fall back to
-        # a private session, so inbox still works name-level.
-        _IDENTITY = (name, uuid.uuid4().hex)
+    # One MCP server process per agent session: a fresh id per process
+    # keeps concurrent sessions apart. OCAHUB_SESSION pins it when the
+    # caller manages session identity itself.
+    session = os.environ.get("OCAHUB_SESSION") or uuid.uuid4().hex
+    _IDENTITY = (name, session)
     return _IDENTITY
 
 
 def _json(meta, payload=None):
-    out = dict(meta)
+    out = meta.to_dict() if hasattr(meta, "to_dict") else dict(meta)
     if payload is not None:
         out["payload"] = decode_payload(payload)
     return json.dumps(out, separators=(",", ":"))
@@ -91,7 +62,7 @@ def _cwd():
 def _agents_list(cwd=None):
     c = Client()
     try:
-        sessions = c.who().get("sessions", [])
+        sessions = c.who().sessions or []
         if cwd:
             # Substring either way: full paths, basenames and trailing
             # slashes all find their target.
@@ -126,13 +97,13 @@ def _agent_send(to, message, kind, wait, timeout, topic, cwd=None):
                 to=to, topic=topic, kind=kind, payload=payload, wait=timeout, cwd=cwd
             )
             return json.dumps(
-                {"ack": ack, "reply": {**m, "payload": decode_payload(pl)}},
+                {"ack": ack.to_dict(), "reply": {**m.to_dict(), "payload": decode_payload(pl)}},
                 separators=(",", ":"),
             )
         ack = c.send(to=to, topic=topic, kind=kind, payload=payload, cwd=cwd)
-        if kind == P.KIND_ASK and ack.get("ok"):
-            ack["note"] = (
-                f"ask sent; the target owes agent_reply(reply_to={ack.get('in_reply_to')}) "
+        if kind == P.KIND_ASK and ack.ok:
+            ack.note = (
+                f"ask sent; the target owes agent_reply(reply_to={ack.in_reply_to}) "
                 "before ending its turn"
             )
         return _json(ack)
@@ -163,36 +134,19 @@ def _agent_inbox(wait):
     c = Client()
     try:
         if wait and wait > 0:
-            ack, m, pl = c.poll_wait(name, session, wait=wait)
-            messages = [{**m, "payload": decode_payload(pl)}]
+            ack, m, pl = c.poll_wait(name, session, wait=wait, cwd=_cwd())
+            messages = [{**m.to_dict(), "payload": decode_payload(pl)}]
         else:
-            ack, delivers = c.call(
-                {
-                    "v": P.V,
-                    "id": P.new_id(),
-                    "type": P.POLL,
-                    "name": name,
-                    "session": session,
-                    "cwd": _cwd(),
-                    "ts": P.now(),
-                }
-            )
-            messages = [{**m, "payload": decode_payload(pl)} for m, pl in delivers]
-        asks_ack = c.call(
-            {
-                "v": P.V,
-                "id": P.new_id(),
-                "type": P.ASKS,
-                "name": name,
-                "session": session,
-                "ts": P.now(),
-            }
-        )[0]
-        asks = asks_ack.get("asks", [])
+            ack, delivers = c.call(P.Poll(name=name, session=session, cwd=_cwd()))
+            messages = [
+                {**m.to_dict(), "payload": decode_payload(pl)} for m, pl in delivers
+            ]
+        asks_ack = c.call(P.Asks(name=name, session=session))[0]
+        asks = asks_ack.asks or []
         return json.dumps(
             {
                 "you": {"name": name, "session": session},
-                "mailbox_status": ack.get("status"),
+                "mailbox_status": ack.status,
                 "messages": messages,
                 "unanswered_asks": asks,
                 "note": (

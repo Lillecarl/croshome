@@ -42,6 +42,8 @@ def decode_payload(payload: bytes):
 
 
 def emit(obj):
+    if hasattr(obj, "to_dict"):
+        obj = obj.to_dict()
     print(json.dumps(obj, separators=(",", ":")), flush=True)
 
 
@@ -50,9 +52,11 @@ def default_session():
 
 
 class Client:
-    def __init__(self, runtime=None, timeout=5.0):
+    def __init__(self, runtime=None, timeout=None):
         self.runtime = runtime or runtime_dir()
-        self.timeout = timeout
+        self.timeout = float(
+            timeout or os.environ.get("OCAHUB_TIMEOUT") or 5.0
+        )
         self.ctx = zmq.Context()
 
     def dealer(self):
@@ -62,13 +66,13 @@ class Client:
         d.connect(f"ipc://{self.runtime}/router.sock")
         return d
 
-    def request(self, dealer, meta, payload=b""):
+    def request(self, dealer, msg, payload=b""):
         """Send one request, then read frames until the ACK, keeping DELIVERs.
 
         Mailbox drains arrive as DELIVERs before the ACK on the same pipe, so
         the caller sees them in order.
         """
-        dealer.send_multipart(P.encode(meta, payload))
+        dealer.send_multipart(P.encode(msg, payload))
         delivers = []
         deadline = time.monotonic() + self.timeout
         while True:
@@ -79,63 +83,40 @@ class Client:
             except zmq.error.Again as e:
                 raise Unreachable("hub did not answer in time") from e
             m, pl = P.decode(frames)
-            if m.get("type") == P.DELIVER:
+            if m.type == P.DELIVER:
                 delivers.append((m, pl))
                 continue
-            if m.get("type") == P.ACK:
+            if m.type == P.ACK:
                 return m, delivers
-            raise HubError(m.get("error", "unknown hub error"))
+            raise HubError(m.error)
 
-    def call(self, meta, payload=b""):
+    def call(self, msg, payload=b""):
         d = self.dealer()
         try:
-            return self.request(d, meta, payload)
+            return self.request(d, msg, payload)
         finally:
             d.close(0)
 
     def ping(self):
-        return self.call({"v": P.V, "id": P.new_id(), "type": P.PING, "ts": P.now()})[0]
+        return self.call(P.Ping())[0]
 
     def hello(self, name, session, caps=(), cwd=None):
-        meta = {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.HELLO,
-            "name": name,
-            "session": session,
-            "caps": list(caps),
-            "ts": P.now(),
-        }
-        if cwd:
-            meta["cwd"] = cwd
-        return self.call(meta)
+        return self.call(P.Hello(name=name, session=session, caps=list(caps), cwd=cwd))
 
     def who(self):
-        return self.call({"v": P.V, "id": P.new_id(), "type": P.WHO, "ts": P.now()})[0]
+        return self.call(P.Who())[0]
 
     def send(self, to=None, topic=None, reply_to=None, kind=P.KIND_TELL, payload=b"", cwd=None):
-        meta = {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.SEND,
-            "kind": P.check_kind(kind),
-            "ts": P.now(),
-        }
-        if to:
-            meta["to"] = to
-        if cwd:
-            meta["cwd"] = cwd
-        if topic:
-            meta["topic"] = topic
-        if reply_to:
-            meta["reply_to"] = reply_to
-        return self.call(meta, payload)[0]
-
-    def broadcast(self, topic="user", payload=b""):
         return self.call(
-            {"v": P.V, "id": P.new_id(), "type": P.BROADCAST, "topic": topic, "ts": P.now()},
+            P.Send(to=to, topic=topic, reply_to=reply_to, kind=P.check_kind(kind), cwd=cwd),
             payload,
         )[0]
+
+    def broadcast(self, topic="user", payload=b""):
+        return self.call(P.Broadcast(topic=topic), payload)[0]
+
+    def asks(self, name, session):
+        return self.call(P.Asks(name=name, session=session))[0]
 
     def send_wait(
         self,
@@ -147,26 +128,18 @@ class Client:
         wait=30.0,
         cwd=None,
     ):
-        meta = {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.SEND,
-            "kind": P.check_kind(kind),
-            "ts": P.now(),
-        }
-        if to:
-            meta["to"] = to
-        if cwd:
-            meta["cwd"] = cwd
-        if topic:
-            meta["topic"] = topic
-        if reply_to:
-            meta["reply_to"] = reply_to
+        msg = P.Send(
+            to=to,
+            topic=topic,
+            reply_to=reply_to,
+            kind=P.check_kind(kind),
+            cwd=cwd,
+        )
         d = self.dealer()
         try:
-            ack, delivers = self.request(d, meta, payload)
-            if not ack.get("ok"):
-                raise HubError(ack.get("error", "unknown hub error"))
+            ack, delivers = self.request(d, msg, payload)
+            if not ack.ok:
+                raise HubError(ack.error or "unknown hub error")
             deadline = time.monotonic() + wait
             while True:
                 remaining = deadline - time.monotonic()
@@ -179,37 +152,15 @@ class Client:
                     continue
                 except P.ProtocolError:
                     continue
-                if m.get("type") == P.DELIVER and m.get("reply_to") == meta["id"]:
+                if m.type == P.DELIVER and m.reply_to == msg.id:
                     return ack, m, pl
         finally:
             d.close(0)
 
-    def asks(self, name, session):
-        return self.call(
-            {
-                "v": P.V,
-                "id": P.new_id(),
-                "type": P.ASKS,
-                "name": name,
-                "session": session,
-                "ts": P.now(),
-            }
-        )[0]
-
     def poll_wait(self, name, session, wait=30.0, cwd=None):
-        meta = {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.POLL,
-            "name": name,
-            "session": session,
-            "ts": P.now(),
-        }
-        if cwd:
-            meta["cwd"] = cwd
         d = self.dealer()
         try:
-            ack, delivers = self.request(d, meta)
+            ack, delivers = self.request(d, P.Poll(name=name, session=session, cwd=cwd))
             if delivers:
                 return ack, *delivers[0]
             deadline = time.monotonic() + wait
@@ -224,7 +175,7 @@ class Client:
                     continue
                 except P.ProtocolError:
                     continue
-                if m.get("type") == P.DELIVER:
+                if m.type == P.DELIVER:
                     return ack, m, pl
         finally:
             d.close(0)
@@ -249,7 +200,7 @@ def cmd_hello(c, args):
         cwd=args.cwd or os.getcwd(),
     )
     for m, pl in delivers:
-        emit({**m, "payload": decode_payload(pl)})
+        emit({**m.to_dict(), "payload": decode_payload(pl)})
     emit(ack)
     return EXIT_OK
 
@@ -266,7 +217,7 @@ def cmd_send(c, args):
             cwd=args.cwd,
         )
         emit(ack)
-        return EXIT_OK if ack.get("ok") else EXIT_HUB
+        return EXIT_OK if ack.ok else EXIT_HUB
     ack, m, pl = c.send_wait(
         to=args.to,
         topic=args.topic,
@@ -277,14 +228,14 @@ def cmd_send(c, args):
         cwd=args.cwd,
     )
     emit(ack)
-    emit({**m, "payload": decode_payload(pl)})
+    emit({**m.to_dict(), "payload": decode_payload(pl)})
     return EXIT_OK
 
 
 def cmd_broadcast(c, args):
     ack = c.broadcast(topic=args.topic, payload=read_payload(args))
     emit(ack)
-    return EXIT_OK if ack.get("ok") else EXIT_HUB
+    return EXIT_OK if ack.ok else EXIT_HUB
 
 
 def cmd_poll(c, args):
@@ -297,26 +248,17 @@ def cmd_poll(c, args):
                 file=sys.stderr,
             )
             return EXIT_HUB
-        ack, delivers = c.call(
-            {
-                "v": P.V,
-                "id": P.new_id(),
-                "type": P.POLL,
-                "name": name,
-                "session": session,
-                "ts": P.now(),
-            }
-        )
+        ack, delivers = c.call(P.Poll(name=name, session=session))
         for m, pl in delivers:
-            emit({**m, "payload": decode_payload(pl)})
-        emit(ack)
+            emit({**m.to_dict(), "payload": decode_payload(pl)})
+        emit(ack.to_dict())
         return EXIT_OK
     if not (name and session):
         print("ocac: poll --wait needs --name/--session", file=sys.stderr)
         return EXIT_HUB
     ack, m, pl = c.poll_wait(name, session, wait=args.wait)
     emit(ack)
-    emit({**m, "payload": decode_payload(pl)})
+    emit({**m.to_dict(), "payload": decode_payload(pl)})
     return EXIT_OK
 
 
@@ -356,33 +298,24 @@ def cmd_asks(c, args):
         print("ocac: asks needs --name/--session (or OCAHUB_NAME/OCAHUB_SESSION)", file=sys.stderr)
         return EXIT_HUB
     ack = c.asks(name, session)
-    print(json.dumps(ack.get("asks", []), separators=(",", ":")))
+    print(json.dumps(ack.asks or [], separators=(",", ":")))
     return EXIT_OK
 
 
 def cmd_bye(c, args):
-    ack = c.call(
-        {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.BYE,
-            "name": args.name,
-            "session": args.session,
-            "ts": P.now(),
-        }
-    )[0]
-    emit(ack)
+    ack = c.call(P.Bye(name=args.name, session=args.session))[0]
+    emit(ack.to_dict())
     return EXIT_OK
 
 
 def cmd_who(c, args):
     ack = c.who()
-    print(json.dumps(ack["sessions"], separators=(",", ":")))
+    print(json.dumps(ack.sessions, separators=(",", ":")))
     return EXIT_OK
 
 
 def cmd_ping(c, args):
-    emit(c.ping())
+    emit(c.ping().to_dict())
     return EXIT_OK
 
 

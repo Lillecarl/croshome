@@ -60,7 +60,7 @@ class Hub:
         self.xpub_addr = f"ipc://{runtime}/xpub.sock"
         self.mailbox = Mailbox(os.path.join(state, "mail.db"))
 
-        # (name, session) -> {identity, last_seen, caps, online}
+        # (name, session) -> {identity, last_seen, caps, cwd, online}
         self.registry = {}
         self.identity_map = {}  # identity bytes -> (name, session)
         self.pending = {}  # msg id -> (identity, expiry), for --reply-to routing
@@ -82,49 +82,27 @@ class Hub:
         self.events.connect(self.xsub_addr)
 
     async def publish_event(self, event, **meta):
-        m = {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.EVENT,
-            "event": event,
-            "ts": P.now(),
-            **meta,
-        }
-        await self.events.send_multipart(
-            [f"{P.EVENT_TOPIC}{event}".encode(), *P.encode(m)]
+        msg = P.EventMsg(event=event, **meta)
+        await self.events.send_multipart([f"{P.EVENT_TOPIC}{event}".encode(), *P.encode(msg)])
+
+    async def _ack(self, identity, request, **fields):
+        msg = P.Ack(ok=True, in_reply_to=request.id, **fields)
+        await self.router.send_multipart([identity, *P.encode(msg)])
+
+    async def _failure(self, identity, request, message):
+        msg = P.ErrorMsg(
+            error=message,
+            in_reply_to=request.id if isinstance(request, P.Meta) else None,
         )
-
-    async def _reply(self, identity, request_meta, **extra):
-        m = {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.ACK,
-            "ok": True,
-            "in_reply_to": request_meta.get("id"),
-            "ts": P.now(),
-            **extra,
-        }
-        await self.router.send_multipart([identity, *P.encode(m)])
-
-    async def _failure(self, identity, request_meta, message):
-        m = {
-            "v": P.V,
-            "id": P.new_id(),
-            "type": P.ERROR,
-            "ok": False,
-            "error": message,
-            "in_reply_to": request_meta.get("id") if request_meta else None,
-            "ts": P.now(),
-        }
-        await self.router.send_multipart([identity, *P.encode(m)])
+        await self.router.send_multipart([identity, *P.encode(msg)])
 
     def sender_addr(self, identity):
         entry = self.identity_map.get(identity)
         return P.address(*entry) if entry else identity.hex()
 
-    async def _route(self, identity, meta, payload):
+    async def _route(self, identity, deliver, payload):
         try:
-            await self.router.send_multipart([identity, *P.encode(meta, payload)])
+            await self.router.send_multipart([identity, *P.encode(deliver, payload)])
             return True
         except zmq.ZMQError as e:
             log.debug("route to %s failed: %s", identity.hex(), e)
@@ -140,23 +118,23 @@ class Hub:
                 session=key[1],
             )
 
-    async def _deliver_to_session(self, key, meta, payload):
+    async def _deliver_to_session(self, key, deliver, payload):
         name, session = key
         entry = self.registry.get(key)
         if entry and entry["online"]:
-            if await self._route(entry["identity"], meta, payload):
+            if await self._route(entry["identity"], deliver, payload):
                 return "delivered"
             # The peer's connection died before the TTL caught it.
             await self._set_online(key, False)
         self.mailbox.put(
-            meta["id"],
+            deliver.id,
             name,
             session,
-            meta.get("kind"),
-            meta.get("from"),
-            meta.get("topic"),
-            meta.get("reply_to"),
-            meta["ts"],
+            deliver.kind,
+            deliver.sender,
+            deliver.topic,
+            deliver.reply_to,
+            deliver.ts,
             payload,
         )
         return "queued"
@@ -192,25 +170,23 @@ class Hub:
         rows = self.mailbox.take(name, session)
         return [
             (
-                {
-                    "v": P.V,
-                    "id": msg_id,
-                    "type": P.DELIVER,
-                    "kind": kind,
-                    "from": from_addr,
-                    "topic": topic,
-                    "reply_to": reply_to,
-                    "ts": ts,
-                },
+                P.Deliver(
+                    id=msg_id,
+                    kind=kind,
+                    sender=from_addr,
+                    topic=topic,
+                    reply_to=reply_to,
+                    ts=ts,
+                ),
                 payload,
             )
             for msg_id, _, _, kind, from_addr, topic, reply_to, ts, payload in rows
         ]
 
-    async def _on_hello(self, identity, meta, payload):
-        name = P.check_name(meta.get("name"), "name")
-        session = P.check_name(meta.get("session"), "session")
-        caps = [c for c in meta.get("caps", []) if isinstance(c, str)]
+    async def _on_hello(self, identity, msg, payload):
+        name = P.check_name(msg.name, "name")
+        session = P.check_name(msg.session, "session")
+        caps = [c for c in (msg.caps or ()) if isinstance(c, str)]
         key = (name, session)
         entry = self.registry.get(key)
         if entry and entry["identity"] != identity:
@@ -218,7 +194,7 @@ class Hub:
         was_offline = entry is None or not entry["online"]
         self.identity_map[identity] = key
         # A re-hello without cwd keeps the one on record.
-        cwd = P.check_cwd(meta.get("cwd")) or (entry.get("cwd") if entry else None)
+        cwd = P.check_cwd(msg.cwd) or (entry.get("cwd") if entry else None)
         self.registry[key] = {
             "identity": identity,
             "last_seen": P.now(),
@@ -231,52 +207,49 @@ class Hub:
         delivers = self._drain_mailbox(name, session)
         for m, pl in delivers:
             await self.router.send_multipart([identity, *P.encode(m, pl)])
-        await self._reply(identity, meta, status="hello", mailbox=len(delivers))
+        await self._ack(identity, msg, status="hello", mailbox=len(delivers))
 
-    async def _on_send(self, identity, meta, payload):
-        msg_id = meta.get("id") or P.new_id()
-        kind = P.check_kind(meta.get("kind"))
+    async def _on_send(self, identity, msg, payload):
+        kind = P.check_kind(msg.kind)
+        msg_id = msg.id
         self.pending[msg_id] = (identity, P.now() + PENDING_TTL)
-        out = {
-            "v": P.V,
-            "id": msg_id,
-            "type": P.DELIVER,
-            "kind": kind,
-            "from": self.sender_addr(identity),
-            "topic": meta.get("topic"),
-            "reply_to": meta.get("reply_to"),
-            "ts": P.now(),
-        }
-        reply_to = meta.get("reply_to")
+        out = P.Deliver(
+            id=msg_id,
+            kind=kind,
+            sender=self.sender_addr(identity),
+            topic=msg.topic,
+            reply_to=msg.reply_to,
+        )
+        reply_to = msg.reply_to
         if kind == P.KIND_REPLY and reply_to:
             # Forgiving: a reply with no live ask rides through as a tell.
             ask = self.asks.pop(reply_to, None)
-            out["kind"] = P.KIND_REPLY if ask else P.KIND_TELL
+            out.kind = P.KIND_REPLY if ask else P.KIND_TELL
             target = (ask or {}).get("from_identity")
             if target is None:
                 target = self.pending.get(reply_to, (None,))[0]
             if target is not None and await self._route(target, out, payload):
                 status = "delivered"
-            elif meta.get("to"):
-                name, session = self._parse_target(meta["to"])
+            elif msg.to:
+                name, session = self._parse_target(msg.to)
                 key = (name, session) if session else self._latest_live(name) or (name, None)
                 status = await self._deliver_to_session(key, out, payload)
             else:
                 raise P.ProtocolError("reply target is gone; pass 'to'")
-        elif reply_to and not meta.get("to"):
+        elif reply_to and not msg.to:
             pend = self.pending.get(reply_to)
             if not pend:
                 raise P.ProtocolError(f"unknown reply_to: {reply_to}")
             status = "delivered" if await self._route(pend[0], out, payload) else "lost"
         else:
-            if meta.get("to"):
-                name, session = self._parse_target(meta["to"])
+            if msg.to:
+                name, session = self._parse_target(msg.to)
                 key = (name, session) if session else self._latest_live(name) or (name, None)
-            elif meta.get("cwd"):
-                key = self._latest_live_by_cwd(meta["cwd"])
+            elif msg.cwd:
+                key = self._latest_live_by_cwd(msg.cwd)
                 if key is None:
                     raise P.ProtocolError(
-                        f"no online session with cwd matching {meta['cwd']}"
+                        f"no online session with cwd matching {msg.cwd}"
                     )
             else:
                 raise P.ProtocolError("send needs 'to' or 'cwd' (or a 'reply_to')")
@@ -285,20 +258,20 @@ class Hub:
                 self.asks[msg_id] = {
                     "target": key,
                     "from_identity": identity,
-                    "from": out["from"],
-                    "ts": out["ts"],
+                    "from": out.sender,
+                    "ts": out.ts,
                 }
-        await self._reply(identity, meta, status=status, kind=kind)
+        await self._ack(identity, msg, status=status, kind=kind)
 
-    async def _resolve_session(self, identity, meta):
+    async def _resolve_session(self, identity, msg):
         """Key for this caller: explicit name/session, else the hello mapping.
 
         An explicit key re-binds the registry entry's socket to this caller,
         which is how a fresh process attaches to an existing session. A key
         with no entry is created, so a poll-only session is discoverable.
         """
-        name = meta.get("name")
-        session = meta.get("session")
+        name = msg.name
+        session = msg.session
         if name and session:
             P.check_name(name, "name")
             P.check_name(session, "session")
@@ -320,7 +293,7 @@ class Hub:
                 entry["last_seen"] = P.now()
                 if was_offline:
                     await self._set_online(key, True)
-            cwd = P.check_cwd(meta.get("cwd"))
+            cwd = P.check_cwd(msg.cwd)
             if cwd:
                 entry = self.registry[key]
                 entry["cwd"] = cwd
@@ -328,37 +301,22 @@ class Hub:
             raise P.ProtocolError("needs name and session, or a hello first")
         return self.identity_map[identity]
 
-    async def _on_poll(self, identity, meta, payload):
-        key = await self._resolve_session(identity, meta)
+    async def _on_poll(self, identity, msg, payload):
+        key = await self._resolve_session(identity, msg)
         delivers = self._drain_mailbox(*key)
         for m, pl in delivers:
             await self.router.send_multipart([identity, *P.encode(m, pl)])
-        await self._reply(identity, meta, status="drained", count=len(delivers))
+        await self._ack(identity, msg, status="drained", count=len(delivers))
 
-    async def _on_asks(self, identity, meta, payload):
-        key = await self._resolve_session(identity, meta)
+    async def _on_asks(self, identity, msg, payload):
+        key = await self._resolve_session(identity, msg)
         name, _ = key
         items = [
-            {"id": msg_id, "from": a["from"], "ts": a["ts"]}
-            for msg_id, a in sorted(self.asks.items(), key=lambda kv: kv[1]["ts"])
+            {"id": ask_id, "from": a["from"], "ts": a["ts"]}
+            for ask_id, a in sorted(self.asks.items(), key=lambda kv: kv[1]["ts"])
             if a["target"] == key or a["target"] == (name, None)
         ]
-        await self._reply(identity, meta, asks=items)
-
-    async def _on_broadcast(self, identity, meta, payload):
-        # The hub publishes on the sender's behalf, so a broadcast needs no
-        # second socket client-side and carries a hub-stamped `from`.
-        topic = meta.get("topic") or "user"
-        out = {
-            "v": P.V,
-            "id": meta.get("id") or P.new_id(),
-            "type": P.BROADCAST,
-            "from": self.sender_addr(identity),
-            "topic": topic,
-            "ts": P.now(),
-        }
-        await self.events.send_multipart([topic.encode(), *P.encode(out, payload)])
-        await self._reply(identity, meta, status="broadcast", topic=topic)
+        await self._ack(identity, msg, asks=items)
 
     def _ask_count(self, key):
         name, _ = key
@@ -368,7 +326,7 @@ class Hub:
             if a["target"] == key or a["target"] == (name, None)
         )
 
-    async def _on_who(self, identity, meta, payload):
+    async def _on_who(self, identity, msg, payload):
         sessions = [
             {
                 "name": k[0],
@@ -383,11 +341,11 @@ class Hub:
                 self.registry.items(), key=lambda kv: -kv[1]["last_seen"]
             )
         ]
-        await self._reply(identity, meta, sessions=sessions)
+        await self._ack(identity, msg, sessions=sessions)
 
-    async def _on_bye(self, identity, meta, payload):
-        name = meta.get("name")
-        session = meta.get("session")
+    async def _on_bye(self, identity, msg, payload):
+        name = msg.name
+        session = msg.session
         key = None
         if name and session:
             P.check_name(name, "name")
@@ -402,26 +360,35 @@ class Hub:
         if key and entry:
             entry["online"] = False
             await self.publish_event("session.down", name=key[0], session=key[1])
-        await self._reply(identity, meta, status="bye")
+        await self._ack(identity, msg, status="bye")
 
-    async def _handle(self, identity, meta, payload):
-        t = meta.get("type")
+    async def _handle(self, identity, msg, payload):
+        t = msg.type
         if t == P.PING:
-            await self._reply(identity, meta, status="pong")
+            await self._ack(identity, msg, status="pong")
         elif t == P.HELLO:
-            await self._on_hello(identity, meta, payload)
+            await self._on_hello(identity, msg, payload)
         elif t == P.SEND:
-            await self._on_send(identity, meta, payload)
+            await self._on_send(identity, msg, payload)
         elif t == P.POLL:
-            await self._on_poll(identity, meta, payload)
+            await self._on_poll(identity, msg, payload)
         elif t == P.ASKS:
-            await self._on_asks(identity, meta, payload)
+            await self._on_asks(identity, msg, payload)
         elif t == P.BROADCAST:
-            await self._on_broadcast(identity, meta, payload)
+            # The hub publishes on the sender's behalf, so a broadcast needs
+            # no second socket client-side and carries a hub-stamped sender.
+            topic = msg.topic or "user"
+            out = P.Broadcast(
+                id=msg.id,
+                sender=self.sender_addr(identity),
+                topic=topic,
+            )
+            await self.events.send_multipart([topic.encode(), *P.encode(out, payload)])
+            await self._ack(identity, msg, status="broadcast", topic=topic)
         elif t == P.WHO:
-            await self._on_who(identity, meta, payload)
+            await self._on_who(identity, msg, payload)
         elif t == P.BYE:
-            await self._on_bye(identity, meta, payload)
+            await self._on_bye(identity, msg, payload)
         else:
             raise P.ProtocolError(f"unknown type: {t!r}")
 
@@ -432,12 +399,20 @@ class Hub:
             key = self.identity_map.get(identity)
             if key:
                 self.registry[key]["last_seen"] = P.now()
-            meta = {}
+            msg = {}
             try:
-                meta, payload = P.decode(frames)
-                await self._handle(identity, meta, payload)
+                msg, payload = P.decode(frames)
+                await self._handle(identity, msg, payload)
             except P.ProtocolError as e:
-                await self._failure(identity, meta, str(e))
+                await self._failure(identity, msg, str(e))
+            except Exception:
+                # One bad handler must not kill the broker; the request
+                # still gets an answer.
+                log.exception("handler failed for %r", getattr(msg, "type", msg))
+                try:
+                    await self._failure(identity, msg, "internal hub error")
+                except Exception:
+                    pass
 
     async def relay_loop(self):
         # Data half of zmq_proxy, hand-rolled: agent PUBs and the hub's event

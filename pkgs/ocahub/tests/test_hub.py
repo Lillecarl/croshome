@@ -17,7 +17,7 @@ class Agent:
         self.ctx = zmq.Context()
         self.dealer = self.ctx.socket(zmq.DEALER)
         self.dealer.setsockopt(zmq.LINGER, 0)
-        self.dealer.setsockopt(zmq.RCVTIMEO, 10000)
+        self.dealer.setsockopt(zmq.RCVTIMEO, 20000)
         self.dealer.connect(f"ipc://{hub.runtime}/router.sock")
         hello = {"type": P.HELLO, "name": name, "session": session, "caps": list(caps)}
         if cwd:
@@ -142,7 +142,7 @@ def test_mailbox_survives_restart(hub):
 def test_broadcast_and_sub(hub):
     sub = hub.subscribe("news")
     try:
-        time.sleep(0.5)  # slow joiner: let the subscription propagate
+        time.sleep(1.5)  # slow joiner: let the subscription propagate
         ack = hub.client().broadcast(topic="news", payload=b"boom")
         assert ack["ok"]
         frames = sub.recv_multipart()
@@ -156,7 +156,7 @@ def test_broadcast_and_sub(hub):
 def test_session_events(hub):
     sub = hub.subscribe(P.EVENT_TOPIC)
     try:
-        time.sleep(0.5)
+        time.sleep(1.5)
         a = Agent(hub, "x", "s1")
         up = sub.recv_multipart()
         assert up[0].startswith(b"ocahub/session.up")

@@ -38,6 +38,9 @@ class Hub:
         raise RuntimeError(f"daemon never answered ping: {last!r}")
 
     def client(self, **kw):
+        if self.proc.poll() is not None:
+            err = self.proc.stderr.read().decode(errors="replace")
+            raise RuntimeError(f"daemon died during test:\n{err}")
         return Client(runtime=self.runtime, **kw)
 
     def subscribe(self, prefix=""):
@@ -57,13 +60,21 @@ class Hub:
                 self.proc.wait(10)
             except subprocess.TimeoutExpired:
                 self.proc.kill()
+        # Handler tracebacks land here; show them on every teardown so a
+        # failing test carries its daemon's side of the story.
+        err = self.proc.stderr.read().decode(errors="replace")
+        if err.strip():
+            print(f"---- ocahubd stderr ----\n{err}", file=sys.stderr)
 
 
 @pytest.fixture
 def hub(tmp_path, monkeypatch):
     h = Hub(tmp_path / "runtime", tmp_path / "state")
-    # The MCP tools resolve the hub from the environment, as in production.
+    # The MCP tools and CLI resolve the hub from the environment, as in
+    # production. The build sandbox is several times slower than a real
+    # machine, so default timeouts must be overrideable.
     monkeypatch.setenv("OCAHUB_RUNTIME_DIR", h.runtime)
     monkeypatch.setenv("OCAHUB_STATE_DIR", h.state)
+    monkeypatch.setenv("OCAHUB_TIMEOUT", "15")
     yield h
     h.stop()
