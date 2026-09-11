@@ -184,6 +184,18 @@ class Client:
         finally:
             d.close(0)
 
+    def asks(self, name, session):
+        return self.call(
+            {
+                "v": P.V,
+                "id": P.new_id(),
+                "type": P.ASKS,
+                "name": name,
+                "session": session,
+                "ts": P.now(),
+            }
+        )[0]
+
     def poll_wait(self, name, session, wait=30.0, cwd=None):
         meta = {
             "v": P.V,
@@ -337,6 +349,17 @@ def cmd_sub(c, args):
         sub.close(0)
 
 
+def cmd_asks(c, args):
+    name = args.name or os.environ.get("OCAHUB_NAME")
+    session = args.session or os.environ.get("OCAHUB_SESSION")
+    if not (name and session):
+        print("ocac: asks needs --name/--session (or OCAHUB_NAME/OCAHUB_SESSION)", file=sys.stderr)
+        return EXIT_HUB
+    ack = c.asks(name, session)
+    print(json.dumps(ack.get("asks", []), separators=(",", ":")))
+    return EXIT_OK
+
+
 def cmd_bye(c, args):
     ack = c.call(
         {
@@ -377,6 +400,7 @@ def build_parser():
     p.add_argument("--name", required=True)
     p.add_argument("--session", default=default_session())
     p.add_argument("--caps", default="", help="comma-separated capability tags")
+    p.add_argument("--cwd", default=None, help="working directory to advertise")
 
     p = sub.add_parser("send", help="send to NAME[@SESSION]; reply with --reply-to ID")
     p.add_argument("--to", default=None)
@@ -427,6 +451,10 @@ def build_parser():
     p = sub.add_parser("sub", help="stream broadcasts and hub events")
     p.add_argument("--topic", default="", help="topic prefix to match (empty = all)")
 
+    p = sub.add_parser("asks", help="list asks still owed by a session (read-only)")
+    p.add_argument("--name", default=None)
+    p.add_argument("--session", default=None)
+
     p = sub.add_parser("bye", help="unregister the session named by --name/--session")
     p.add_argument("--name", required=True)
     p.add_argument("--session", default=default_session())
@@ -441,6 +469,7 @@ COMMANDS = {
     "send": cmd_send,
     "broadcast": cmd_broadcast,
     "poll": cmd_poll,
+    "asks": cmd_asks,
     "sub": cmd_sub,
     "bye": cmd_bye,
 }

@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 
@@ -296,6 +297,60 @@ def test_ask_to_offline_queues_with_kind(hub):
         assert m["kind"] == P.KIND_ASK and pl == b"owed"
     finally:
         a.close()
+
+
+def test_cli_subprocess_hello_send_asks(tmp_path, hub):
+    """Through the real argparse path -- the layer library tests miss."""
+    import os as _os
+    import subprocess
+    import sys
+
+    env = _os.environ | {
+        "OCAHUB_RUNTIME_DIR": hub.runtime,
+        "OCAHUB_STATE_DIR": hub.state,
+    }
+    ocac = [sys.executable, "-m", "ocahub.cli"]
+
+    def run(*args, check=True):
+        p = subprocess.run(ocac + list(args), env=env, capture_output=True, text=True)
+        if check:
+            assert p.returncode == 0, p.stderr
+        return p
+
+    run("hello", "--name", "cli", "--session", "c1", "--cwd", "/cli/dir")
+    who = json.loads(run("who").stdout)
+    entry = next(s for s in who if s["name"] == "cli")
+    assert entry["cwd"] == "/cli/dir" and entry["online"]
+
+    run("send", "--to", "cli@c1", "--kind", "ask", "-m", "owed")
+    asks = json.loads(run("asks", "--name", "cli", "--session", "c1").stdout)
+    assert len(asks) == 1 and asks[0]["from"]
+
+    # A live listener holds the session's socket open (poll-attach), so the
+    # cwd send finds it and is delivered rather than queued.
+    listener = Client(runtime=hub.runtime)
+    d = listener.dealer()
+    try:
+        ack, delivers = listener.request(
+            d,
+            {
+                "v": P.V,
+                "id": P.new_id(),
+                "type": P.POLL,
+                "name": "cli",
+                "session": "c1",
+                "cwd": "/cli/dir",
+                "ts": P.now(),
+            },
+        )
+        assert [pl for _, pl in delivers] == [b"owed"]
+        out = run("send", "--cwd", "/cli/dir", "-m", "via-cwd").stdout
+        assert json.loads(out)["status"] == "delivered"
+        m, pl = P.decode(d.recv_multipart())
+        assert m["type"] == P.DELIVER and pl == b"via-cwd"
+    finally:
+        d.close(0)
+        listener.close()
 
 
 def test_cwd_registered_and_targeted(hub):

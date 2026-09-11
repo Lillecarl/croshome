@@ -24,13 +24,46 @@ from .cli import Client, HubError, Unreachable, WaitTimeout, decode_payload
 mcp = FastMCP("ocahub")
 
 
+_IDENTITY = None
+
+
 def _identity():
+    """(name, session) this MCP server answers for.
+
+    The opencode stophook plugin registers the session under its real
+    opencode session id, stamped with the session's cwd. The MCP server
+    gets no session identity from opencode, so it finds that registration
+    here: the most recent entry with our name in our directory. Two
+    sessions born at once in one directory can cross-wire; set
+    OCAHUB_SESSION to pin the identity in that case.
+    """
+    global _IDENTITY
+    if _IDENTITY:
+        return _IDENTITY
     name = os.environ.get("OCAHUB_NAME") or "opencode"
-    # One MCP server process per agent session: a fresh id per process
-    # keeps concurrent sessions apart. OCAHUB_SESSION pins it when the
-    # caller manages session identity itself.
-    session = os.environ.get("OCAHUB_SESSION") or uuid.uuid4().hex
-    return name, session
+    pinned = os.environ.get("OCAHUB_SESSION")
+    if pinned:
+        _IDENTITY = (name, pinned)
+        return _IDENTITY
+    cwd = _cwd()
+    c = Client()
+    try:
+        candidates = [
+            s
+            for s in c.who().get("sessions", [])
+            if s.get("name") == name and s.get("cwd") and P.cwd_match(s["cwd"], cwd)
+        ]
+    except (Unreachable, HubError):
+        candidates = []
+    finally:
+        c.close()
+    if candidates:
+        _IDENTITY = (name, max(candidates, key=lambda s: s["last_seen"])["session"])
+    else:
+        # Nothing registered us (plugin absent or hub young): fall back to
+        # a private session, so inbox still works name-level.
+        _IDENTITY = (name, uuid.uuid4().hex)
+    return _IDENTITY
 
 
 def _json(meta, payload=None):
