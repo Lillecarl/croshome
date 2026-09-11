@@ -7,9 +7,15 @@ import type { Plugin } from "@opencode-ai/plugin"
 // logs, so a model that refuses to reply cannot spin forever.
 //
 // This plugin also OWNS the session's hub identity: it registers the real
-// opencode session id (name, cwd) at session start, and the MCP server
+// opencode session id (name, cwd, title) at session start, and the MCP server
 // finds that registration through the hub (name + cwd, most recent). See
 // pkgs/ocahub/src/ocahub/mcp_server.py.
+//
+// The registration is keptalive: the hub marks a session offline when no
+// hello has arrived within its 120s TTL, and a hello that races the hub's
+// own startup fails silently. So every session this instance has seen is
+// re-helloed on an interval, with the session's current title (what /rename
+// sets) fetched fresh each pass.
 
 interface Ask {
   id: string
@@ -18,14 +24,46 @@ interface Ask {
 }
 
 const NUDGE_LIMIT = 3
+const HELLO_EVERY_MS = 45_000
 
 export const OcahubStopHook: Plugin = async ({ client, $, directory, worktree }) => {
   const NAME = process.env.OCAHUB_NAME || "opencode"
   const dir = worktree || directory
   let nudges: { key: string; count: number } | undefined
+  const known = new Set<string>()
+  let sweeping = false
 
   const sessionIDOf = (properties: any): string | undefined =>
     properties?.sessionID ?? properties?.info?.id
+
+  const helloSession = async (sid: string) => {
+    const got = await client.session.get({ path: { id: sid } }).catch(() => undefined)
+    const info: any = (got as any)?.data ?? got
+    const title = typeof info?.title === "string" ? info.title : ""
+    // Bun escapes each interpolation as one argv element, so an interpolated
+    // prefix string cannot be reused; each shape is spelled out.
+    await (
+      title
+        ? $`ocac hello --name ${NAME} --session ${sid} --cwd ${dir} --title ${title}`
+        : $`ocac hello --name ${NAME} --session ${sid} --cwd ${dir}`
+    )
+      .nothrow()
+      .quiet()
+  }
+
+  const sweep = async () => {
+    if (sweeping || known.size === 0) return
+    sweeping = true
+    try {
+      for (const sid of known) {
+        await helloSession(sid).catch(() => {})
+      }
+    } finally {
+      sweeping = false
+    }
+  }
+  const timer = setInterval(sweep, HELLO_EVERY_MS)
+  timer.unref?.()
 
   const openAsks = async (sid: string): Promise<Ask[]> => {
     const p = await $`ocac asks --name ${NAME} --session ${sid}`.nothrow().quiet()
@@ -44,9 +82,8 @@ export const OcahubStopHook: Plugin = async ({ client, $, directory, worktree })
         if (event.type === "session.created") {
           const sid = sessionIDOf(event.properties)
           if (!sid) return
-          await $`ocac hello --name ${NAME} --session ${sid} --cwd ${dir}`
-            .nothrow()
-            .quiet()
+          known.add(sid)
+          await helloSession(sid)
           return
         }
         if (event.type !== "session.idle") return

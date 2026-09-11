@@ -201,10 +201,11 @@ def _agent_inbox(wait):
 def agents_list(cwd: str | None = None) -> str:
     """List agent sessions registered on the message hub.
 
-    Returns a JSON array: name, session, online, last_seen, caps, cwd, and
-    asks (asks still owed by that session). Address a session as NAME or,
-    to be specific, NAME@SESSION. With cwd, only sessions whose working
-    directory matches (substring, either way) are listed.
+    Returns a JSON array: name, session, online, last_seen, caps, cwd,
+    title (the human-facing session name), and asks (asks still owed by
+    that session). Address a session as NAME or, to be specific,
+    NAME@SESSION. With cwd, only sessions whose working directory matches
+    (substring, either way) are listed.
     """
     return _agents_list(cwd)
 

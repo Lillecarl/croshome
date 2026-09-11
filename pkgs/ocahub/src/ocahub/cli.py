@@ -100,8 +100,8 @@ class Client:
     def ping(self):
         return self.call(P.Ping())[0]
 
-    def hello(self, name, session, caps=(), cwd=None):
-        return self.call(P.Hello(name=name, session=session, caps=list(caps), cwd=cwd))
+    def hello(self, name, session, caps=(), cwd=None, title=None):
+        return self.call(P.Hello(name=name, session=session, caps=list(caps), cwd=cwd, title=title))
 
     def who(self):
         return self.call(P.Who())[0]
@@ -198,6 +198,7 @@ def cmd_hello(c, args):
         args.session,
         [x for x in args.caps.split(",") if x],
         cwd=args.cwd or os.getcwd(),
+        title=args.title,
     )
     for m, pl in delivers:
         emit({**m.to_dict(), "payload": decode_payload(pl)})
@@ -334,6 +335,7 @@ def build_parser():
     p.add_argument("--session", default=default_session())
     p.add_argument("--caps", default="", help="comma-separated capability tags")
     p.add_argument("--cwd", default=None, help="working directory to advertise")
+    p.add_argument("--title", default=None, help="human-facing session title")
 
     p = sub.add_parser("send", help="send to NAME[@SESSION]; reply with --reply-to ID")
     p.add_argument("--to", default=None)

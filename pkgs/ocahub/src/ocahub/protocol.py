@@ -144,6 +144,9 @@ class Hello(Meta):
     session: str
     caps: list = ()
     cwd: str | None = None
+    # The human-facing session title (what /rename sets in opencode). Free
+    # text; the hub stores it as-is and who() reports it.
+    title: str | None = None
 
 
 @dataclass

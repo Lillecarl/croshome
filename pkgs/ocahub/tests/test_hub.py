@@ -77,6 +77,33 @@ def test_hello_and_who(hub):
         a.close()
 
 
+def test_hello_title(hub):
+    a = Agent(hub, "explore", "s1")
+    b = Agent(hub, "explore", "s2")
+
+    def entry_of(session):
+        return next(s for s in hub.client().who()["sessions"] if s["session"] == session)
+
+    try:
+        # A hello without a title leaves it unset, and a later titled
+        # re-hello sets it; a re-hello without one keeps it.
+        assert entry_of("s1")["title"] is None
+        a._rpc({"type": P.HELLO, "name": "explore", "session": "s1", "title": "fix jool"})
+        assert entry_of("s1")["title"] == "fix jool"
+        a._rpc({"type": P.HELLO, "name": "explore", "session": "s1"})
+        assert entry_of("s1")["title"] == "fix jool"
+        # An empty title also keeps the one on record.
+        a._rpc({"type": P.HELLO, "name": "explore", "session": "s1", "title": "  "})
+        assert entry_of("s1")["title"] == "fix jool"
+        # A different title overwrites, and the other session is untouched.
+        a._rpc({"type": P.HELLO, "name": "explore", "session": "s1", "title": "renamed"})
+        assert entry_of("s1")["title"] == "renamed"
+        assert entry_of("s2")["title"] is None
+    finally:
+        a.close()
+        b.close()
+
+
 def test_bye_goes_offline(hub):
     a = Agent(hub, "explore", "s1")
     a.bye()

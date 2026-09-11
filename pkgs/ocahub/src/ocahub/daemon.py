@@ -195,12 +195,15 @@ class Hub:
         self.identity_map[identity] = key
         # A re-hello without cwd keeps the one on record.
         cwd = P.check_cwd(msg.cwd) or (entry.get("cwd") if entry else None)
+        # Same for the title: a re-hello without one does not blank it.
+        title = (msg.title or "").strip() or (entry.get("title") if entry else None)
         self.registry[key] = {
             "identity": identity,
             "last_seen": P.now(),
             "caps": caps,
             "online": True,
             "cwd": cwd,
+            "title": title,
         }
         if was_offline:
             await self.publish_event("session.up", name=name, session=session)
@@ -335,6 +338,7 @@ class Hub:
                 "last_seen": v["last_seen"],
                 "caps": v["caps"],
                 "cwd": v.get("cwd"),
+                "title": v.get("title"),
                 "asks": self._ask_count(k),
             }
             for k, v in sorted(

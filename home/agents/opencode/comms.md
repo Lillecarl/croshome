@@ -56,7 +56,10 @@ OCAHUB_SESSION to pin it.
 
 MCP tool mapping:
 
-- `agents_list(cwd=?)` - `ocac who`, filtered by directory.
+- `agents_list(cwd=?)` - `ocac who`, filtered by directory. Each entry
+  carries `title` (the session's human-facing name, what /rename sets).
+  The stop hook re-hellos every session its instance has seen every 45s,
+  so a running opencode stays online across the hub's 120s TTL.
 - `agent_send(to|cwd, message, kind, wait, timeout)` - `ocac send`; with
   kind=ask and wait=true it returns the reply itself.
 - `agent_reply(reply_to, message, to=?)` - `ocac send --kind reply`.
