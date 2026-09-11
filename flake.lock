@@ -364,6 +364,22 @@
         "type": "github"
       }
     },
+    "pyedit": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1789140450,
+        "narHash": "sha256-Z2l/iwWBWr3lFyHdnF+fTZfFt3s+ycn/760f+kQHhgg=",
+        "owner": "Lillecarl",
+        "repo": "pyedit",
+        "rev": "973cb907d7a526d16a8d34eabf030caeb9c209de",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "repo": "pyedit",
+        "type": "github"
+      }
+    },
     "pyproject-nix": {
       "inputs": {
         "nixpkgs": [
@@ -440,6 +456,7 @@
         "nixpkgs": "nixpkgs",
         "nixpkgs-stable": "nixpkgs-stable",
         "phabfive": "phabfive",
+        "pyedit": "pyedit",
         "pyproject-nix": "pyproject-nix_2",
         "pyterm": "pyterm"
       }

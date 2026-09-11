@@ -130,6 +130,12 @@
     # its env failed to build (tornado tests) and took every rebuild down with
     # it. Back once the base moved to stable 3.14.
     (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
+
+    # Same pattern as nanopynix: pyedit is a `flake = false` input, and its
+    # `default.nix` takes this configuration's package set, so it builds
+    # against the same Python and needs no second nixpkgs. Scripted multi-file
+    # edits with dry-run diffs -- the tool agents reach for before bash.
+    (import "${inputs.pyedit}" { inherit pkgs; }).pyedit
     # Nix diagnostics, for machines that rebuild this much. ../../rebuild uses
     # both: nvd lists the packages a switch would move, nix-diff says why a
     # derivation differs when no version moved at all.

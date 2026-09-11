@@ -146,6 +146,15 @@
       url = "git+https://github.com/Lillecarl/pyterm?submodules=1";
       flake = false;
     };
+
+    # A source tree, and not a flake, for the same reason as nanopynix above:
+    # `default.nix` takes `pkgs`, so this configuration's package set builds it
+    # and no second nixpkgs is instantiated. No submodules, so a plain
+    # `github:` fetch carries the whole tree.
+    pyedit = {
+      url = "github:Lillecarl/pyedit";
+      flake = false;
+    };
   };
   outputs =
     inputs:
