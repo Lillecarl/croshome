@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ocahub"
+version = "0.1.0"
+description = "Cross-agent message hub for OpenCode: a ZeroMQ broker and client CLI"
+requires-python = ">=3.11"
+dependencies = ["anyio>=4", "pyzmq>=25"]
+
+[project.scripts]
+ocahubd = "ocahub.daemon:main"
+ocac = "ocahub.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ocahub*"]

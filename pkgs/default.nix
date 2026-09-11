@@ -209,6 +209,8 @@ in
 
   merged-file = final.python3.pkgs.callPackage ./merged-file { };
 
+  ocahub = final.python3.pkgs.callPackage ./ocahub { };
+
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
   # vfkit with the memory balloon reachable over its REST API. Darwin only: it
