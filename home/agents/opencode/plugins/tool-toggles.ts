@@ -8,9 +8,11 @@ import type { TuiPlugin, TuiPluginApi } from "@opencode-ai/plugin/tui"
 // (Permission.disabled + Permission.visibleTools), which is the point: a weak
 // model never sees a tool it would misuse. Rules reset with the session.
 //
-// Deliberately palette-only: a default keybind needs the @opentui/keymap
-// Binding shape, which is not importable from a plugin. The user can still
-// reach it in two keystrokes from the command palette.
+// api.client is the v2 SDK: flat {sessionID} parameters, second options
+// argument, {data} responses, and errors only thrown with throwOnError --
+// without it a 404 comes back as an {error} envelope that looks like success.
+// The update response carries the merged ruleset, so it is authoritative;
+// state is applied optimistically and rolled back if the call fails.
 
 const CMD = "tools.toggle"
 
@@ -32,11 +34,15 @@ const TOOLS = [
 
 type Rule = { permission: string; pattern: string; action: "allow" | "deny" | "ask" }
 
-type SessionInfo = { permission?: Rule[] }
+type WithData<T> = { data?: T } & T
 
 function currentSession(api: TuiPluginApi): string | undefined {
   const route = api.route.current
   return route.name === "session" ? route.params.sessionID : undefined
+}
+
+function unwrap<T>(response: WithData<T> | undefined): T | undefined {
+  return response?.data ?? (response as T | undefined)
 }
 
 function stateOf(rules: Rule[] | undefined, key: string): "off" | "on" | "default" {
@@ -54,9 +60,19 @@ async function show(api: TuiPluginApi) {
     return
   }
 
+  let rules: Rule[] = []
   let busy = false
 
-  const render = (rules: Rule[] | undefined) => {
+  try {
+    const res = await api.client.session.get({ sessionID }, { throwOnError: true })
+    const found = unwrap<{ permission?: Rule[] }>(res)?.permission
+    rules = Array.isArray(found) ? found : []
+  } catch (error) {
+    api.ui.toast({ variant: "error", message: `Could not read session: ${error?.message ?? error}` })
+    return
+  }
+
+  const render = () => {
     api.ui.dialog.replace(() =>
       api.ui.DialogSelect({
         title: "Tool access (this session)",
@@ -65,56 +81,44 @@ async function show(api: TuiPluginApi) {
           return {
             title: key,
             value: key,
-            footer:
-              state === "off"
-                ? "disabled"
-                : state === "on"
-                  ? "enabled"
-                  : "default",
-            onSelect: () => toggle(key, state),
+            footer: state === "off" ? "disabled" : state === "on" ? "enabled" : "default",
           }
         }),
         onSelect: (option) => {
-          const key = option.value as string
-          const state = stateOf(rules, key)
-          void toggle(key, state)
+          void toggle(option.value as string)
         },
       }),
     )
   }
 
-  const toggle = (key: string, state: "off" | "on" | "default") => {
+  const toggle = (key: string) => {
     if (busy) return
     busy = true
-    const enable = state === "off"
-    const body = { permission: [{ permission: key, pattern: "*", action: enable ? "allow" : "deny" }] }
+    const enable = stateOf(rules, key) === "off"
+    const rule: Rule = { permission: key, pattern: "*", action: enable ? "allow" : "deny" }
+    const previous = rules
+    rules = [...rules, rule]
+    render()
+
     void api.client.session
-      .update({ path: { id: sessionID }, body } as never)
-      .then((info) => {
-        const next = (info as { data?: SessionInfo; permission?: Rule[] })
-        const rules = next?.data?.permission ?? next?.permission
-        api.ui.toast({
-          variant: "success",
-          message: `${key} ${enable ? "enabled" : "disabled"} for this session`,
-        })
-        render(rules)
+      .update({ sessionID, permission: [rule] }, { throwOnError: true })
+      .then((res) => {
+        const next = unwrap<{ permission?: Rule[] }>(res)?.permission
+        if (Array.isArray(next)) rules = next
+        api.ui.toast({ variant: "success", message: `${key} ${enable ? "enabled" : "disabled"} for this session` })
+        render()
       })
       .catch((error) => {
+        rules = previous
         api.ui.toast({ variant: "error", message: `Toggle failed: ${error?.message ?? error}` })
-        render(undefined)
+        render()
       })
       .finally(() => {
         busy = false
       })
   }
 
-  try {
-    const info = (await api.client.session.get({ path: { id: sessionID } })) as unknown
-    const wrapped = info as { data?: SessionInfo; permission?: Rule[] }
-    render(wrapped?.data?.permission ?? wrapped?.permission)
-  } catch (error) {
-    api.ui.toast({ variant: "error", message: `Could not read session: ${error?.message ?? error}` })
-  }
+  render()
 }
 
 const tui: TuiPlugin = async (api) => {
