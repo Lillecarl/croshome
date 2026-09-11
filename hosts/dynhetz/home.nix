@@ -1,18 +1,17 @@
 { lib, osConfig, pkgs, ... }:
 {
-  imports = [ ../../home ];
+  imports = [
+    ../../home
+    # The message hub's MCP server and CLI. The daemon runs as the user
+    # service below; ../../home/agents/shared/comms.md documents the tools.
+    ../../home/ocahub-mcp.nix
+  ];
 
   # The vendored xonsh bundle, built by the overlay entry of the same name
   # (../../pkgs/default.nix). Installed but deliberately not made anyone's
   # shell: it is still rounds away from ready, and fish stays users.users'
   # shells.lillecarl.shell until it is. Launch it as `anyxonsh` to try it.
-  home.packages = [
-    pkgs.anyxonsh
-
-    # The `ocac` client, on PATH for agents. The daemon runs as the user
-    # service below; see ../../home/agents/shared/comms.md for the commands.
-    pkgs.ocahub
-  ];
+  home.packages = [ pkgs.anyxonsh ];
 
   # The cross-agent message hub: a ZeroMQ broker every agent session
   # registers with. Idle it is one epoll-waiting process; Restart=always

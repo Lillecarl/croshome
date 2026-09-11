@@ -46,7 +46,11 @@ let
 
   # The explicit list, not a glob: a glob would sort alphabetically and lose the
   # reading order, and an explicit list keeps the check above meaningful.
-  instructions = map (f: "${selfStr}/home/agents/shared/${f}") shared;
+  # comms.md is opencode-only for now (hub tooling), so it lives in
+  # ./agents/opencode and rides the instructions list directly.
+  instructions =
+    map (f: "${selfStr}/home/agents/shared/${f}") shared
+    ++ [ "${selfStr}/home/agents/opencode/comms.md" ];
 in
 {
   config = {
