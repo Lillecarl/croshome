@@ -2,11 +2,17 @@ import type { TuiPlugin, TuiPluginApi } from "@opencode-ai/plugin/tui"
 
 // Session-scoped tool toggles. Opens a dialog from the command palette that
 // turns tools on and off for the CURRENT session by appending permission
-// rules ({permission, pattern: "*", action: deny|allow}) through the session
+// rules ({permission, pattern: "**", action: deny|allow}) through the session
 // update endpoint. Rules are findLast-wins, so re-enabling appends an allow
-// rule. Tools hidden this way are removed from the model's tool list entirely
-// (Permission.disabled + Permission.visibleTools), which is the point: a weak
-// model never sees a tool it would misuse. Rules reset with the session.
+// rule.
+//
+// Disabled tools stay in the model's tool list on purpose: a model that
+// cannot see a tool at all gets stuck with no way to adapt. The deny uses
+// pattern "**" (Wildcard.match reads it as "match anything") instead of "*"
+// because a "*" deny makes Permission.disabled HIDE the tool entirely. The
+// tool-gate plugin answers calls to "**"-denied tools with a plain message,
+// and the permission engine's own denial covers the case where it is not
+// loaded.
 //
 // api.client is the v2 SDK: flat {sessionID} parameters, second options
 // argument, {data} responses, and errors only thrown with throwOnError --
@@ -45,10 +51,10 @@ function unwrap<T>(response: WithData<T> | undefined): T | undefined {
   return response?.data ?? (response as T | undefined)
 }
 
-function stateOf(rules: Rule[] | undefined, key: string): "off" | "on" | "default" {
-  const mine = (rules ?? []).filter((rule) => rule.permission === key && rule.pattern === "*")
+function stateOf(rules: Rule[] | undefined, key: string): "off" | "hidden" | "on" | "default" {
+  const mine = (rules ?? []).filter((rule) => rule.permission === key && (rule.pattern === "*" || rule.pattern === "**"))
   const action = mine.at(-1)?.action
-  if (action === "deny") return "off"
+  if (action === "deny") return mine.at(-1)?.pattern === "*" ? "hidden" : "off"
   if (action === "allow") return "on"
   return "default"
 }
@@ -81,7 +87,14 @@ async function show(api: TuiPluginApi) {
           return {
             title: key,
             value: key,
-            footer: state === "off" ? "disabled" : state === "on" ? "enabled" : "default",
+            footer:
+              state === "off"
+                ? "off (visible, denied)"
+                : state === "hidden"
+                  ? "hidden"
+                  : state === "on"
+                    ? "enabled"
+                    : "default",
           }
         }),
         onSelect: (option) => {
@@ -94,8 +107,9 @@ async function show(api: TuiPluginApi) {
   const toggle = (key: string) => {
     if (busy) return
     busy = true
-    const enable = stateOf(rules, key) === "off"
-    const rule: Rule = { permission: key, pattern: "*", action: enable ? "allow" : "deny" }
+    const state = stateOf(rules, key)
+    const enable = state === "off" || state === "hidden"
+    const rule: Rule = { permission: key, pattern: "**", action: enable ? "allow" : "deny" }
     const previous = rules
     rules = [...rules, rule]
     render()
