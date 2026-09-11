@@ -60,7 +60,10 @@ class Hub:
 
 
 @pytest.fixture
-def hub(tmp_path):
+def hub(tmp_path, monkeypatch):
     h = Hub(tmp_path / "runtime", tmp_path / "state")
+    # The MCP tools resolve the hub from the environment, as in production.
+    monkeypatch.setenv("OCAHUB_RUNTIME_DIR", h.runtime)
+    monkeypatch.setenv("OCAHUB_STATE_DIR", h.state)
     yield h
     h.stop()

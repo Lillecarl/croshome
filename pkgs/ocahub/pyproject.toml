@@ -7,11 +7,12 @@ name = "ocahub"
 version = "0.1.0"
 description = "Cross-agent message hub for OpenCode: a ZeroMQ broker and client CLI"
 requires-python = ">=3.11"
-dependencies = ["anyio>=4", "pyzmq>=25"]
+dependencies = ["anyio>=4", "mcp>=1", "pyzmq>=25"]
 
 [project.scripts]
 ocahubd = "ocahub.daemon:main"
 ocac = "ocahub.cli:main"
+ocahub-mcp = "ocahub.mcp_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

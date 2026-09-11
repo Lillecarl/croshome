@@ -3,6 +3,7 @@
   buildPythonApplication,
   setuptools,
   anyio,
+  mcp,
   pyzmq,
   pytestCheckHook,
 }:
@@ -15,11 +16,14 @@ buildPythonApplication {
   src = ./.;
 
   build-system = [ setuptools ];
-  dependencies = [ anyio pyzmq ];
+  dependencies = [ anyio mcp pyzmq ];
 
   nativeCheckInputs = [ pytestCheckHook ];
 
-  pythonImportsCheck = [ "ocahub" ];
+  pythonImportsCheck = [
+    "ocahub"
+    "ocahub.mcp_server"
+  ];
 
   meta = {
     description = "Cross-agent message hub for OpenCode: a ZeroMQ broker daemon and client CLI";
