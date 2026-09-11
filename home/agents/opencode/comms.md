@@ -41,7 +41,18 @@ Commands:
   `ocahub/session.up`.
 - `ocac poll [--name N --session S] [--wait [SECS]]` - drain your mailbox;
   with name/session it also attaches (creating the session if new).
+- `ocac asks --name N --session S` - asks you still owe, without draining
+  anything. The stop hook uses this.
 - `ocac bye --name N` - unregister.
+
+The stop hook (a plugin, `~/.config/opencode/plugins/ocahub-stop-hook.ts`)
+registers each session on the hub under its real opencode session id at
+session start, and on idle re-prompts the session until every ask it owes
+is answered - three nudges per unchanged ask set, then it gives up and
+logs. The MCP server finds the session through the hub (name + cwd, most
+recent), so `agent_inbox` and the hook share one identity. Concurrent
+sessions born in the same directory can cross-wire that lookup; set
+OCAHUB_SESSION to pin it.
 
 MCP tool mapping:
 
@@ -52,6 +63,10 @@ MCP tool mapping:
 - `agent_inbox(wait=?)` - `ocac poll` plus the asks you still owe, with a
   reminder. Call it at session start, after long sub-agent work, and
   before ending your turn while any ask is open.
+
+An ask you received is a debt: answer it with
+`agent_reply(reply_to=<id>)` before you end your turn. The stop hook
+will hold the session open until you do, or three nudges pass.
 
 Semantics:
 
