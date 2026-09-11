@@ -82,10 +82,17 @@ in
       };
 
     # Global plugins directory. opencode auto-loads every .ts/.js file in
-    # ~/.config/opencode/plugins/. Out-of-store symlink, so editing a plugin
-    # reaches the next session with no rebuild -- the same trade ./agents.nix
-    # makes for the skills directory.
+    # ~/.config/opencode/plugins/ -- but only the server plugin loader scans
+    # it. The TUI loader takes its plugin list from tui config files
+    # (tui.json), so a TUI plugin must be named there with an absolute path;
+    # selfStr bakes the per-host checkout path at build time. mergedFile, not
+    # home.file: the rest of the file stays hand-editable.
     home.file.".config/opencode/plugins".source =
       config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/agents/opencode/plugins";
+
+    home.mergedFile.".config/opencode/tui.json" = {
+      format = "json";
+      settings.plugin = [ "${selfStr}/home/agents/opencode/plugins/tool-toggles.ts" ];
+    };
   };
 }
