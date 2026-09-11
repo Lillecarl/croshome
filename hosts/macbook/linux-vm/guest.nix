@@ -258,7 +258,7 @@ in
     # Journal on disk rather than in /run, so yesterday's failure is still
     # diagnosable today. Default is volatile, which suits a VM that ceases to
     # exist between runs; this one persists.
-    services.journald.extraConfig = "Storage=persistent";
+    services.journald.settings.Journal.Storage = "persistent";
 
     # Stage 2 bind-mounts /nix/store onto itself to enforce these options, and
     # its default list includes `ro` -- store immutability policy that would
