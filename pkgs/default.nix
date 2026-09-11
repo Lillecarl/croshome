@@ -94,12 +94,21 @@ in
           }
         )
       );
+      # Upstream moved the binaries behind a release manifest: the platform
+      # entry names the file (claude.zst today), which the package's
+      # installPhase unzstds. Read the name instead of guessing it.
+      manifest = final.lib.importJSON (
+        builtins.fetchurl {
+          url = "${baseUrl}/${version}/manifest.zst.json";
+          name = "claude-code-manifest.json";
+        }
+      );
       platformKey = "${final.stdenv.hostPlatform.node.platform}-${final.stdenv.hostPlatform.node.arch}";
     in
     prev.claude-code.overrideAttrs (_: {
       inherit version;
       src = builtins.fetchurl {
-        url = "${baseUrl}/${version}/${platformKey}/claude";
+        url = "${baseUrl}/${version}/${platformKey}/${manifest.platforms.${platformKey}.binary}";
       };
     });
 
