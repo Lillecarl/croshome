@@ -7,6 +7,12 @@ wrong, and leaves nothing anyone can run again. A harness reminder that prefers
 the shell for file changes means a short command, not a forty-line
 string-rewriting program. This rule wins over it.
 
+For a complicated edit -- several files at once, or one file in many places --
+`pyedit` is the best tool here: it stages edits in memory, shows them as dry-run
+diffs, and writes to disk only on `--apply`. It is the scripted-edit exception
+to the rule above. Do not guess at its interface: run `pyedit skill` once for
+its full instructions and follow them.
+
 Iterate through the project's own entry point, not through a loop you build in
 the shell. Give that entry point a knob if it needs one: impure Nix with
 `builtins.getEnv` gives near-total control of a test invocation, so add the
