@@ -9,21 +9,36 @@ class Mailbox:
         self._db.execute(
             """CREATE TABLE IF NOT EXISTS mailbox (
             msg_id TEXT PRIMARY KEY, to_name TEXT NOT NULL, to_session TEXT,
-            from_addr TEXT, topic TEXT, reply_to TEXT, ts REAL NOT NULL,
+            kind TEXT, from_addr TEXT, topic TEXT, reply_to TEXT, ts REAL NOT NULL,
             payload BLOB NOT NULL)"""
         )
+        cols = {row[1] for row in self._db.execute("PRAGMA table_info(mailbox)")}
+        if "kind" not in cols:
+            # The v0 store predates message kinds.
+            self._db.execute("ALTER TABLE mailbox ADD COLUMN kind TEXT")
         self._db.commit()
 
-    def put(self, msg_id, to_name, to_session, from_addr, topic, reply_to, ts, payload):
+    def put(
+        self,
+        msg_id,
+        to_name,
+        to_session,
+        kind,
+        from_addr,
+        topic,
+        reply_to,
+        ts,
+        payload,
+    ):
         self._db.execute(
-            "INSERT OR REPLACE INTO mailbox VALUES (?,?,?,?,?,?,?,?)",
-            (msg_id, to_name, to_session, from_addr, topic, reply_to, ts, payload),
+            "INSERT OR REPLACE INTO mailbox VALUES (?,?,?,?,?,?,?,?,?)",
+            (msg_id, to_name, to_session, kind, from_addr, topic, reply_to, ts, payload),
         )
         self._db.commit()
 
     def take(self, to_name, to_session):
         rows = self._db.execute(
-            """SELECT msg_id, to_name, to_session, from_addr, topic, reply_to, ts, payload
+            """SELECT msg_id, to_name, to_session, kind, from_addr, topic, reply_to, ts, payload
             FROM mailbox WHERE to_name = ? AND (to_session IS NULL OR to_session = ?)
             ORDER BY ts""",
             (to_name, to_session),

@@ -96,26 +96,35 @@ class Client:
     def ping(self):
         return self.call({"v": P.V, "id": P.new_id(), "type": P.PING, "ts": P.now()})[0]
 
-    def hello(self, name, session, caps=()):
-        return self.call(
-            {
-                "v": P.V,
-                "id": P.new_id(),
-                "type": P.HELLO,
-                "name": name,
-                "session": session,
-                "caps": list(caps),
-                "ts": P.now(),
-            }
-        )
+    def hello(self, name, session, caps=(), cwd=None):
+        meta = {
+            "v": P.V,
+            "id": P.new_id(),
+            "type": P.HELLO,
+            "name": name,
+            "session": session,
+            "caps": list(caps),
+            "ts": P.now(),
+        }
+        if cwd:
+            meta["cwd"] = cwd
+        return self.call(meta)
 
     def who(self):
         return self.call({"v": P.V, "id": P.new_id(), "type": P.WHO, "ts": P.now()})[0]
 
-    def send(self, to=None, topic=None, reply_to=None, payload=b""):
-        meta = {"v": P.V, "id": P.new_id(), "type": P.SEND, "ts": P.now()}
+    def send(self, to=None, topic=None, reply_to=None, kind=P.KIND_TELL, payload=b"", cwd=None):
+        meta = {
+            "v": P.V,
+            "id": P.new_id(),
+            "type": P.SEND,
+            "kind": P.check_kind(kind),
+            "ts": P.now(),
+        }
         if to:
             meta["to"] = to
+        if cwd:
+            meta["cwd"] = cwd
         if topic:
             meta["topic"] = topic
         if reply_to:
@@ -128,10 +137,27 @@ class Client:
             payload,
         )[0]
 
-    def send_wait(self, to=None, topic=None, reply_to=None, payload=b"", wait=30.0):
-        meta = {"v": P.V, "id": P.new_id(), "type": P.SEND, "ts": P.now()}
+    def send_wait(
+        self,
+        to=None,
+        topic=None,
+        reply_to=None,
+        kind=P.KIND_TELL,
+        payload=b"",
+        wait=30.0,
+        cwd=None,
+    ):
+        meta = {
+            "v": P.V,
+            "id": P.new_id(),
+            "type": P.SEND,
+            "kind": P.check_kind(kind),
+            "ts": P.now(),
+        }
         if to:
             meta["to"] = to
+        if cwd:
+            meta["cwd"] = cwd
         if topic:
             meta["topic"] = topic
         if reply_to:
@@ -158,7 +184,7 @@ class Client:
         finally:
             d.close(0)
 
-    def poll_wait(self, name, session, wait=30.0):
+    def poll_wait(self, name, session, wait=30.0, cwd=None):
         meta = {
             "v": P.V,
             "id": P.new_id(),
@@ -167,6 +193,8 @@ class Client:
             "session": session,
             "ts": P.now(),
         }
+        if cwd:
+            meta["cwd"] = cwd
         d = self.dealer()
         try:
             ack, delivers = self.request(d, meta)
@@ -202,7 +230,12 @@ def read_payload(args):
 
 
 def cmd_hello(c, args):
-    ack, delivers = c.hello(args.name, args.session, [x for x in args.caps.split(",") if x])
+    ack, delivers = c.hello(
+        args.name,
+        args.session,
+        [x for x in args.caps.split(",") if x],
+        cwd=args.cwd or os.getcwd(),
+    )
     for m, pl in delivers:
         emit({**m, "payload": decode_payload(pl)})
     emit(ack)
@@ -212,11 +245,24 @@ def cmd_hello(c, args):
 def cmd_send(c, args):
     payload = read_payload(args)
     if args.wait is None:
-        ack = c.send(to=args.to, topic=args.topic, reply_to=args.reply_to, payload=payload)
+        ack = c.send(
+            to=args.to,
+            topic=args.topic,
+            reply_to=args.reply_to,
+            kind=args.kind,
+            payload=payload,
+            cwd=args.cwd,
+        )
         emit(ack)
         return EXIT_OK if ack.get("ok") else EXIT_HUB
     ack, m, pl = c.send_wait(
-        to=args.to, topic=args.topic, reply_to=args.reply_to, payload=payload, wait=args.wait
+        to=args.to,
+        topic=args.topic,
+        reply_to=args.reply_to,
+        kind=args.kind,
+        payload=payload,
+        wait=args.wait,
+        cwd=args.cwd,
     )
     emit(ack)
     emit({**m, "payload": decode_payload(pl)})
@@ -334,6 +380,18 @@ def build_parser():
 
     p = sub.add_parser("send", help="send to NAME[@SESSION]; reply with --reply-to ID")
     p.add_argument("--to", default=None)
+    p.add_argument(
+        "--cwd",
+        default=None,
+        help="target the most recent online session working in a matching directory",
+    )
+    p.add_argument(
+        "--kind",
+        default=P.KIND_TELL,
+        choices=(P.KIND_TELL, P.KIND_ASK, P.KIND_REPLY),
+        help="tell = fire and forget; ask = a reply is owed; reply = answers an ask, "
+        "passed through as a tell when the ask is gone",
+    )
     p.add_argument("--topic", default=None)
     p.add_argument("--reply-to", dest="reply_to", default=None)
     p.add_argument("-m", "--message", default=None)

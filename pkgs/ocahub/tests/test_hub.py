@@ -4,24 +4,24 @@ import time
 import zmq
 
 from ocahub import protocol as P
-from ocahub.cli import Unreachable, WaitTimeout
-from ocahub.cli import Client
+from ocahub.cli import Client, HubError, Unreachable, WaitTimeout
 from conftest import Hub
 
 
 class Agent:
     """A raw-socket agent speaking the wire protocol directly."""
 
-    def __init__(self, hub, name, session, caps=()):
+    def __init__(self, hub, name, session, caps=(), cwd=None):
         self.name, self.session = name, session
         self.ctx = zmq.Context()
         self.dealer = self.ctx.socket(zmq.DEALER)
         self.dealer.setsockopt(zmq.LINGER, 0)
         self.dealer.setsockopt(zmq.RCVTIMEO, 10000)
         self.dealer.connect(f"ipc://{hub.runtime}/router.sock")
-        _, self.hello_delivers = self._rpc(
-            {"type": P.HELLO, "name": name, "session": session, "caps": list(caps)}
-        )
+        hello = {"type": P.HELLO, "name": name, "session": session, "caps": list(caps)}
+        if cwd:
+            hello["cwd"] = cwd
+        _, self.hello_delivers = self._rpc(hello)
 
     def _rpc(self, meta, payload=b""):
         self.dealer.send_multipart(P.encode(meta, payload))
@@ -179,3 +179,145 @@ def test_poll_drains_and_waits(hub):
         raise AssertionError("expected WaitTimeout")
     except WaitTimeout:
         pass
+
+
+def test_ask_reply_roundtrip(hub):
+    a = Agent(hub, "asker", "a1")
+    b = Agent(hub, "worker", "w1")
+    try:
+        a.send({"kind": P.KIND_ASK, "to": "worker@w1"}, b"what?")
+        m, pl = b.recv()
+        assert m["kind"] == P.KIND_ASK and pl == b"what?"
+        ask_id = m["id"]
+        who = hub.client().who()["sessions"]
+        assert next(s for s in who if s["name"] == "worker")["asks"] == 1
+        b.send({"kind": P.KIND_REPLY, "reply_to": ask_id}, b"so")
+        rm, rpl = a.recv()
+        assert rm["kind"] == P.KIND_REPLY and rm["reply_to"] == ask_id and rpl == b"so"
+        who = hub.client().who()["sessions"]
+        assert next(s for s in who if s["name"] == "worker")["asks"] == 0
+    finally:
+        a.close()
+        b.close()
+
+
+def test_reply_degrades_to_tell_without_ask(hub):
+    a = Agent(hub, "asker", "a1")
+    b = Agent(hub, "worker", "w1")
+    try:
+        # No ask was ever sent; the reply must still land, as a tell.
+        b.send({"kind": P.KIND_REPLY, "reply_to": "nosuchid", "to": "asker@a1"}, b"late")
+        m, pl = a.recv()
+        assert m["kind"] == P.KIND_TELL and pl == b"late"
+    finally:
+        a.close()
+        b.close()
+
+
+def test_reply_survives_expired_ask_via_pending(hub):
+    # A tell (not an ask) opens a pending entry; a reply_to against it
+    # routes back as a tell because no ask was owed.
+    a = Agent(hub, "asker", "a1")
+    b = Agent(hub, "worker", "w1")
+    try:
+        a.send({"to": "worker@w1"}, b"fyi")
+        m, _ = b.recv()
+        b.send({"kind": P.KIND_REPLY, "reply_to": m["id"]}, b"got it")
+        rm, rpl = a.recv()
+        assert rm["kind"] == P.KIND_TELL and rpl == b"got it"
+    finally:
+        a.close()
+        b.close()
+
+
+def test_reply_without_target_after_ask_expired(hub):
+    a = Agent(hub, "asker", "a1")
+    try:
+        c = hub.client()
+        try:
+            c.send(kind=P.KIND_REPLY, reply_to="vanished", payload=b"orphan")
+            raise AssertionError("expected HubError")
+        except HubError as e:
+            assert "reply target is gone" in str(e)
+    finally:
+        a.close()
+
+
+def test_asks_verb_lists_open_asks(hub):
+    a = Agent(hub, "asker", "a1")
+    b = Agent(hub, "worker", "w1")
+    try:
+        a.send({"kind": P.KIND_ASK, "to": "worker@w1"}, b"q1")
+        a.send({"kind": P.KIND_ASK, "to": "worker"}, b"q2")
+        ask_ack, _ = b._rpc({"type": P.ASKS, "name": "worker", "session": "w1"})
+        assert [i["from"] for i in ask_ack["asks"]] == ["asker@a1", "asker@a1"]
+        assert all(i["id"] for i in ask_ack["asks"])
+    finally:
+        a.close()
+        b.close()
+
+
+def test_ask_to_offline_queues_with_kind(hub):
+    c = hub.client()
+    ack = c.send(to="late", kind=P.KIND_ASK, payload=b"owed")
+    assert ack["status"] == "queued"
+    a = Agent(hub, "late", "l1")
+    try:
+        assert len(a.hello_delivers) == 1
+        m, pl = a.hello_delivers[0]
+        assert m["kind"] == P.KIND_ASK and pl == b"owed"
+    finally:
+        a.close()
+
+
+def test_cwd_registered_and_targeted(hub):
+    a = Agent(hub, "worker", "w1", cwd="/home/x/proj")
+    try:
+        who = hub.client().who()["sessions"]
+        assert next(s for s in who if s["name"] == "worker")["cwd"] == "/home/x/proj"
+        ack = hub.client().send(cwd="/home/x/proj", payload=b"hi")
+        assert ack["status"] == "delivered"
+        _, pl = a.recv()
+        assert pl == b"hi"
+    finally:
+        a.close()
+
+
+def test_send_by_cwd_prefix_matches(hub):
+    a = Agent(hub, "worker", "w1", cwd="/home/x/proj/sub")
+    try:
+        ack = hub.client().send(cwd="/home/x/proj", payload=b"deep")
+        assert ack["status"] == "delivered"
+    finally:
+        a.close()
+
+
+def test_send_by_cwd_without_online_fails(hub):
+    a = Agent(hub, "worker", "w1", cwd="/home/x/proj")
+    try:
+        c = hub.client()
+        try:
+            c.send(cwd="/nowhere", payload=b"x")
+            raise AssertionError("expected HubError")
+        except HubError as e:
+            assert "no online session" in str(e)
+    finally:
+        a.close()
+
+
+def test_poll_attach_creates_registry_entry_with_cwd(hub):
+    c = hub.client()
+    c.call(
+        {
+            "v": P.V,
+            "id": P.new_id(),
+            "type": P.POLL,
+            "name": "phantom",
+            "session": "p9",
+            "cwd": "/w/p",
+            "ts": P.now(),
+        }
+    )
+    who = c.who()["sessions"]
+    entry = next(s for s in who if s["name"] == "phantom")
+    assert entry["online"] and entry["cwd"] == "/w/p"

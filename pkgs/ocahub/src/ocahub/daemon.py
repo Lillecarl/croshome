@@ -23,6 +23,8 @@ log = logging.getLogger("ocahub")
 SESSION_TTL = 120.0
 MAILBOX_MAX_AGE = 7 * 24 * 3600.0
 PENDING_TTL = 600.0
+# Asks stay owed longer than replies may take to compose.
+ASK_TTL = 1800.0
 SWEEP_EVERY = 10.0
 
 
@@ -45,6 +47,10 @@ def state_dir():
     return base
 
 
+def _cwd_match(registered, query):
+    return P.cwd_match(registered, query)
+
+
 class Hub:
     def __init__(self, ctx, runtime, state):
         os.makedirs(runtime, mode=0o700, exist_ok=True)
@@ -58,6 +64,7 @@ class Hub:
         self.registry = {}
         self.identity_map = {}  # identity bytes -> (name, session)
         self.pending = {}  # msg id -> (identity, expiry), for --reply-to routing
+        self.asks = {}  # msg id -> {target, from_identity, from, ts}, the ask ledger
 
         self.router = ctx.socket(zmq.ROUTER)
         # Sends to a vanished identity must fail loudly; without this they
@@ -145,6 +152,7 @@ class Hub:
             meta["id"],
             name,
             session,
+            meta.get("kind"),
             meta.get("from"),
             meta.get("topic"),
             meta.get("reply_to"),
@@ -158,6 +166,14 @@ class Hub:
             (v["last_seen"], k)
             for k, v in self.registry.items()
             if k[0] == name and v["online"]
+        ]
+        return max(live)[1] if live else None
+
+    def _latest_live_by_cwd(self, cwd):
+        live = [
+            (v["last_seen"], k)
+            for k, v in self.registry.items()
+            if v["online"] and v.get("cwd") and _cwd_match(v["cwd"], cwd)
         ]
         return max(live)[1] if live else None
 
@@ -180,6 +196,7 @@ class Hub:
                     "v": P.V,
                     "id": msg_id,
                     "type": P.DELIVER,
+                    "kind": kind,
                     "from": from_addr,
                     "topic": topic,
                     "reply_to": reply_to,
@@ -187,7 +204,7 @@ class Hub:
                 },
                 payload,
             )
-            for msg_id, _, _, from_addr, topic, reply_to, ts, payload in rows
+            for msg_id, _, _, kind, from_addr, topic, reply_to, ts, payload in rows
         ]
 
     async def _on_hello(self, identity, meta, payload):
@@ -200,11 +217,14 @@ class Hub:
             self.identity_map.pop(entry["identity"], None)
         was_offline = entry is None or not entry["online"]
         self.identity_map[identity] = key
+        # A re-hello without cwd keeps the one on record.
+        cwd = P.check_cwd(meta.get("cwd")) or (entry.get("cwd") if entry else None)
         self.registry[key] = {
             "identity": identity,
             "last_seen": P.now(),
             "caps": caps,
             "online": True,
+            "cwd": cwd,
         }
         if was_offline:
             await self.publish_event("session.up", name=name, session=session)
@@ -215,31 +235,68 @@ class Hub:
 
     async def _on_send(self, identity, meta, payload):
         msg_id = meta.get("id") or P.new_id()
+        kind = P.check_kind(meta.get("kind"))
         self.pending[msg_id] = (identity, P.now() + PENDING_TTL)
         out = {
             "v": P.V,
             "id": msg_id,
             "type": P.DELIVER,
+            "kind": kind,
             "from": self.sender_addr(identity),
             "topic": meta.get("topic"),
             "reply_to": meta.get("reply_to"),
             "ts": P.now(),
         }
         reply_to = meta.get("reply_to")
-        if reply_to and not meta.get("to"):
+        if kind == P.KIND_REPLY and reply_to:
+            # Forgiving: a reply with no live ask rides through as a tell.
+            ask = self.asks.pop(reply_to, None)
+            out["kind"] = P.KIND_REPLY if ask else P.KIND_TELL
+            target = (ask or {}).get("from_identity")
+            if target is None:
+                target = self.pending.get(reply_to, (None,))[0]
+            if target is not None and await self._route(target, out, payload):
+                status = "delivered"
+            elif meta.get("to"):
+                name, session = self._parse_target(meta["to"])
+                key = (name, session) if session else self._latest_live(name) or (name, None)
+                status = await self._deliver_to_session(key, out, payload)
+            else:
+                raise P.ProtocolError("reply target is gone; pass 'to'")
+        elif reply_to and not meta.get("to"):
             pend = self.pending.get(reply_to)
             if not pend:
                 raise P.ProtocolError(f"unknown reply_to: {reply_to}")
-            target, status = pend[0], ("delivered" if await self._route(
-                pend[0], out, payload
-            ) else "lost")
+            status = "delivered" if await self._route(pend[0], out, payload) else "lost"
         else:
-            name, session = self._parse_target(meta.get("to"))
-            key = (name, session) if session else self._latest_live(name) or (name, None)
+            if meta.get("to"):
+                name, session = self._parse_target(meta["to"])
+                key = (name, session) if session else self._latest_live(name) or (name, None)
+            elif meta.get("cwd"):
+                key = self._latest_live_by_cwd(meta["cwd"])
+                if key is None:
+                    raise P.ProtocolError(
+                        f"no online session with cwd matching {meta['cwd']}"
+                    )
+            else:
+                raise P.ProtocolError("send needs 'to' or 'cwd' (or a 'reply_to')")
             status = await self._deliver_to_session(key, out, payload)
-        await self._reply(identity, meta, status=status)
+            if kind == P.KIND_ASK:
+                self.asks[msg_id] = {
+                    "target": key,
+                    "from_identity": identity,
+                    "from": out["from"],
+                    "ts": out["ts"],
+                }
+        await self._reply(identity, meta, status=status, kind=kind)
 
-    async def _on_poll(self, identity, meta, payload):
+    async def _resolve_session(self, identity, meta):
+        """Key for this caller: explicit name/session, else the hello mapping.
+
+        An explicit key re-binds the registry entry's socket to this caller,
+        which is how a fresh process attaches to an existing session. A key
+        with no entry is created, so a poll-only session is discoverable.
+        """
         name = meta.get("name")
         session = meta.get("session")
         if name and session:
@@ -248,19 +305,45 @@ class Hub:
             key = (name, session)
             self.identity_map[identity] = key
             entry = self.registry.get(key)
-            if entry:
+            if entry is None:
+                self.registry[key] = {
+                    "identity": identity,
+                    "last_seen": P.now(),
+                    "caps": [],
+                    "online": True,
+                    "cwd": None,
+                }
+                await self.publish_event("session.up", name=name, session=session)
+            else:
                 was_offline = not entry["online"]
                 entry["identity"] = identity
                 entry["last_seen"] = P.now()
                 if was_offline:
                     await self._set_online(key, True)
+            cwd = P.check_cwd(meta.get("cwd"))
+            if cwd:
+                entry = self.registry[key]
+                entry["cwd"] = cwd
         elif identity not in self.identity_map:
-            raise P.ProtocolError("poll needs name and session, or a hello first")
-        key = self.identity_map[identity]
+            raise P.ProtocolError("needs name and session, or a hello first")
+        return self.identity_map[identity]
+
+    async def _on_poll(self, identity, meta, payload):
+        key = await self._resolve_session(identity, meta)
         delivers = self._drain_mailbox(*key)
         for m, pl in delivers:
             await self.router.send_multipart([identity, *P.encode(m, pl)])
         await self._reply(identity, meta, status="drained", count=len(delivers))
+
+    async def _on_asks(self, identity, meta, payload):
+        key = await self._resolve_session(identity, meta)
+        name, _ = key
+        items = [
+            {"id": msg_id, "from": a["from"], "ts": a["ts"]}
+            for msg_id, a in sorted(self.asks.items(), key=lambda kv: kv[1]["ts"])
+            if a["target"] == key or a["target"] == (name, None)
+        ]
+        await self._reply(identity, meta, asks=items)
 
     async def _on_broadcast(self, identity, meta, payload):
         # The hub publishes on the sender's behalf, so a broadcast needs no
@@ -277,6 +360,14 @@ class Hub:
         await self.events.send_multipart([topic.encode(), *P.encode(out, payload)])
         await self._reply(identity, meta, status="broadcast", topic=topic)
 
+    def _ask_count(self, key):
+        name, _ = key
+        return sum(
+            1
+            for a in self.asks.values()
+            if a["target"] == key or a["target"] == (name, None)
+        )
+
     async def _on_who(self, identity, meta, payload):
         sessions = [
             {
@@ -285,6 +376,8 @@ class Hub:
                 "online": v["online"],
                 "last_seen": v["last_seen"],
                 "caps": v["caps"],
+                "cwd": v.get("cwd"),
+                "asks": self._ask_count(k),
             }
             for k, v in sorted(
                 self.registry.items(), key=lambda kv: -kv[1]["last_seen"]
@@ -321,6 +414,8 @@ class Hub:
             await self._on_send(identity, meta, payload)
         elif t == P.POLL:
             await self._on_poll(identity, meta, payload)
+        elif t == P.ASKS:
+            await self._on_asks(identity, meta, payload)
         elif t == P.BROADCAST:
             await self._on_broadcast(identity, meta, payload)
         elif t == P.WHO:
@@ -369,6 +464,9 @@ class Hub:
             expired = [m for m, (_, exp) in self.pending.items() if exp < now]
             for msg_id in expired:
                 del self.pending[msg_id]
+            stale_asks = [m for m, a in self.asks.items() if now - a["ts"] > ASK_TTL]
+            for msg_id in stale_asks:
+                del self.asks[msg_id]
 
 
 async def serve(runtime=None, state=None):
