@@ -30,8 +30,12 @@ class Mailbox:
         ts,
         payload,
     ):
+        # Column names, not position: a store migrated from v0 has `kind`
+        # appended last, and a positional INSERT would feed `ts` a NULL.
         self._db.execute(
-            "INSERT OR REPLACE INTO mailbox VALUES (?,?,?,?,?,?,?,?,?)",
+            """INSERT OR REPLACE INTO mailbox
+            (msg_id, to_name, to_session, kind, from_addr, topic, reply_to, ts, payload)
+            VALUES (?,?,?,?,?,?,?,?,?)""",
             (msg_id, to_name, to_session, kind, from_addr, topic, reply_to, ts, payload),
         )
         self._db.commit()

@@ -257,6 +257,34 @@ def test_asks_verb_lists_open_asks(hub):
         b.close()
 
 
+def test_mailbox_migrates_v0_store(tmp_path):
+    # A v0 store has no `kind` column; the migration appends it last, and a
+    # positional INSERT then feeds `ts` a NULL. This is the shape that
+    # crashed the deployed hub.
+    import sqlite3
+
+    from ocahub.store import Mailbox
+
+    path = tmp_path / "mail.db"
+    db = sqlite3.connect(path)
+    db.execute(
+        """CREATE TABLE mailbox (
+        msg_id TEXT PRIMARY KEY, to_name TEXT NOT NULL, to_session TEXT,
+        from_addr TEXT, topic TEXT, reply_to TEXT, ts REAL NOT NULL,
+        payload BLOB NOT NULL)"""
+    )
+    db.execute("INSERT INTO mailbox VALUES ('old', 'late', NULL, 'a', NULL, NULL, 1.0, x'78')")
+    db.commit()
+    db.close()
+
+    box = Mailbox(path)
+    box.put("new", "late", "l1", "ask", "a", None, None, 2.0, b"y")
+    # take() orders by ts: the v0 row first, the new ask second.
+    rows = box.take("late", "l1")
+    assert [r[0] for r in rows] == ["old", "new"]
+    assert rows[0][8] == b"x" and rows[1][3] == "ask" and rows[1][8] == b"y"
+
+
 def test_ask_to_offline_queues_with_kind(hub):
     c = hub.client()
     ack = c.send(to="late", kind=P.KIND_ASK, payload=b"owed")
