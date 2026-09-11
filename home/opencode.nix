@@ -76,6 +76,7 @@ in
         # Everything else still asks.
         settings.permission.external_directory = {
           "/nix/store/**" = "allow";
+          "/etc/nixpkgs/**" = "allow";
           "~/Code/**" = "allow";
           "~/.config/opencode/**" = "allow";
         };
