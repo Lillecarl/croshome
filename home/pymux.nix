@@ -48,7 +48,15 @@
     #
     # An absolute path, and not `~`. `source-file` does expand `~`, but the
     # generated file already knows where XDG put it.
+    #
+    # `window-size latest` is tmux's "resize a window to the client that
+    # attached or switched last", so the terminal you are looking at drives
+    # the layout. `settings` cannot say it: the module's `set-option` line
+    # takes no flags, and a bare `set-option window-size` errors at startup
+    # ("There is no window yet") because window options are per window -- only
+    # `-g` names what every new window starts with.
     extraConfig = ''
+      set-window-option -g window-size latest
       source-file ${config.xdg.configHome}/pymux/linked.conf
     '';
   };
