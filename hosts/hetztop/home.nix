@@ -35,4 +35,8 @@
       store instead of the daemon. Use it only when I ask for it by name.
     '';
   };
+
+  # See ../../home/codex-md.nix -- generates ~/.codex/AGENTS.md. Shared prose
+  # only, inlined at build time; Codex has no import mechanism.
+  programs.codexInstructions.enable = true;
 }

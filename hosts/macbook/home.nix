@@ -34,6 +34,10 @@ in
     cloneDir = "~/Dynamist";
   };
 
+  # See ../../home/codex-md.nix -- generates ~/.codex/AGENTS.md. Shared prose
+  # only, inlined at build time; Codex has no import mechanism.
+  programs.codexInstructions.enable = true;
+
   home.packages = [
     pkgs.autossh
   ];

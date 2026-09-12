@@ -22,6 +22,7 @@
     ./agents.nix
     ./ask.nix
     ./claude-md.nix
+    ./codex-md.nix
     ./fish.nix
     ./fonts.nix
     ./git-bug.nix
