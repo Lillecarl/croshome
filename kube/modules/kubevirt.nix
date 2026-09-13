@@ -85,6 +85,32 @@ in
     # one node.
     infra.replicas = 1;
 
-    configuration = { };
+    configuration = {
+      # LIVE UPDATE, so a running VM can grow without a reboot. Without
+      # this KubeVirt stages a CPU or memory change and applies it on the
+      # next restart, which is the same thing as not having it: the whole
+      # point is not to restart.
+      #
+      # It only covers what libvirt can hotplug -- CPU SOCKETS (not
+      # cores), guest memory, tolerations and affinity. Disks are a
+      # separate mechanism (`virtctl addvolume`), and a disk declared in
+      # `dataVolumeTemplates` can never be one of them: that field is
+      # immutable on a VM, so growing such a disk still means destroying
+      # the VM. nixlab2 learned that the hard way, 2026-09-13.
+      vmRolloutStrategy = "LiveUpdate";
+
+      # THE CEILING IS SET AT BOOT WHATEVER HAPPENS -- QEMU reserves the
+      # guest address space for hotplug when the VM starts, so a VM can
+      # only ever grow to a limit that existed before it booted. A VM may
+      # name its own with `domain.memory.maxGuest` and
+      # `domain.cpu.maxSockets`; this ratio is what the ones that do not
+      # get, and 4 is KubeVirt's own default. Stated rather than
+      # inherited because it is the number that decides whether a VM can
+      # be grown at all.
+      #
+      # Reserved address space is not reserved host memory. A 4x ceiling
+      # costs nothing until someone uses it.
+      liveUpdateConfiguration.maxHotplugRatio = 4;
+    };
   };
 }
