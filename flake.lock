@@ -367,11 +367,11 @@
     "pyedit": {
       "flake": false,
       "locked": {
-        "lastModified": 1789230224,
-        "narHash": "sha256-0oPiQDRI5NcUNhXV1y0TlECiwQpmXF8y0AfIL9okqLw=",
+        "lastModified": 1789301047,
+        "narHash": "sha256-r0WPaW/tdjKxhuz5uDV0C5TkUIVLO81tgmSiwoN4I0k=",
         "owner": "Lillecarl",
         "repo": "pyedit",
-        "rev": "727e5cc16922c8e711baf1b056db7c4881708894",
+        "rev": "33b07ad1e93b4a63868e35ddc666ca7f843459dd",
         "type": "github"
       },
       "original": {
