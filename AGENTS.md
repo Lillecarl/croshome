@@ -217,6 +217,11 @@ diff <(ls /run/current-system/etc/systemd/system) \
 readlink -f /run/current-system/kernel /tmp/next/kernel   # same kernel?
 ```
 
+`claude-code` is intentionally unpinned so it always runs the latest version:
+the overlay resolves `latest` from downloads.claude.ai at build time
+(`pkgs/default.nix`). Every rebuild can bump it with no input change, so a
+claude-code move in an otherwise unrelated diff is expected, not a leak.
+
 Then activate with `ai-rebuild`, no sudo in front of it. It evaluates and builds
 as the calling user, sharing that user's fetcher cache, and elevates once at the
 end for the profile flip and the switch. NOPASSWD for `lillecarl` on macbook,
