@@ -84,6 +84,9 @@ runCommand "ocahub-tui-e2e"
     # the suite uses are declared here, and an unregistered mark is a
     # warning today and an error the day strict mode lands.
     cp ${./pyproject.toml} .
+    # The hub plugin travels with the check: the rename test stands on
+    # it, and the tests deploy it into each agent's config from here.
+    export OCAHUB_PLUGIN="${./opencode-plugin/ocahub-stop-hook.ts}"
     export HOME="$TMPDIR"
     # The tmp of the run lives in $TMPDIR, and only then is copied to
     # $out: the hub's ipc sockets live inside it, and a unix socket

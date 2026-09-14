@@ -257,6 +257,42 @@ class Tui:
         if enter:
             await self._cli(["send-keys", "Enter"])
 
+    async def key(self, name):
+        """
+        Press one named key -- `Tab`, `Enter`, `C-u` -- by pymux's key
+        spelling, and not as text.
+        """
+        await self._cli(["send-keys", name])
+
+    async def hello(self, reply="hello"):
+        """
+        Open the session: send one prompt and fence on the mock's reply.
+
+        opencode opens no session at all until the first prompt goes to
+        the AI -- nothing to rename, nothing registered on the hub --
+        so every check starts here, and every script's first turn is
+        the answer this waits for.
+        """
+        await self.send_keys("hello", enter=True)
+        await self.wait(lambda t: reply in t.lower(), timeout=90)
+
+    async def rename(self, title):
+        """
+        Rename the session, by the /rename command: it takes no
+        arguments -- submitting it opens the rename prompt, prefilled
+        with the current title, so C-u clears the line before the new
+        title goes in.
+
+        The fence between the command and the typing is the dialog
+        itself, identified by its own screen text ("Rename Session"):
+        a command that opened nothing fails there with the pane in
+        the message, instead of typing the title into the void.
+        """
+        await self.send_keys("/rename", enter=True)
+        await self.wait(lambda t: "rename session" in t.lower(), timeout=10)
+        await self.key("C-u")
+        await self.send_keys(title, enter=True)
+
     async def capture(self):
         "The pane as text, wrapped lines joined."
         return await self._cli(["capture-pane", "-p", "-J"])

@@ -16,6 +16,8 @@ the shape ocahub's users live in. The primitives are anyio's.
 """
 
 import json
+import os
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -62,6 +64,14 @@ def spawn_agent(work, hub, name, llm):
         check=True,
         capture_output=True,
     )
+
+    # The hub plugin, when the environment carries it: it owns the
+    # session's hub registration, and the rename check stands on it.
+    plugin = os.environ.get("OCAHUB_PLUGIN")
+    if plugin and Path(plugin).exists():
+        plugins = config_dir / "opencode" / "plugins"
+        plugins.mkdir(parents=True, exist_ok=True)
+        shutil.copy(plugin, plugins / "ocahub-stop-hook.ts")
 
     config = json.loads(json.dumps(CONFIG))
     # The model id is the agent's name, bare: the mock keys its scripts
@@ -137,14 +147,16 @@ async def hub_delivers(hub, recipient, needle, timeout=DEFAULT_TIMEOUT):
 @pytest.mark.anyio
 async def test_opencode_tui_sends_to_the_hub(hub, tmp_path):
     """
-    Type one prompt at the TUI. The mock makes the model answer with a
-    call of the ocahub `agent_send` tool, so the only way the loop
-    completes is opencode reaching the hub through its MCP server. The
-    final answer is scripted text, so its appearance in the pane means
-    the tool result came back and opencode spoke about it.
+    Open the session with a hello, then type the working prompt. The
+    mock makes the model answer it with a call of the ocahub
+    `agent_send` tool, so the only way the loop completes is opencode
+    reaching the hub through its MCP server. The final answer is
+    scripted text, so its appearance in the pane means the tool result
+    came back and opencode spoke about it.
     """
     scenario = {
         "alpha": [
+            {"text": "hello"},
             {
                 "tool_call": {
                     "tool": "agent_send",
@@ -158,6 +170,7 @@ async def test_opencode_tui_sends_to_the_hub(hub, tmp_path):
         tui = spawn_agent(tmp_path, hub, "alpha", llm)
         try:
             await tui.start()
+            await tui.hello()
             await tui.send_keys("tell tester hello from the TUI", enter=True)
             await hub_delivers(hub, "tester", "hello from the TUI")
             await tui.wait(lambda t: "LOOPDONE" in t, timeout=DEFAULT_TIMEOUT)
@@ -191,6 +204,7 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
     """
     scenario = {
         "alpha": [
+            {"text": "hello"},
             {
                 "tool_call": {
                     "tool": "agent_send",
@@ -206,6 +220,7 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
             {"text": "GOTREPLY"},
         ],
         "beta": [
+            {"text": "hello"},
             {"tool_call": {"tool": "agent_inbox", "arguments": {"wait": 120}}},
             {
                 "tool_call": {
@@ -224,6 +239,12 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
             async with anyio.create_task_group() as tg:
                 tg.start_soon(alpha.start)
                 tg.start_soon(beta.start)
+
+            # The hellos open the sessions; without a first prompt
+            # there is no session, and nothing to rename or address.
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(alpha.hello)
+                tg.start_soon(beta.hello)
 
             async with anyio.create_task_group() as tg:
                 tg.start_soon(alpha.send_keys, "ask beta what the plan is", True)
@@ -256,3 +277,51 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
             async with anyio.create_task_group() as tg:
                 tg.start_soon(alpha.stop)
                 tg.start_soon(beta.stop)
+
+
+@pytest.mark.tui
+@pytest.mark.anyio
+async def test_rename_reaches_the_hub_at_once(hub, tmp_path):
+    """
+    Rename the session from the TUI and watch the hub: the new title
+    must be there within seconds. The plugin's keepalive sweep would
+    get there in forty-five; only the session.updated path satisfies
+    this window, which is the point -- renaming before agents address
+    each other is the normal flow, and a stale title is a message to a
+    name nobody asked for.
+    """
+    tui = None
+    try:
+        with MockLLM({"alpha": [{"text": "hello"}]}) as llm:
+            tui = spawn_agent(tmp_path, hub, "alpha", llm)
+            await tui.start()
+            await tui.hello()
+            await tui.rename("Plan Discussion")
+
+            client = hub.client()
+            deadline = time.monotonic() + 10
+            seen = ""
+            try:
+                while time.monotonic() < deadline:
+                    ack = (
+                        await anyio.to_thread.run_sync(lambda: client.call(P.Who()))
+                    )[0]
+                    titles = [
+                        s.get("title")
+                        for s in (ack.sessions or [])
+                        if s.get("name") == "alpha"
+                    ]
+                    if any(t == "Plan Discussion" for t in titles):
+                        return
+                    seen = repr(titles)
+                    await anyio.sleep(0.5)
+            finally:
+                await anyio.to_thread.run_sync(client.close)
+            pane = await tui.capture()
+            raise AssertionError(
+                "the hub still had %s after 10s -- the rename did not travel by "
+                "event; the pane showed:\n%s" % (seen, pane)
+            )
+    finally:
+        if tui is not None:
+            await tui.stop()
