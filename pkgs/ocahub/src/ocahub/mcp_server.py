@@ -6,6 +6,12 @@ stateless: each call opens a short-lived dealer, and identity comes from
 OCAHUB_NAME/OCAHUB_SESSION with a per-process session id default, so
 concurrent agent sessions stay apart.
 
+Every tool is `async def` and every hub call is awaited: FastMCP
+dispatches tools on its own loop, and a blocking call in an async tool
+wedged that loop -- the TUI checks measured the hang. The sync `Client`
+and its blocking `close` belong to one-shot CLI processes; this server
+rides the AsyncClient, which never blocks.
+
 The ask obligation is enforced where an MCP server can enforce it: the
 hub keeps the ask ledger, and the inbox tool result restates the rule on
 every turn that still has asks open.
@@ -18,8 +24,9 @@ import uuid
 from mcp.server.fastmcp import FastMCP
 
 from . import protocol as P
+from .async_client import AsyncClient
+from .cli import HubError, Unreachable, WaitTimeout, decode_payload
 from .daemon import _cwd_match
-from .cli import Client, HubError, Unreachable, WaitTimeout, decode_payload
 
 mcp = FastMCP("ocahub")
 
@@ -27,7 +34,7 @@ mcp = FastMCP("ocahub")
 _IDENTITY = None
 
 
-def _identity():
+async def _identity():
     """(name, session) this MCP server answers for.
 
     The opencode stophook plugin registers the session under its real
@@ -46,12 +53,12 @@ def _identity():
         _IDENTITY = (name, pinned)
         return _IDENTITY
     cwd = _cwd()
-    c = Client()
+    c = AsyncClient()
     try:
         candidates = [
             s
-            for s in (c.who().sessions or [])
-            if s.get("name") == name and s.get("cwd") and P.cwd_match(s["cwd"], cwd)
+            for s in ((await c.who()).sessions or [])
+            if s.get("name") == name and s.get("cwd") and _cwd_match(s["cwd"], cwd)
         ]
     except (Unreachable, HubError):
         candidates = []
@@ -88,10 +95,10 @@ def _cwd():
     return os.environ.get("OCAHUB_CWD") or os.getcwd()
 
 
-def _agents_list(cwd=None):
-    c = Client()
+async def _agents_list(cwd=None):
+    c = AsyncClient()
     try:
-        sessions = c.who().sessions or []
+        sessions = (await c.who()).sessions or []
         if cwd:
             # Substring either way: full paths, basenames and trailing
             # slashes all find their target.
@@ -105,7 +112,7 @@ def _agents_list(cwd=None):
         c.close()
 
 
-def _agent_send(to, message, kind, wait, timeout, topic, cwd=None):
+async def _agent_send(to, message, kind, wait, timeout, topic, cwd=None):
     if kind == P.KIND_REPLY:
         return json.dumps(
             {"error": "kind=reply must go through agent_reply"}, separators=(",", ":")
@@ -119,17 +126,17 @@ def _agent_send(to, message, kind, wait, timeout, topic, cwd=None):
             {"error": "needs to (NAME or NAME@SESSION) or cwd"}, separators=(",", ":")
         )
     payload = (message or "").encode()
-    c = Client()
+    c = AsyncClient()
     try:
         if kind == P.KIND_ASK and wait:
-            ack, m, pl = c.send_wait(
+            ack, m, pl = await c.send_wait(
                 to=to, topic=topic, kind=kind, payload=payload, wait=timeout, cwd=cwd
             )
             return json.dumps(
                 {"ack": ack.to_dict(), "reply": {**m.to_dict(), "payload": decode_payload(pl)}},
                 separators=(",", ":"),
             )
-        ack = c.send(to=to, topic=topic, kind=kind, payload=payload, cwd=cwd)
+        ack = await c.send(to=to, topic=topic, kind=kind, payload=payload, cwd=cwd)
         if kind == P.KIND_ASK and ack.ok:
             ack.note = (
                 f"ask sent; the target owes agent_reply(reply_to={ack.in_reply_to}) "
@@ -144,11 +151,11 @@ def _agent_send(to, message, kind, wait, timeout, topic, cwd=None):
         c.close()
 
 
-def _agent_reply(reply_to, message, to=None):
+async def _agent_reply(reply_to, message, to=None):
     payload = (message or "").encode()
-    c = Client()
+    c = AsyncClient()
     try:
-        ack = c.send(kind=P.KIND_REPLY, reply_to=reply_to, to=to, payload=payload)
+        ack = await c.send(kind=P.KIND_REPLY, reply_to=reply_to, to=to, payload=payload)
         return _json(ack)
     except Unreachable as e:
         return _tool_error(e)
@@ -158,19 +165,19 @@ def _agent_reply(reply_to, message, to=None):
         c.close()
 
 
-def _agent_inbox(wait):
-    name, session = _identity()
-    c = Client()
+async def _agent_inbox(wait):
+    name, session = await _identity()
+    c = AsyncClient()
     try:
         if wait and wait > 0:
-            ack, m, pl = c.poll_wait(name, session, wait=wait, cwd=_cwd())
+            ack, m, pl = await c.poll_wait(name, session, wait=wait, cwd=_cwd())
             messages = [{**m.to_dict(), "payload": decode_payload(pl)}]
         else:
-            ack, delivers = c.call(P.Poll(name=name, session=session, cwd=_cwd()))
+            ack, delivers = await c.call(P.Poll(name=name, session=session, cwd=_cwd()))
             messages = [
                 {**m.to_dict(), "payload": decode_payload(pl)} for m, pl in delivers
             ]
-        asks_ack = c.call(P.Asks(name=name, session=session))[0]
+        asks_ack = (await c.call(P.Asks(name=name, session=session)))[0]
         asks = asks_ack.asks or []
         return json.dumps(
             {
@@ -198,7 +205,7 @@ def _agent_inbox(wait):
 
 
 @mcp.tool()
-def agents_list(cwd: str | None = None) -> str:
+async def agents_list(cwd: str | None = None) -> str:
     """List agent sessions registered on the message hub.
 
     Returns a JSON array: name, session, online, last_seen, caps, cwd,
@@ -207,11 +214,11 @@ def agents_list(cwd: str | None = None) -> str:
     NAME@SESSION. With cwd, only sessions whose working directory matches
     (substring, either way) are listed.
     """
-    return _agents_list(cwd)
+    return await _agents_list(cwd)
 
 
 @mcp.tool()
-def agent_send(
+async def agent_send(
     to: str | None = None,
     message: str = "",
     kind: str = "tell",
@@ -230,22 +237,22 @@ def agent_send(
     (the most recent online session in a matching directory) - exactly one
     of the two.
     """
-    return _agent_send(to, message, kind, wait, timeout, topic, cwd)
+    return await _agent_send(to, message, kind, wait, timeout, topic, cwd)
 
 
 @mcp.tool()
-def agent_reply(reply_to: str, message: str, to: str | None = None) -> str:
+async def agent_reply(reply_to: str, message: str, to: str | None = None) -> str:
     """Answer an ask you received, by its id (the deliver's id or reply_to).
 
     Forgiving: when the ask is no longer tracked, the hub passes the
     message through as a plain tell, so a stale or mismatched reply is
     never lost. to is the fallback target if the asker cannot be found.
     """
-    return _agent_reply(reply_to, message, to)
+    return await _agent_reply(reply_to, message, to)
 
 
 @mcp.tool()
-def agent_inbox(wait: float = 0.0) -> str:
+async def agent_inbox(wait: float = 0.0) -> str:
     """Drain messages addressed to you and list asks you owe.
 
     Call this at session start, after long sub-agent work, and before
@@ -253,7 +260,7 @@ def agent_inbox(wait: float = 0.0) -> str:
     next message. An ask in unanswered_asks must be answered with
     agent_reply(reply_to=<ask id>) before you end your turn.
     """
-    return _agent_inbox(wait)
+    return await _agent_inbox(wait)
 
 
 def main():
