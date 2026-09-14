@@ -1,17 +1,19 @@
 """
-A scripted OpenAI-compatible chat server: the AI the opencode tests run against.
+A scripted AI provider: the model the TUI tests run against.
 
-The point of the TUI checks is a real opencode loop with nobody behind
-the model. This server stands in for the provider: it answers
-`POST /v1/chat/completions` with a queued script of turns, streaming or
-not, and records every request it saw. A check then asserts on the
-record, the way a hub check asserts on its daemon's state.
+The point of the TUI checks is a real agent loop with nobody behind
+the model. This server stands in for the provider, on two wire
+formats: opencode speaks OpenAI chat (`POST /v1/chat/completions`),
+claude-code speaks Anthropic messages (`POST /v1/messages`). Both
+answer with a queued script of turns, streaming or not, and record
+every request they saw. A check then asserts on the record, the way
+a hub check asserts on its daemon's state.
 
 The server is one asyncio loop in a thread of its own, and its scripts
 are keyed by model: `MockLLM({"alpha": [...], "beta": [...]})` serves
-two opencode instances from one port, each none the wiser. That is
-what the parallel checks stand on -- several agents, one provider, no
-blocking anywhere on the test's own loop.
+several agents from one port, each none the wiser. That is what the
+parallel checks stand on -- several agents, one provider, no blocking
+anywhere on the test's own loop.
 
 A turn is one of:
 
@@ -20,14 +22,14 @@ A turn is one of:
                                          # the tools the client offered
                    "arguments": {"to": "beta", "message": "ping"}}}
 
-The tool arrives in the request's `tools` under the name opencode
+The tool arrives in the request's `tools` under the name the client
 gives it -- the MCP server id is the prefix -- while the script spells
 the tool the way the MCP server does, so the resolution happens here.
 
-Requests that carry no `tools` are the small side calls opencode makes
-beside the loop -- the session title is one. They take `small_answer`
-and never consume a scripted turn: the script belongs to the agent
-loop, which is the only thing a check scripts.
+Requests that carry no `tools` are the small side calls the agents
+make beside the loop -- the session title is one. They take
+`small_answer` and never consume a scripted turn: the script belongs
+to the agent loop, which is the only thing a check scripts.
 """
 
 import asyncio
@@ -73,7 +75,10 @@ class _HTTP:
             await self.answer(b"200 OK", b"application/json", payload)
             return
 
-        if method != "POST" or not path.rstrip("/").endswith("/chat/completions"):
+        route = path.rstrip("/")
+        if method != "POST" or not (
+            route.endswith("/chat/completions") or route.endswith("/messages")
+        ):
             await self.answer(b"404 Not Found", b"text/plain", b"not found")
             return
 
@@ -98,12 +103,120 @@ class _HTTP:
             turn = {"text": "(mock script exhausted)"}
         self.server.exhausted = all(not t for t in self.server.turns.values())
 
+        if route.endswith("/messages"):
+            await self.serve_anthropic(request, turn)
+            return
         message, finish = _answer(turn, request)
         if request.get("stream"):
             await self.stream(message, finish, request)
         else:
             payload = _body(request, message, finish, stream=False)
             await self.answer(b"200 OK", b"application/json", json.dumps(payload).encode())
+
+    async def serve_anthropic(self, request, turn):
+        """
+        The Anthropic messages route: one scripted turn becomes one
+        content block -- text, or tool_use -- inside a message. The
+        stream is the event sequence the client SDK reassembles, not
+        chat chunks; the connection closes after, as above.
+        """
+        block, stop = _answer_anthropic(turn, request)
+        if not request.get("stream"):
+            payload = {
+                "id": "msg_mock",
+                "type": "message",
+                "role": "assistant",
+                "model": request.get("model", "mock"),
+                "content": [block],
+                "stop_reason": stop,
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+            }
+            await self.answer(b"200 OK", b"application/json", json.dumps(payload).encode())
+            return
+
+        head = (
+            b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
+            b"Transfer-Encoding: chunked\r\n\r\n"
+        )
+        self.writer.write(head)
+        await self.writer.drain()
+
+        async def event(name, payload):
+            chunk = (
+                b"event: " + name.encode() + b"\ndata: " + json.dumps(payload).encode() + b"\n\n"
+            )
+            self.writer.write(b"%x\r\n%s\r\n" % (len(chunk), chunk))
+            await self.writer.drain()
+
+        await event(
+            "message_start",
+            {
+                "type": "message_start",
+                "message": {
+                    "id": "msg_mock",
+                    "type": "message",
+                    "role": "assistant",
+                    "model": request.get("model", "mock"),
+                    "content": [],
+                    "stop_reason": None,
+                    "usage": {"input_tokens": 1, "output_tokens": 0},
+                },
+            },
+        )
+        if block["type"] == "tool_use":
+            await event(
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {
+                        "type": "tool_use",
+                        "id": block["id"],
+                        "name": block["name"],
+                        "input": {},
+                    },
+                },
+            )
+            await event(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {
+                        "type": "input_json_delta",
+                        "partial_json": json.dumps(block["input"]),
+                    },
+                },
+            )
+        else:
+            await event(
+                "content_block_start",
+                {
+                    "type": "content_block_start",
+                    "index": 0,
+                    "content_block": {"type": "text", "text": ""},
+                },
+            )
+            await event(
+                "content_block_delta",
+                {
+                    "type": "content_block_delta",
+                    "index": 0,
+                    "delta": {"type": "text_delta", "text": block["text"]},
+                },
+            )
+        await event("content_block_stop", {"type": "content_block_stop", "index": 0})
+        await event(
+            "message_delta",
+            {
+                "type": "message_delta",
+                "delta": {"stop_reason": stop, "stop_sequence": None},
+                "usage": {"output_tokens": 1},
+            },
+        )
+        await event("message_stop", {"type": "message_stop"})
+        self.writer.write(b"0\r\n\r\n")
+        await self.writer.drain()
 
     async def answer(self, status, kind, body):
         self.writer.write(
@@ -145,7 +258,8 @@ class _HTTP:
 
 def _answer(turn, request):
     """
-    The assistant message and finish reason one scripted turn becomes.
+    The assistant message and finish reason one scripted turn becomes,
+    in OpenAI chat shape.
     """
     if "tool_call" in turn:
         wanted = turn["tool_call"]["tool"]
@@ -170,29 +284,86 @@ def _answer(turn, request):
     return {"content": turn.get("text", "")}, "stop"
 
 
+def _answer_anthropic(turn, request):
+    """
+    The content block and stop reason one scripted turn becomes, in
+    Anthropic messages shape. The script's tool spelling is resolved
+    against the flat `tools` the same way the chat route resolves it
+    against the nested one.
+    """
+    if "tool_call" in turn:
+        wanted = turn["tool_call"]["tool"]
+        name = _offered_name(request, wanted)
+        ask_id = _ask_id_from(request)
+        arguments = {
+            key: _substitute(value, ask_id)
+            for key, value in turn["tool_call"].get("arguments", {}).items()
+        }
+        return (
+            {"type": "tool_use", "id": "toolu_mock", "name": name, "input": arguments},
+            "tool_use",
+        )
+    return {"type": "text", "text": turn.get("text", "")}, "end_turn"
+
+
 def _ask_id_from(request):
     """
-    The id of the most recent message a tool result showed back.
+    The id of the ask the agent was most recently shown.
 
     A scripted reply answers the ask the agent was just shown, and the
-    only place the id exists is the inbox result in the conversation:
-    the script writes `$ask_id` where it goes, and this is what the
-    placeholder means.
+    only place the id exists is the conversation: the script writes
+    `$ask_id` where it goes, and this is what the placeholder means.
+    Both wire shapes are scanned, most recent first -- OpenAI tool
+    messages, and Anthropic user turns whose blocks carry a tool
+    result or the plain text a background task's completion arrives
+    as. Any JSON object with an `id` at the top or under `messages`
+    counts; the hub's delivery line and the inbox result are the two
+    shapes that exist.
     """
     for message in reversed(request.get("messages") or []):
-        if message.get("role") != "tool":
-            continue
-        content = message.get("content")
-        if not isinstance(content, str):
-            continue
-        try:
-            parsed = json.loads(content)
-        except ValueError:
-            continue
-        for entry in parsed.get("messages") or []:
-            if isinstance(entry, dict) and entry.get("id"):
-                return entry["id"]
+        for text in _message_strings(message):
+            try:
+                parsed = json.loads(text)
+            except ValueError:
+                continue
+            if not isinstance(parsed, dict):
+                continue
+            if isinstance(parsed.get("id"), str):
+                return parsed["id"]
+            for entry in parsed.get("messages") or []:
+                if isinstance(entry, dict) and isinstance(entry.get("id"), str):
+                    return entry["id"]
     return None
+
+
+def _message_strings(message):
+    """
+    The JSON-candidate strings one message carries, in either wire
+    shape: an OpenAI tool message's content, an Anthropic block list's
+    tool_result contents and texts, a plain string content.
+    """
+    content = message.get("content")
+    if content is None:
+        return []
+    if isinstance(content, str):
+        return [content]
+    out = []
+    for block in content if isinstance(content, list) else []:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "tool_result":
+            inner = block.get("content")
+            if isinstance(inner, str):
+                out.append(inner)
+            elif isinstance(inner, list):
+                out.extend(
+                    b.get("text", "")
+                    for b in inner
+                    if isinstance(b, dict) and b.get("type") == "text"
+                )
+        elif block.get("type") == "text":
+            out.append(block.get("text", ""))
+    return [s for s in out if s]
 
 
 def _substitute(value, ask_id):
@@ -204,10 +375,12 @@ def _substitute(value, ask_id):
 def _offered_name(request, wanted):
     """
     The name the client gave the tool the script calls, or the script's
-    own spelling when the client offered nothing by that shape.
+    own spelling when the client offered nothing by that shape. Both
+    wire shapes: OpenAI nests the name under `function`, Anthropic
+    spells it flat.
     """
     for tool in request.get("tools") or []:
-        name = tool.get("function", {}).get("name", "")
+        name = tool.get("function", {}).get("name") or tool.get("name", "")
         if name == wanted or name.endswith("_" + wanted) or name.endswith("." + wanted):
             return name
     return wanted

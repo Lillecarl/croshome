@@ -154,3 +154,135 @@ def test_finish_reason_of_a_tool_turn(stream):
             assert events[-1]["choices"][0]["finish_reason"] == "tool_calls"
         else:
             assert json.loads(answer.read())["choices"][0]["finish_reason"] == "tool_calls"
+
+
+# The Anthropic messages route, which claude-code speaks: flat tool
+# names, content blocks, and an SSE sequence of named events rather
+# than chat chunks.
+A_TOOLS = [{"name": "Bash", "input_schema": {"type": "object"}}]
+
+
+def post_messages(llm, payload):
+    host, port = llm.server_address
+    connection = http.client.HTTPConnection(host, port, timeout=10)
+    connection.request(
+        "POST",
+        "/v1/messages",
+        body=json.dumps(payload),
+        headers={"Content-Type": "application/json"},
+    )
+    return connection.getresponse()
+
+
+def test_anthropic_text_streams_as_the_event_sequence():
+    with MockLLM({"claude": [{"text": "hi"}]}) as llm:
+        answer = post_messages(
+            llm, {"model": "claude", "stream": True, "tools": A_TOOLS, "messages": []}
+        )
+        assert answer.getheader("Content-Type") == "text/event-stream"
+        events = sse_events(answer.read().decode())
+        assert [e["type"] for e in events] == [
+            "message_start",
+            "content_block_start",
+            "content_block_delta",
+            "content_block_stop",
+            "message_delta",
+            "message_stop",
+        ]
+        assert events[2]["delta"] == {"type": "text_delta", "text": "hi"}
+        assert events[4]["delta"]["stop_reason"] == "end_turn"
+
+
+def test_anthropic_tool_call_resolves_the_flat_name():
+    turns = [{"tool_call": {"tool": "agent_reply", "arguments": {"message": "x"}}}]
+    with MockLLM({"claude": turns}) as llm:
+        answer = post_messages(
+            llm,
+            {
+                "model": "claude",
+                "stream": False,
+                "tools": [{"name": "mcp__ocahub__agent_reply", "input_schema": {}}],
+                "messages": [],
+            },
+        )
+        body = json.loads(answer.read())
+        block = body["content"][0]
+        assert body["stop_reason"] == "tool_use"
+        assert block["type"] == "tool_use"
+        assert block["name"] == "mcp__ocahub__agent_reply"
+
+
+def test_anthropic_substitutes_the_ask_id_from_plain_text():
+    """
+    The wake a monitor's completion delivers is a plain user text
+    carrying the hub's delivery line -- and its id is what a scripted
+    reply answers.
+    """
+    turns = [
+        {
+            "tool_call": {
+                "tool": "agent_reply",
+                "arguments": {"reply_to": "$ask_id", "message": "answered"},
+            }
+        }
+    ]
+    with MockLLM({"claude": turns}) as llm:
+        answer = post_messages(
+            llm,
+            {
+                "model": "claude",
+                "stream": False,
+                "tools": A_TOOLS,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": json.dumps(
+                                    {"id": "ask_42", "kind": "ask", "payload": "what?"}
+                                ),
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+        block = json.loads(answer.read())["content"][0]
+        assert block["input"]["reply_to"] == "ask_42"
+
+
+def test_anthropic_substitutes_from_a_tool_result_block():
+    turns = [
+        {
+            "tool_call": {
+                "tool": "agent_reply",
+                "arguments": {"reply_to": "$ask_id", "message": "answered"},
+            }
+        }
+    ]
+    with MockLLM({"claude": turns}) as llm:
+        answer = post_messages(
+            llm,
+            {
+                "model": "claude",
+                "stream": False,
+                "tools": A_TOOLS,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "tool_result",
+                                "tool_use_id": "toolu_1",
+                                "content": json.dumps(
+                                    {"messages": [{"id": "ask_7", "kind": "ask"}]}
+                                ),
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
+        block = json.loads(answer.read())["content"][0]
+        assert block["input"]["reply_to"] == "ask_7"
