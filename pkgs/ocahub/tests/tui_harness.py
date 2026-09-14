@@ -14,23 +14,65 @@ libtmux drives tmux:
 
 The harness is async because its checks are: several agents run at
 once on the test's event loop, each a task -- the shape ocahub itself
-is for. What only the pixels show lives in the screenshots; everything
-else asserts on the capture, which is bytes and not pixels. The sync
-problem is met on the capture channel: a screen that is waiting for
-input is still, so two identical captures in a row mean the frame is
-whole, and typing into it is not a race.
+is for. The primitives are anyio's throughout: subprocesses come from
+`anyio.open_process`, waits from timeout scopes, so a stuck child is
+cancelled (and killed) instead of wedging the run. What only the
+pixels show lives in the screenshots; everything else asserts on the
+capture, which is bytes and not pixels. The sync problem is met on
+the capture channel: a screen that is waiting for input is still, so
+two identical captures in a row mean the frame is whole, and typing
+into it is not a race.
 """
 
-import asyncio
 import os
 import shlex
-import sys
+import subprocess
 import time
 from pathlib import Path
+
+import anyio
 
 #: Long enough for a cold opencode on a slow, loaded sandbox, and for
 #: the MCP round trips in between.
 DEFAULT_TIMEOUT = 180.0
+
+
+class TuiError(RuntimeError):
+    pass
+
+
+def _tail(path, lines=40):
+    try:
+        return "\n".join(Path(path).read_text(errors="replace").splitlines()[-lines:])
+    except OSError:
+        return "(no log)"
+
+
+async def _communicate(process):
+    """
+    Both pipes drained to EOF, as (stdout, stderr) bytes.
+
+    anyio's process has no `communicate`; a task group drains the two
+    streams at once, and the caller's timeout scope bounds the whole
+    thing -- a child that will not end is cancelled, and the caller
+    kills it in the TimeoutError it then sees.
+    """
+
+    async def drain(stream, chunks):
+        while True:
+            try:
+                chunk = await stream.receive(max_bytes=65536)
+            except anyio.EndOfStream:
+                # The child closed its side: that is the EOF the
+                # communicator waits for, not a fault.
+                return
+            chunks.append(chunk)
+
+    out, err = [], []
+    async with anyio.create_task_group() as tg:
+        tg.start_soon(drain, process.stdout, out)
+        tg.start_soon(drain, process.stderr, err)
+    return b"".join(out), b"".join(err)
 
 
 def _heartbeat(what, started, last_beat):
@@ -50,17 +92,6 @@ def _heartbeat(what, started, last_beat):
         print("[%s] %ds" % (what, int(elapsed)), flush=True)
         return elapsed
     return last_beat
-
-
-class TuiError(RuntimeError):
-    pass
-
-
-def _tail(path, lines=40):
-    try:
-        return "\n".join(Path(path).read_text(errors="replace").splitlines()[-lines:])
-    except OSError:
-        return "(no log)"
 
 
 class Tui:
@@ -91,15 +122,16 @@ class Tui:
     # -- the control socket --------------------------------------------
 
     async def _cli(self, args, timeout=30):
-        process = await asyncio.create_subprocess_exec(
-            "pymux",
-            "-S",
-            str(self.sock),
-            *[str(a) for a in args],
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        process = await anyio.open_process(
+            ["pymux", "-S", str(self.sock)] + [str(a) for a in args],
         )
-        stdout, stderr = await asyncio.wait_for(process.communicate(), timeout)
+        try:
+            with anyio.fail_after(timeout):
+                stdout, stderr = await _communicate(process)
+                await process.wait()
+        except TimeoutError:
+            process.kill()
+            raise TuiError("pymux %s did not end in time" % " ".join(map(str, args)))
         if process.returncode != 0:
             raise TuiError(
                 "pymux %s failed (%d):\n%s"
@@ -124,24 +156,30 @@ class Tui:
             "SHELL": os.environ.get("OCABUILD_SHELL", "/bin/sh"),
             "LANG": "C.UTF-8",
         }
-        started = await asyncio.create_subprocess_exec(
-            "pymux",
-            "--log",
-            str(self.server_log),
-            "-S",
-            str(self.sock),
-            "new-session",
-            "-d",
-            "-s",
-            "test",
-            "opencode",
+        process = await anyio.open_process(
+            [
+                "pymux",
+                "--log",
+                str(self.server_log),
+                "-S",
+                str(self.sock),
+                "new-session",
+                "-d",
+                "-s",
+                "test",
+                "opencode",
+            ],
             cwd=str(self.project),
             env=env,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
         )
-        _stdout, stderr = await asyncio.wait_for(started.communicate(), timeout)
-        if started.returncode != 0:
+        try:
+            with anyio.fail_after(timeout):
+                _stdout, stderr = await _communicate(process)
+                await process.wait()
+        except TimeoutError:
+            process.kill()
+            raise TuiError("the pymux server did not start in time")
+        if process.returncode != 0:
             raise TuiError(
                 "the pymux server never started:\n%s" % stderr.decode(errors="replace")
             )
@@ -161,49 +199,53 @@ class Tui:
             "output HEADLESS-1 resolution 1024x768\n"
             "exec /bin/sh %s\n" % shlex.quote(str(wrapper))
         )
-        self._sway = await asyncio.create_subprocess_exec(
-            "sway",
-            "-c",
-            str(config),
-            stdout=open(self.sway_log, "wb"),
-            stderr=asyncio.subprocess.STDOUT,
-            env={
-                **os.environ,
-                "XDG_RUNTIME_DIR": str(self.room),
-                "WLR_BACKENDS": "headless",
-                "WLR_RENDERER": "pixman",
-                "WLR_LIBINPUT_NO_DEVICES": "1",
-                "LIBSEAT_BACKEND": "noop",
-                "DISPLAY": "",
-            },
-        )
-        deadline = time.monotonic() + 20
-        while time.monotonic() < deadline:
-            if self._sway.returncode is not None:
-                raise TuiError(
-                    "sway died at startup (%s):\n%s"
-                    % (self._sway.returncode, _tail(self.sway_log))
-                )
-            sockets = [
-                s for s in self.room.glob("wayland-*") if not s.name.endswith(".lock")
-            ]
-            if sockets:
-                self._display = sockets[0].name
-                return
-            await asyncio.sleep(0.2)
+        with open(self.sway_log, "wb") as log:
+            self._sway = await anyio.open_process(
+                ["sway", "-c", str(config)],
+                stdout=log,
+                stderr=subprocess.STDOUT,
+                env={
+                    **os.environ,
+                    "XDG_RUNTIME_DIR": str(self.room),
+                    "WLR_BACKENDS": "headless",
+                    "WLR_RENDERER": "pixman",
+                    "WLR_LIBINPUT_NO_DEVICES": "1",
+                    "LIBSEAT_BACKEND": "noop",
+                    "DISPLAY": "",
+                },
+            )
+            deadline = time.monotonic() + 20
+            beat = 0.0
+            began = time.monotonic()
+            while time.monotonic() < deadline:
+                if self._sway.returncode is not None:
+                    raise TuiError(
+                        "sway died at startup (%s):\n%s"
+                        % (self._sway.returncode, _tail(self.sway_log))
+                    )
+                sockets = [
+                    s
+                    for s in self.room.glob("wayland-*")
+                    if not s.name.endswith(".lock")
+                ]
+                if sockets:
+                    self._display = sockets[0].name
+                    return
+                beat = _heartbeat("sway", began, beat)
+                await anyio.sleep(0.2)
         raise TuiError("sway never opened a display:\n%s" % _tail(self.sway_log))
 
     async def stop(self):
         if self.sock.exists():
             try:
                 await self._cli(["kill-server"])
-            except (TuiError, asyncio.TimeoutError, FileNotFoundError):
+            except (TuiError, TimeoutError, FileNotFoundError):
                 pass
         if self._sway is not None and self._sway.returncode is None:
             self._sway.terminate()
-            try:
-                await asyncio.wait_for(self._sway.wait(), 5)
-            except asyncio.TimeoutError:
+            with anyio.move_on_after(5):
+                await self._sway.wait()
+            if self._sway.returncode is None:
                 self._sway.kill()
 
     # -- the ways to read, and one to write ------------------------------
@@ -221,18 +263,21 @@ class Tui:
 
     async def screenshot(self, path):
         "The whole output, as a picture. This is the AI-viewable one."
-        process = await asyncio.create_subprocess_exec(
-            "grim",
-            str(path),
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+        process = await anyio.open_process(
+            ["grim", str(path)],
             env={
                 **os.environ,
                 "XDG_RUNTIME_DIR": str(self.room),
                 "WAYLAND_DISPLAY": self._display,
             },
         )
-        _stdout, stderr = await asyncio.wait_for(process.communicate(), 30)
+        try:
+            with anyio.fail_after(30):
+                _stdout, stderr = await _communicate(process)
+                await process.wait()
+        except TimeoutError:
+            process.kill()
+            raise TuiError("grim did not end in time")
         if process.returncode != 0:
             raise TuiError("grim failed:\n%s" % stderr.decode(errors="replace"))
         return Path(path)
@@ -257,7 +302,7 @@ class Tui:
                 return current
             previous = current
             beat = _heartbeat("settle", began, beat)
-            await asyncio.sleep(0.5)
+            await anyio.sleep(0.5)
         raise TuiError("the pane never settled; the last two captures differ")
 
     async def wait(self, predicate, timeout=DEFAULT_TIMEOUT):
@@ -279,7 +324,7 @@ class Tui:
             if predicate(last):
                 return last
             beat = _heartbeat("wait", began, beat)
-            await asyncio.sleep(0.5)
+            await anyio.sleep(0.5)
         raise TuiError(
             "the pane never showed it; the last capture was:\n%s\n%s"
             % (last, _tail(self.server_log))

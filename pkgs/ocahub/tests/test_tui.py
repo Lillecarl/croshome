@@ -11,10 +11,10 @@ the pane's text, and the picture the seat took. What fails tells you
 which layer broke; what passes says all of them worked together.
 
 The checks are async because the product is: the conversation check
-runs two opencode instances at once, the way the hub's users do.
+runs two opencode instances at once, each a task in one task group,
+the shape ocahub's users live in. The primitives are anyio's.
 """
 
-import asyncio
 import json
 import subprocess
 import time
@@ -125,7 +125,7 @@ async def hub_delivers(hub, recipient, needle, timeout=DEFAULT_TIMEOUT):
                 if needle in json.dumps(record, default=str):
                     return delivery
                 last = record
-            await asyncio.sleep(1.0)
+            await anyio.sleep(1.0)
     finally:
         await anyio.to_thread.run_sync(client.close)
     raise AssertionError(
@@ -185,6 +185,9 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
     not known to any script in advance -- beta's script writes a
     placeholder and the mock fills it from the conversation, the same
     substitution a real model does when it reads its tool results.
+
+    Every parallel piece runs inside one task group, so a failure
+    cancels its siblings and the group waits for them to stop.
     """
     scenario = {
         "alpha": [
@@ -218,19 +221,23 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
         beta = spawn_agent(tmp_path, hub, "beta", llm)
         try:
             # Both agents come up at once; each seat is its own.
-            await asyncio.gather(alpha.start(), beta.start())
-            await asyncio.gather(
-                alpha.send_keys("ask beta what the plan is", enter=True),
-                beta.send_keys("watch your inbox and answer", enter=True),
-            )
-            await asyncio.gather(
-                alpha.wait(lambda t: "GOTREPLY" in t, timeout=DEFAULT_TIMEOUT),
-                beta.wait(lambda t: "REPLIED" in t, timeout=DEFAULT_TIMEOUT),
-            )
-            await asyncio.gather(
-                alpha.screenshot(tmp_path / "alpha.png"),
-                beta.screenshot(tmp_path / "beta.png"),
-            )
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(alpha.start)
+                tg.start_soon(beta.start)
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(alpha.send_keys, "ask beta what the plan is", True)
+                tg.start_soon(beta.send_keys, "watch your inbox and answer", True)
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(
+                    alpha.wait, lambda t: "GOTREPLY" in t
+                )
+                tg.start_soon(beta.wait, lambda t: "REPLIED" in t)
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(alpha.screenshot, tmp_path / "alpha.png")
+                tg.start_soon(beta.screenshot, tmp_path / "beta.png")
 
             # The ask is answered on the hub's ledger, not merely shown:
             # the ledger is the thing agents read, so that is what a
@@ -246,4 +253,6 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
             finally:
                 await anyio.to_thread.run_sync(client.close)
         finally:
-            await asyncio.gather(alpha.stop(), beta.stop())
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(alpha.stop)
+                tg.start_soon(beta.stop)

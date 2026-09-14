@@ -3,14 +3,16 @@
 The sync `Client` in cli.py is right for a one-shot CLI process: it
 blocks, and nothing else needs the thread. An MCP server is the other
 shape -- FastMCP dispatches `async def` tools on its own loop -- and a
-blocking call in an async tool wedges that loop: every timeout and
-every heartbeat stops with it, which the TUI checks measured the hard
-way (see the commit that closed hub clients off the loop).
+blocking call in an async tool wedged that loop: every timeout and
+every heartbeat stopped with it, which the TUI checks measured the
+hard way (see the commit that closed hub clients off the loop).
 
 This twin keeps the wire identical -- the same frames, the same ACK
-and DELIVER order, the same exceptions -- and never blocks: every
-socket is `zmq.asyncio`, every call is awaited. LINGER is 0 on every
-socket, so `close` drops what is unsent and returns.
+and DELIVER order, the same exceptions -- and never blocks. Every
+socket is `zmq.asyncio`, every wait is an anyio timeout scope, and the
+daemon's own idioms are the ones it follows (task groups, sleeps, no
+socket-timeout tricks). LINGER is 0 on every socket, so `close` drops
+what is unsent and returns.
 """
 
 import os
@@ -18,6 +20,7 @@ import time
 
 import zmq
 import zmq.asyncio
+import anyio
 
 from . import protocol as P
 from .cli import HubError, Unreachable, WaitTimeout
@@ -47,10 +50,10 @@ class AsyncClient:
         deadline = time.monotonic() + self.timeout
         while True:
             remaining = max(0.05, deadline - time.monotonic())
-            dealer.setsockopt(zmq.RCVTIMEO, int(remaining * 1000))
             try:
-                frames = await dealer.recv_multipart()
-            except zmq.error.Again as e:
+                with anyio.fail_after(remaining):
+                    frames = await dealer.recv_multipart()
+            except TimeoutError as e:
                 raise Unreachable("hub did not answer in time") from e
             m, pl = P.decode(frames)
             if m.type == P.DELIVER:
@@ -120,11 +123,11 @@ class AsyncClient:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise WaitTimeout("no reply arrived in time")
-                d.setsockopt(zmq.RCVTIMEO, int(min(remaining, 0.25) * 1000))
                 try:
-                    m, pl = P.decode(await d.recv_multipart())
-                except zmq.error.Again:
-                    continue
+                    with anyio.fail_after(remaining):
+                        m, pl = P.decode(await d.recv_multipart())
+                except TimeoutError:
+                    raise WaitTimeout("no reply arrived in time") from None
                 except P.ProtocolError:
                     continue
                 if m.type == P.DELIVER and m.reply_to == msg.id:
@@ -145,11 +148,11 @@ class AsyncClient:
                 remaining = deadline - time.monotonic()
                 if remaining <= 0:
                     raise WaitTimeout("no message arrived in time")
-                d.setsockopt(zmq.RCVTIMEO, int(min(remaining, 0.25) * 1000))
                 try:
-                    m, pl = P.decode(await d.recv_multipart())
-                except zmq.error.Again:
-                    continue
+                    with anyio.fail_after(remaining):
+                        m, pl = P.decode(await d.recv_multipart())
+                except TimeoutError:
+                    raise WaitTimeout("no message arrived in time") from None
                 except P.ProtocolError:
                     continue
                 if m.type == P.DELIVER:
