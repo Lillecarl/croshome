@@ -6,6 +6,24 @@
 # terminal, an opencode -- which no ordinary build of the hub should
 # carry. It tests the source tree (the tests import ocahub off
 # PYTHONPATH), the same way the pyterm suites test theirs.
+#
+# It is a suite in pyterm's sense, run by that tree's nix/suite.nix:
+# two derivations. The **run** never fails; its output holds the log,
+# whatever the tests left behind, and a `status` file. The **verdict**
+# reads the status and fails, pointing at the run. The attribute this
+# file exports is the verdict; `.run` is the evidence, and it survives
+# a red run -- nix throws away the output of a build that failed,
+# never of one that succeeded. A red run is therefore cached too:
+# `--rebuild` makes it go again.
+#
+# Eval-time knobs, read from the calling shell and put in the
+# derivation's env, so a change to one is a new derivation -- the way
+# the pyterm checks take theirs:
+#
+#   OCAHUB_TUI_TESTS  node ids, default the whole TUI suite
+#   OCAHUB_TUI_ARGS   extra pytest flags, for instance `-k rename`
+#
+#   OCAHUB_TUI_ARGS='-k rename' nix build --file . pkgs.ocahub-tui-e2e.run
 {
   lib,
   runCommand,
@@ -34,6 +52,9 @@
   makeFontsConf,
   dejavu_fonts,
   runtimeShell,
+  # The two-derivation suite runner from the pyterm tree: the run
+  # keeps its evidence, the verdict keeps the gate.
+  suite,
 }:
 
 let
@@ -42,10 +63,18 @@ let
   # startup, or draws with whatever it falls back to, which is not the
   # same twice. The same reason pymux's own picture checks name it.
   fontsConf = makeFontsConf { fontDirectories = [ dejavu_fonts ]; };
+
+  tuiTests =
+    let
+      value = builtins.getEnv "OCAHUB_TUI_TESTS";
+    in
+    if value == "" then "tests/test_tui.py" else value;
+  tuiArgs = builtins.getEnv "OCAHUB_TUI_ARGS";
 in
-runCommand "ocahub-tui-e2e"
+suite
   {
-    nativeBuildInputs = [
+    name = "ocahub-tui-e2e";
+    inputs = [
       (python3.withPackages (
         ps: [
           ps.pytest
@@ -70,24 +99,24 @@ runCommand "ocahub-tui-e2e"
       LANG = "C.UTF-8";
       PYTHONDONTWRITEBYTECODE = "1";
       PYTHONUNBUFFERED = "1";
+      # The knobs: in `env`, so a change to one rebuilds the check,
+      # which is what makes them work.
+      inherit tuiTests tuiArgs;
     };
-    meta = {
-      description = "ocahub's TUI end-to-end check: opencode under pymux against a mock provider";
-      platforms = lib.platforms.linux;
-    };
+    setup = ''
+      cp -r ${./tests} tests
+      chmod -R +w tests
+      # pytest reads its settings from the root it runs in: the markers
+      # the suite uses are declared here, and an unregistered mark is a
+      # warning today and an error the day strict mode lands.
+      cp ${./pyproject.toml} .
+      # The hub plugin travels with the check: the rename test stands on
+      # it, and the tests deploy it into each agent's config from here.
+      export OCAHUB_PLUGIN="${./opencode-plugin/ocahub-stop-hook.ts}"
+      export HOME="$TMPDIR"
+    '';
   }
   ''
-    set -o pipefail
-    cp -r ${./tests} tests
-    chmod -R +w tests
-    # pytest reads its settings from the root it runs in: the markers
-    # the suite uses are declared here, and an unregistered mark is a
-    # warning today and an error the day strict mode lands.
-    cp ${./pyproject.toml} .
-    # The hub plugin travels with the check: the rename test stands on
-    # it, and the tests deploy it into each agent's config from here.
-    export OCAHUB_PLUGIN="${./opencode-plugin/ocahub-stop-hook.ts}"
-    export HOME="$TMPDIR"
     # The tmp of the run lives in $TMPDIR, and only then is copied to
     # $out: the hub's ipc sockets live inside it, and a unix socket
     # path may not exceed 107 characters -- the store path of $out
@@ -97,23 +126,20 @@ runCommand "ocahub-tui-e2e"
     # faulthandler_timeout dumps every thread's stack after sixty
     # stuck seconds and keeps going: a wedged run says where it is
     # wedged, in its own log.
-    set -o pipefail
-    mkdir -p "$out"
-    if PYTHONPATH=${./src} timeout 900 python3 -m pytest tests/test_tui.py \
-      -q -p no:cacheprovider -o faulthandler_timeout=60 \
-      --basetemp="$TMPDIR/tmp" 2>&1 | tee "$TMPDIR/run.log"; then
-      code=0
-    else
-      code=$?
-    fi
-    # A red run leaves its picture and its logs where a person reads
-    # them. timeout's kill would also land here -- the log still goes
-    # out, the verdict does not survive it. The copy skips sockets and
-    # pipes: the hub's runtime dir is full of them, and a store path
-    # may hold neither -- nix scans the output and rejects what it
-    # finds.
+    mkdir -p "$TMPDIR/tmp"
+    PYTHONPATH=${./src} timeout 900 python3 -m pytest $tuiTests \
+      -q -p no:cacheprovider -o faulthandler_timeout=60 $tuiArgs \
+      --basetemp="$TMPDIR/tmp"
+    code=$?
+    # Whatever the verdict, the run's own directory goes out with it:
+    # the panes' pictures, the opencode and hub logs. The copy skips
+    # sockets and pipes: the hub's runtime dir is full of them, and a
+    # store path may hold neither -- nix scans the output and rejects
+    # what it finds.
     cp -r "$TMPDIR/tmp" "$out/tmp" 2>/dev/null || true
     find "$out/tmp" \( -type s -o -type p \) -delete 2>/dev/null || true
-    cp "$TMPDIR/run.log" "$out/run.log" 2>/dev/null || true
+    # The suite runner reads the exit of this whole body, so the
+    # cleanup lines may not be its last word: end with the code the
+    # tests returned, not the code of the tidying.
     exit $code
   ''

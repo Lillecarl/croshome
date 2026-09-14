@@ -233,6 +233,11 @@ in
   ocahub-tui-e2e = final.callPackage ./ocahub/check-tui.nix {
     ocahub = final.ocahub;
     pymux = pyterm.pymux;
+    # pyterm's two-derivation suite runner, vendored verbatim (see the
+    # file): the run keeps its evidence through a red result, the
+    # verdict keeps the gate. The file evaluates to a set of the three
+    # pieces; the check wants the combined one.
+    suite = (final.callPackage ./ocahub/suite.nix { }).suite;
   };
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };
