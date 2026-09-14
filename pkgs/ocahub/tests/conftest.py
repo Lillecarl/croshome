@@ -30,16 +30,24 @@ class Hub:
         )
         deadline = time.monotonic() + 15
         last = None
-        while time.monotonic() < deadline:
-            if self.proc.poll() is not None:
-                err = self.proc.stderr.read().decode(errors="replace")
-                raise RuntimeError(f"daemon died at startup:\n{err}")
-            try:
-                self.client().ping()
-                return
-            except Exception as e:  # keep probing until the deadline
-                last = e
-                time.sleep(0.1)
+        probe = self.client()
+        try:
+            while time.monotonic() < deadline:
+                if self.proc.poll() is not None:
+                    err = self.proc.stderr.read().decode(errors="replace")
+                    raise RuntimeError(f"daemon died at startup:\n{err}")
+                try:
+                    probe.ping()
+                    return
+                except Exception as e:  # keep probing until the deadline
+                    last = e
+                    time.sleep(0.1)
+        finally:
+            # An unterminated zmq context is destroyed by the garbage
+            # collector at interpreter shutdown, and that destroy
+            # blocks: a suite whose startup failed would hang at exit
+            # for minutes with no output. close() is the bounded path.
+            probe.close()
         raise RuntimeError(f"daemon never answered ping: {last!r}")
 
     def client(self, **kw):

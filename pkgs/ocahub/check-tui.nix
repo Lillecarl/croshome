@@ -63,6 +63,7 @@ runCommand "ocahub-tui-e2e"
       SHELL = runtimeShell;
       LANG = "C.UTF-8";
       PYTHONDONTWRITEBYTECODE = "1";
+      PYTHONUNBUFFERED = "1";
     };
     meta = {
       description = "ocahub's TUI end-to-end check: opencode under pymux against a mock provider";
@@ -73,11 +74,33 @@ runCommand "ocahub-tui-e2e"
     set -o pipefail
     cp -r ${./tests} tests
     chmod -R +w tests
+    # pytest reads its settings from the root it runs in: the markers
+    # the suite uses are declared here, and an unregistered mark is a
+    # warning today and an error the day strict mode lands.
+    cp ${./pyproject.toml} .
     export HOME="$TMPDIR"
-    # --basetemp keeps every tmp of the run under $out, so a red run
-    # leaves its picture and its logs where a person reads them.
-    mkdir -p "$out/tmp"
-    PYTHONPATH=${./src} python3 -m pytest tests/test_tui.py \
-      -q -p no:cacheprovider --basetemp="$out/tmp" 2>&1 | tee "$TMPDIR/run.log"
-    mkdir -p $out
+    # The tmp of the run lives in $TMPDIR, and only then is copied to
+    # $out: the hub's ipc sockets live inside it, and a unix socket
+    # path may not exceed 107 characters -- the store path of $out
+    # alone is over half that, and a socket that cannot be bound ends
+    # the run before it starts. (Measured: ZMQError, sizeof
+    # sockaddr_un.sun_path.)
+    # faulthandler_timeout dumps every thread's stack after sixty
+    # stuck seconds and keeps going: a wedged run says where it is
+    # wedged, in its own log.
+    set -o pipefail
+    mkdir -p "$out"
+    if PYTHONPATH=${./src} timeout 900 python3 -m pytest tests/test_tui.py \
+      -q -p no:cacheprovider -o faulthandler_timeout=60 \
+      --basetemp="$TMPDIR/tmp" 2>&1 | tee "$TMPDIR/run.log"; then
+      code=0
+    else
+      code=$?
+    fi
+    # A red run leaves its picture and its logs where a person reads
+    # them. timeout's kill would also land here -- the log still goes
+    # out, the verdict does not survive it.
+    cp -r "$TMPDIR/tmp" "$out/tmp" 2>/dev/null || true
+    cp "$TMPDIR/run.log" "$out/run.log" 2>/dev/null || true
+    exit $code
   ''
