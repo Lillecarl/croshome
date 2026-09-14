@@ -49,6 +49,7 @@
     ./terminfo.nix
     ./mdmonitor-mail.nix
     ./openvpn.nix
+    ./dynusers.nix
     ../../secrets
   ];
   config = {
