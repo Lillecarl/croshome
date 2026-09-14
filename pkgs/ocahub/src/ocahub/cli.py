@@ -263,6 +263,29 @@ def cmd_poll(c, args):
     return EXIT_OK
 
 
+def cmd_monitor(c, args):
+    """
+    Block for one message, print it as a single JSON line, exit.
+
+    The wake primitive for an agent that cannot poll on its own: the
+    session runs this in the background early, and a completed
+    background task with a line on stdout is the message arriving.
+    Stdout carries the delivery and nothing else -- the ack goes to
+    stderr, and a quiet wait ends with the timeout code.
+    """
+    name = args.name or os.environ.get("OCAHUB_NAME")
+    session = args.session or os.environ.get("OCAHUB_SESSION")
+    if not (name and session):
+        print("ocac: monitor needs --name/--session (or OCAHUB_NAME/OCAHUB_SESSION)", file=sys.stderr)
+        return EXIT_HUB
+    ack, m, pl = c.poll_wait(name, session, wait=args.wait)
+    if not ack.ok:
+        raise HubError(ack.error or "unknown hub error")
+    print(f"ocac: poll ack ok={ack.ok}", file=sys.stderr)
+    emit({**m.to_dict(), "payload": decode_payload(pl)})
+    return EXIT_OK
+
+
 def cmd_sub(c, args):
     sub = c.ctx.socket(zmq.SUB)
     sub.setsockopt(zmq.LINGER, 0)
@@ -386,6 +409,20 @@ def build_parser():
     p = sub.add_parser("sub", help="stream broadcasts and hub events")
     p.add_argument("--topic", default="", help="topic prefix to match (empty = all)")
 
+    p = sub.add_parser(
+        "monitor",
+        help="block for one message, print it as one JSON line, exit -- the wake primitive",
+    )
+    p.add_argument("--name", default=None)
+    p.add_argument("--session", default=None)
+    p.add_argument(
+        "--wait",
+        type=float,
+        default=300.0,
+        metavar="SECS",
+        help="how long to block (default 300s); a quiet wait exits 2",
+    )
+
     p = sub.add_parser("asks", help="list asks still owed by a session (read-only)")
     p.add_argument("--name", default=None)
     p.add_argument("--session", default=None)
@@ -404,6 +441,7 @@ COMMANDS = {
     "send": cmd_send,
     "broadcast": cmd_broadcast,
     "poll": cmd_poll,
+    "monitor": cmd_monitor,
     "asks": cmd_asks,
     "sub": cmd_sub,
     "bye": cmd_bye,

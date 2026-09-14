@@ -5,7 +5,7 @@ import time
 import zmq
 
 from ocahub import protocol as P
-from ocahub.cli import Client, HubError, Unreachable, WaitTimeout
+from ocahub.cli import Client, EXIT_OK, EXIT_TIMEOUT, HubError, Unreachable, WaitTimeout, main
 from conftest import Hub
 
 
@@ -207,6 +207,53 @@ def test_poll_drains_and_waits(hub):
         raise AssertionError("expected WaitTimeout")
     except WaitTimeout:
         pass
+
+
+def test_monitor_prints_one_line_for_a_queued_message(hub, capsys):
+    """
+    The wake primitive: one queued message, one JSON line on stdout,
+    exit 0. A background task's completed output is what the agent
+    reads, so the line is the whole contract -- no ack, no chatter.
+    """
+    hub.client().send(to="mon@m1", payload=b"wake up")
+    code = main(
+        [
+            "--runtime-dir",
+            hub.runtime,
+            "monitor",
+            "--name",
+            "mon",
+            "--session",
+            "m1",
+            "--wait",
+            "10",
+        ]
+    )
+    out = capsys.readouterr().out.strip().splitlines()
+    assert code == EXIT_OK
+    assert len(out) == 1
+    line = json.loads(out[0])
+    assert line["payload"] == "wake up"
+    assert line["kind"] == P.KIND_TELL
+    assert line["id"]
+
+
+def test_monitor_quiet_wait_times_out_silently(hub, capsys):
+    code = main(
+        [
+            "--runtime-dir",
+            hub.runtime,
+            "monitor",
+            "--name",
+            "mon",
+            "--session",
+            "m1",
+            "--wait",
+            "0.3",
+        ]
+    )
+    assert code == EXIT_TIMEOUT
+    assert capsys.readouterr().out == ""
 
 
 def test_ask_reply_roundtrip(hub):
