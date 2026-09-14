@@ -13,9 +13,13 @@ import pytest
 
 from mock_llm import MockLLM
 
+#: One tool offered, the least that marks a request as the agent loop
+#: and not one of the small side calls.
+TOOLS = [{"type": "function", "function": {"name": "bash"}}]
+
 
 def post(llm, payload):
-    host, port = llm.server.server_address
+    host, port = llm.server_address
     connection = http.client.HTTPConnection(host, port, timeout=10)
     connection.request(
         "POST",
@@ -37,8 +41,8 @@ def sse_events(raw):
 
 
 def test_plain_answer_is_json_and_ends_the_loop():
-    with MockLLM([{"text": "hello"}]) as llm:
-        answer = post(llm, {"model": "test", "stream": False})
+    with MockLLM({"test": [{"text": "hello"}]}) as llm:
+        answer = post(llm, {"model": "test", "stream": False, "tools": TOOLS})
         assert answer.status == 200
         body = json.loads(answer.read())
         choice = body["choices"][0]
@@ -47,8 +51,8 @@ def test_plain_answer_is_json_and_ends_the_loop():
 
 
 def test_stream_is_sse_with_role_body_and_finish():
-    with MockLLM([{"text": "hello"}]) as llm:
-        answer = post(llm, {"model": "test", "stream": True})
+    with MockLLM({"test": [{"text": "hello"}]}) as llm:
+        answer = post(llm, {"model": "test", "stream": True, "tools": TOOLS})
         assert answer.getheader("Content-Type") == "text/event-stream"
         raw = answer.read().decode()
         events = sse_events(raw)
@@ -61,7 +65,7 @@ def test_stream_is_sse_with_role_body_and_finish():
 
 def test_tool_call_resolves_the_offered_name():
     turns = [{"tool_call": {"tool": "agent_send", "arguments": {"to": "x"}}}]
-    with MockLLM(turns) as llm:
+    with MockLLM({"test": turns}) as llm:
         offered = {
             "model": "test",
             "stream": False,
@@ -73,25 +77,66 @@ def test_tool_call_resolves_the_offered_name():
         assert call["function"]["arguments"] == '{"to": "x"}'
 
 
-def test_requests_are_recorded_in_order():
-    with MockLLM([{"text": "a"}, {"text": "b"}]) as llm:
-        post(llm, {"model": "test", "stream": False, "tools": []})
-        post(llm, {"model": "test", "stream": False})
-        assert [r.get("model") for r in llm.requests] == ["test", "test"]
+def test_models_are_served_from_separate_scripts():
+    with MockLLM({"a": [{"text": "from a"}], "b": [{"text": "from b"}]}) as llm:
+        answer = post(llm, {"model": "a", "stream": False, "tools": TOOLS})
+        assert json.loads(answer.read())["choices"][0]["message"]["content"] == "from a"
+        answer = post(llm, {"model": "b", "stream": False, "tools": TOOLS})
+        assert json.loads(answer.read())["choices"][0]["message"]["content"] == "from b"
+
+
+def test_small_calls_take_the_canned_answer_and_not_the_script():
+    with MockLLM({"test": [{"text": "for the loop"}]}, small_answer="title") as llm:
+        answer = post(llm, {"model": "test", "stream": False})
+        assert json.loads(answer.read())["choices"][0]["message"]["content"] == "title"
+        answer = post(llm, {"model": "test", "stream": False, "tools": TOOLS})
+        assert json.loads(answer.read())["choices"][0]["message"]["content"] == "for the loop"
 
 
 def test_exhausted_script_still_answers():
-    with MockLLM([{"text": "only"}]) as llm:
-        post(llm, {"model": "test", "stream": False})
-        answer = post(llm, {"model": "test", "stream": False})
+    with MockLLM({"test": [{"text": "only"}]}) as llm:
+        post(llm, {"model": "test", "stream": False, "tools": TOOLS})
+        answer = post(llm, {"model": "test", "stream": False, "tools": TOOLS})
         assert json.loads(answer.read())["choices"][0]["message"]["content"] == "(mock script exhausted)"
         assert llm.exhausted
 
 
+def test_placeholder_substitutes_the_ask_id_from_the_tool_result():
+    turns = [
+        {
+            "tool_call": {
+                "tool": "agent_reply",
+                "arguments": {"reply_to": "$ask_id", "message": "answered"},
+            }
+        }
+    ]
+    with MockLLM({"test": turns}) as llm:
+        inbox_result = json.dumps(
+            {
+                "you": {"name": "beta", "session": "s1"},
+                "messages": [{"id": "abc123", "kind": "ask", "from": "alpha@s0"}],
+            }
+        )
+        offered = {
+            "model": "test",
+            "stream": False,
+            "tools": [{"type": "function", "function": {"name": "ocahub_agent_reply"}}],
+            "messages": [
+                {"role": "user", "content": "check the inbox"},
+                {"role": "assistant", "tool_calls": [], "content": None},
+                {"role": "tool", "tool_call_id": "call_1", "content": inbox_result},
+            ],
+        }
+        answer = post(llm, offered)
+        call = json.loads(answer.read())["choices"][0]["message"]["tool_calls"][0]
+        arguments = json.loads(call["function"]["arguments"])
+        assert arguments["reply_to"] == "abc123"
+        assert arguments["message"] == "answered"
+
+
 def test_models_endpoint():
-    with MockLLM([]) as llm:
-        host, port = llm.server.server_address
-        connection = http.client.HTTPConnection(host, port, timeout=10)
+    with MockLLM({}) as llm:
+        connection = http.client.HTTPConnection("127.0.0.1", llm.port, timeout=10)
         connection.request("GET", "/v1/models")
         answer = connection.getresponse()
         assert answer.status == 200
@@ -101,8 +146,8 @@ def test_models_endpoint():
 @pytest.mark.parametrize("stream", [False, True])
 def test_finish_reason_of_a_tool_turn(stream):
     turns = [{"tool_call": {"tool": "agent_send", "arguments": {}}}]
-    with MockLLM(turns) as llm:
-        answer = post(llm, {"model": "test", "stream": stream})
+    with MockLLM({"test": turns}) as llm:
+        answer = post(llm, {"model": "test", "stream": stream, "tools": TOOLS})
         if stream:
             raw = answer.read().decode()
             events = sse_events(raw)

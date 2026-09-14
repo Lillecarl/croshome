@@ -8,6 +8,11 @@ import pytest
 from ocahub.cli import Client
 
 
+@pytest.fixture
+def anyio_backend():
+    return "asyncio"
+
+
 class Hub:
     def __init__(self, runtime, state):
         self.runtime = str(runtime)
