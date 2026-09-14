@@ -13,6 +13,16 @@ def anyio_backend():
     return "asyncio"
 
 
+def pytest_configure(config):
+    # Registered here as well as in pyproject.toml: the TUI check runs
+    # the suite from a bare directory, and an unregistered mark is a
+    # warning there no matter what the pyproject says.
+    config.addinivalue_line(
+        "markers",
+        "tui: runs the real opencode TUI under pymux; needs the TUI check's inputs, not the ordinary check",
+    )
+
+
 class Hub:
     def __init__(self, runtime, state):
         self.runtime = str(runtime)

@@ -11,6 +11,11 @@
   runCommand,
   python3,
   opencode,
+  # The built hub: opencode's config names the `ocahub-mcp` entry
+  # point, and that binary lives in this package's bin. Nothing
+  # circular here -- the check depends on the package, never the
+  # reverse.
+  ocahub,
   # pymux from the pyterm tree, not nixpkgs' abandoned namesake -- see
   # the overlay's ocahub for the argument.
   pymux,
@@ -49,6 +54,7 @@ runCommand "ocahub-tui-e2e"
           ps.pyzmq
         ]
       ))
+      ocahub
       pymux
       opencode
       foot
@@ -99,8 +105,12 @@ runCommand "ocahub-tui-e2e"
     fi
     # A red run leaves its picture and its logs where a person reads
     # them. timeout's kill would also land here -- the log still goes
-    # out, the verdict does not survive it.
+    # out, the verdict does not survive it. The copy skips sockets and
+    # pipes: the hub's runtime dir is full of them, and a store path
+    # may hold neither -- nix scans the output and rejects what it
+    # finds.
     cp -r "$TMPDIR/tmp" "$out/tmp" 2>/dev/null || true
+    find "$out/tmp" \( -type s -o -type p \) -delete 2>/dev/null || true
     cp "$TMPDIR/run.log" "$out/run.log" 2>/dev/null || true
     exit $code
   ''

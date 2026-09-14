@@ -231,6 +231,7 @@ in
   # multiplexer, and nothing in the type would say so. See ../flake.nix
   # for why the input is a source tree.
   ocahub-tui-e2e = final.callPackage ./ocahub/check-tui.nix {
+    ocahub = final.ocahub;
     pymux = pyterm.pymux;
   };
 
