@@ -32,9 +32,12 @@ from pathlib import Path
 
 import anyio
 
-#: Long enough for a cold opencode on a slow, loaded sandbox, and for
-#: the MCP round trips in between.
-DEFAULT_TIMEOUT = 180.0
+#: How long a fence may run. The things fenced on -- a hub delivery, a
+#: pane reply, a still frame -- are work of seconds; the budget covers
+#: a cold opencode on a loaded sandbox, and a failure is what the
+#: fence is for. The per-test backstop is pytest-timeout's, and it
+#: sits above this.
+DEFAULT_TIMEOUT = 30.0
 
 
 class TuiError(RuntimeError):
@@ -73,6 +76,48 @@ async def _communicate(process):
         tg.start_soon(drain, process.stdout, out)
         tg.start_soon(drain, process.stderr, err)
     return b"".join(out), b"".join(err)
+
+
+def _proc_dump():
+    """
+    The pane process's kernel view, for a TUI that never paints.
+
+    A pane that stays blank with its process alive is either a boot
+    that has not finished or a syscall it never comes back from; the
+    wait channel and the state line say which. Off by default -- the
+    check turns it on with OCAHUB_DEBUG_PROC when it wants the truth.
+    """
+    lines = []
+    for pid in Path("/proc").iterdir():
+        if not pid.name.isdigit():
+            continue
+        try:
+            cmd = (pid / "cmdline").read_bytes().decode(errors="replace")
+        except OSError:
+            continue
+        if (
+            "opencode" not in cmd
+            and "foot" not in cmd
+            and "pymux" not in cmd
+            and "ocahub" not in cmd
+        ):
+            continue
+        fields = {}
+        try:
+            for field in (pid / "status").read_text().splitlines():
+                if field.startswith(("State:", "Threads:")):
+                    fields[field.split(":")[0]] = field.split(":", 1)[1].strip()
+        except OSError:
+            continue
+        try:
+            wchan = (pid / "wchan").read_text(errors="replace").strip()
+        except OSError:
+            wchan = "?"
+        lines.append(
+            "proc %s %s wchan=%s %s :: %s"
+            % (pid.name, fields.get("State", "?"), wchan, fields.get("Threads", "?"), cmd[:100])
+        )
+    return "\n\nthe pane's processes:\n" + "\n".join(lines)
 
 
 def _heartbeat(what, started, last_beat):
@@ -147,10 +192,17 @@ class Tui:
 
     # -- start and stop -------------------------------------------------
 
-    async def start(self, timeout=DEFAULT_TIMEOUT):
+    async def start(self, timeout=120.0):
         """
         Start the server with the agent in the pane, then the seat that
         shows it, and wait until the TUI has drawn and gone still.
+
+        The budget is the boot's, not the conversation's: with the hub
+        plugin deployed, opencode spends its first ~70s trying to
+        install the plugin's npm dependency against the sandbox's dead
+        network before its first frame (measured, in the run's own
+        opencode.log). What the agent does once drawn is fenced at
+        DEFAULT_TIMEOUT.
         """
         env = {
             **os.environ,
@@ -186,8 +238,8 @@ class Tui:
                 "the pymux server never started:\n%s" % stderr.decode(errors="replace")
             )
         await self._start_sway()
-        await self.wait(lambda t: t.strip() != "")
-        await self.wait_settled()
+        await self.wait(lambda t: t.strip() != "", timeout=timeout)
+        await self.wait_settled(timeout=timeout)
 
     async def _start_sway(self):
         wrapper = self.room / "run.sh"
@@ -216,26 +268,30 @@ class Tui:
                     "DISPLAY": "",
                 },
             )
-            deadline = time.monotonic() + 20
-            beat = 0.0
-            began = time.monotonic()
-            while time.monotonic() < deadline:
-                if self._sway.returncode is not None:
-                    raise TuiError(
-                        "sway died at startup (%s):\n%s"
-                        % (self._sway.returncode, _tail(self.sway_log))
-                    )
-                sockets = [
-                    s
-                    for s in self.room.glob("wayland-*")
-                    if not s.name.endswith(".lock")
-                ]
-                if sockets:
-                    self._display = sockets[0].name
-                    return
-                beat = _heartbeat("sway", began, beat)
-                await anyio.sleep(0.2)
-        raise TuiError("sway never opened a display:\n%s" % _tail(self.sway_log))
+        # A display socket appears in under a second or sway is dead;
+        # twenty is already charity for a sandbox under load.
+        try:
+            with anyio.fail_after(20):
+                beat = 0.0
+                began = time.monotonic()
+                while True:
+                    if self._sway.returncode is not None:
+                        raise TuiError(
+                            "sway died at startup (%s):\n%s"
+                            % (self._sway.returncode, _tail(self.sway_log))
+                        )
+                    sockets = [
+                        s
+                        for s in self.room.glob("wayland-*")
+                        if not s.name.endswith(".lock")
+                    ]
+                    if sockets:
+                        self._display = sockets[0].name
+                        return
+                    beat = _heartbeat("sway", began, beat)
+                    await anyio.sleep(0.2)
+        except TimeoutError:
+            raise TuiError("sway never opened a display:\n%s" % _tail(self.sway_log))
 
     async def stop(self):
         if self.sock.exists():
@@ -276,7 +332,7 @@ class Tui:
         the answer this waits for.
         """
         await self.send_keys("hello", enter=True)
-        await self.wait(lambda t: reply in t.lower(), timeout=90)
+        await self.wait(lambda t: reply in t.lower())
 
     async def rename(self, title):
         """
@@ -341,21 +397,28 @@ class Tui:
         Wait until two captures in a row agree, and give back the text.
 
         A TUI that animates (a spinner, a clock) never settles; a field
-        that waits for input does. The wait bounds itself, so an
-        animated screen costs the timeout and then says what moved.
+        that waits for input does. The whole loop sits inside one
+        timeout scope, so a hung capture is caught with the polling,
+        not only between polls; an animated screen costs the timeout
+        and then says what moved.
         """
-        deadline = time.monotonic() + timeout
         previous = None
         beat = 0.0
         began = time.monotonic()
-        while time.monotonic() < deadline:
-            current = await self.capture()
-            if current and current == previous:
-                return current
-            previous = current
-            beat = _heartbeat("settle", began, beat)
-            await anyio.sleep(0.5)
-        raise TuiError("the pane never settled; the last two captures differ")
+        try:
+            with anyio.fail_after(timeout):
+                while True:
+                    current = await self.capture()
+                    if current and current == previous:
+                        return current
+                    previous = current
+                    beat = _heartbeat("settle", began, beat)
+                    await anyio.sleep(0.5)
+        except TimeoutError:
+            raise TuiError(
+                "the pane never settled in %ds; the last capture was:\n%s"
+                % (int(timeout), (previous or "")[-2000:])
+            )
 
     async def wait(self, predicate, timeout=DEFAULT_TIMEOUT):
         """
@@ -363,21 +426,30 @@ class Tui:
         the capture that did.
 
         The screen of a program that is thinking changes often, so
-        this polls the capture and not the clock. The failure carries
-        the last capture and the server log, which is the difference
-        between "the check failed" and "here is why".
+        this polls the capture and not the clock. The whole loop sits
+        inside one timeout scope -- a hung capture dies with the
+        polling, not after it. The failure carries the last capture
+        and the server log, which is the difference between "the
+        check failed" and "here is why".
         """
-        deadline = time.monotonic() + timeout
         last = ""
         beat = 0.0
         began = time.monotonic()
-        while time.monotonic() < deadline:
-            last = await self.capture()
-            if predicate(last):
-                return last
-            beat = _heartbeat("wait", began, beat)
-            await anyio.sleep(0.5)
-        raise TuiError(
-            "the pane never showed it; the last capture was:\n%s\n%s"
-            % (last, _tail(self.server_log))
-        )
+        try:
+            with anyio.fail_after(timeout):
+                while True:
+                    last = await self.capture()
+                    if predicate(last):
+                        return last
+                    beat = _heartbeat("wait", began, beat)
+                    await anyio.sleep(0.5)
+        except TimeoutError:
+            raise TuiError(
+                "the pane never showed it in %ds; the last capture was:\n%s\n%s%s"
+                % (
+                    int(timeout),
+                    last,
+                    _tail(self.server_log),
+                    _proc_dump() if os.environ.get("OCAHUB_DEBUG_PROC") else "",
+                )
+            )

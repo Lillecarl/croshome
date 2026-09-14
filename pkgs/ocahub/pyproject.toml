@@ -19,6 +19,13 @@ ocahub-mcp = "ocahub.mcp_server:main"
 markers = [
   "tui: runs the real opencode TUI under pymux; needs the TUI check's inputs, not the ordinary check",
 ]
+# The backstop, not the fence: the tests' own waits fail in seconds
+# and say why. This catches the wedge no fence sees -- a hang in a
+# native call, a loop with no await -- and it dies with a stack dump
+# instead of riding the run's timeout out. The floor it must clear is
+# the boot: a TUI whose plugin install walks into the sandbox's dead
+# network paints its first frame around 75s.
+timeout = 180
 
 [tool.setuptools.packages.find]
 where = ["src"]

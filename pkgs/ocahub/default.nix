@@ -6,6 +6,7 @@
   mcp,
   pyzmq,
   pytestCheckHook,
+  pytest-timeout,
 }:
 
 buildPythonApplication {
@@ -18,7 +19,7 @@ buildPythonApplication {
   build-system = [ setuptools ];
   dependencies = [ anyio mcp pyzmq ];
 
-  nativeCheckInputs = [ pytestCheckHook ];
+  nativeCheckInputs = [ pytestCheckHook pytest-timeout ];
 
   # The TUI tests (marker `tui`) run the real opencode TUI under pymux
   # and need a compositor, a terminal and an opencode on PATH. They are

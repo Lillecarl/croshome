@@ -37,7 +37,9 @@
   # pymux from the pyterm tree, not nixpkgs' abandoned namesake -- see
   # the overlay's ocahub for the argument.
   pymux,
-  # The second agent format the suite stands up.
+  # The mock provider the agents run against, and the second agent
+  # format the suite stands up.
+  ocahub-fakellm,
   claude-code,
   # The seat: a headless compositor, the terminal it paints, and the
   # tools that photograph it. The same set the pyterm picture checks
@@ -77,16 +79,19 @@ suite
   {
     name = "ocahub-tui-e2e";
     inputs = [
-      (python3.withPackages (
-        ps: [
-          ps.pytest
-          ps.anyio
-          ps.mcp
-          ps.pyzmq
-        ]
-      ))
+        (python3.withPackages (
+          ps: [
+            ps.pytest
+            ps.pytest-timeout
+            ps.anyio
+            ps.mcp
+            ps.pyzmq
+          ]
+        ))
       ocahub
       pymux
+      # The mock provider: the agents' models, on both wires.
+      ocahub-fakellm
       opencode
       # The second agent format the suite stands up: claude-code,
       # against the mock's Anthropic route.
@@ -107,6 +112,8 @@ suite
       # The knobs: in `env`, so a change to one rebuilds the check,
       # which is what makes them work.
       inherit tuiTests tuiArgs;
+      # TEMP: the pane-process dump, for a TUI that never paints.
+      OCAHUB_DEBUG_PROC = builtins.getEnv "OCAHUB_DEBUG_PROC";
     };
     setup = ''
       cp -r ${./tests} tests

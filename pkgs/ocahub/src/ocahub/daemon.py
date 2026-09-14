@@ -266,12 +266,17 @@ class Hub:
                 }
         await self._ack(identity, msg, status=status, kind=kind)
 
-    async def _resolve_session(self, identity, msg):
+    async def _resolve_session(self, identity, msg, rebind=True):
         """Key for this caller: explicit name/session, else the hello mapping.
 
         An explicit key re-binds the registry entry's socket to this caller,
         which is how a fresh process attaches to an existing session. A key
         with no entry is created, so a poll-only session is discoverable.
+
+        `rebind=False` is for read-only calls (asks, who): a client that only
+        reads must not capture the entry's socket, or the next send for that
+        name routes into a connection nobody is reading, and a helper reading
+        the ledger would steal the very asks it reads about.
         """
         name = msg.name
         session = msg.session
@@ -279,6 +284,8 @@ class Hub:
             P.check_name(name, "name")
             P.check_name(session, "session")
             key = (name, session)
+            if not rebind:
+                return key
             self.identity_map[identity] = key
             entry = self.registry.get(key)
             if entry is None:
@@ -312,12 +319,16 @@ class Hub:
         await self._ack(identity, msg, status="drained", count=len(delivers))
 
     async def _on_asks(self, identity, msg, payload):
-        key = await self._resolve_session(identity, msg)
+        key = await self._resolve_session(identity, msg, rebind=False)
         name, _ = key
+        # The ledger is name-level: an agent's asks are whoever owes
+        # that name a reply, whatever session the sender routed to --
+        # a wake session and the MCP server's own are different
+        # sessions of one agent, and both must see the same ledger.
         items = [
             {"id": ask_id, "from": a["from"], "ts": a["ts"]}
             for ask_id, a in sorted(self.asks.items(), key=lambda kv: kv[1]["ts"])
-            if a["target"] == key or a["target"] == (name, None)
+            if a["target"][0] == name
         ]
         await self._ack(identity, msg, asks=items)
 
