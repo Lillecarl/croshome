@@ -24,12 +24,32 @@ whole, and typing into it is not a race.
 import asyncio
 import os
 import shlex
+import sys
 import time
 from pathlib import Path
 
 #: Long enough for a cold opencode on a slow, loaded sandbox, and for
 #: the MCP round trips in between.
 DEFAULT_TIMEOUT = 180.0
+
+
+def _heartbeat(what, started, last_beat):
+    """
+    One line every fifteen seconds while a wait runs.
+
+    The checks are quiet for minutes at a time on a loaded sandbox --
+    pytest prints nothing between them -- and a quiet run is exactly
+    what a stalled one looks like from the outside. The heartbeat is
+    what makes the difference visible in a build log: real progress
+    grows the log, and a stall stays silent through it.
+
+    Returns the beat to compare the next call against.
+    """
+    elapsed = time.monotonic() - started
+    if elapsed - last_beat >= 15:
+        print("[%s] %ds" % (what, int(elapsed)), flush=True)
+        return elapsed
+    return last_beat
 
 
 class TuiError(RuntimeError):
@@ -229,11 +249,14 @@ class Tui:
         """
         deadline = time.monotonic() + timeout
         previous = None
+        beat = 0.0
+        began = time.monotonic()
         while time.monotonic() < deadline:
             current = await self.capture()
             if current and current == previous:
                 return current
             previous = current
+            beat = _heartbeat("settle", began, beat)
             await asyncio.sleep(0.5)
         raise TuiError("the pane never settled; the last two captures differ")
 
@@ -249,10 +272,13 @@ class Tui:
         """
         deadline = time.monotonic() + timeout
         last = ""
+        beat = 0.0
+        began = time.monotonic()
         while time.monotonic() < deadline:
             last = await self.capture()
             if predicate(last):
                 return last
+            beat = _heartbeat("wait", began, beat)
             await asyncio.sleep(0.5)
         raise TuiError(
             "the pane never showed it; the last capture was:\n%s\n%s"

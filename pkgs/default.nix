@@ -41,9 +41,13 @@ let
   };
 
   joolPr456 = final.fetchpatch {
-    url = "https://github.com/NICMx/Jool/pull/456.patch";
-    hash = "sha256-vYFZF0WFO6MNIj4cOdwmqV8UZsfOqrdLPP3E6dX9+q8=";
+    url = "https://github.com/NICXmx/Jool/pull/456.patch";
+    hash = "sha256-vYZFZ0wqV00TkIKXqRSmY+hFE1TLbeisVNEk7e1rXtA=";
   };
+
+  # The pyterm collection's packages, built by this repository's package
+  # set. The TUI check's multiplexer comes from here.
+  pyterm = import inputs.pyterm { pkgs = final; };
 in
 {
   # The kernel module. `patches = [ ]` drops the Alpine kernel-6.18 patch
@@ -219,6 +223,16 @@ in
   merged-file = final.python3.pkgs.callPackage ./merged-file { };
 
   ocahub = final.python3.pkgs.callPackage ./ocahub { };
+
+  # The TUI end-to-end check, a derivation of its own: a desktop stack
+  # of inputs that no ordinary build of the hub should carry. pymux
+  # from the pyterm tree, not nixpkgs' abandoned namesake -- callPackage
+  # would bind that one silently, the check would run the wrong
+  # multiplexer, and nothing in the type would say so. See ../flake.nix
+  # for why the input is a source tree.
+  ocahub-tui-e2e = final.callPackage ./ocahub/check-tui.nix {
+    pymux = pyterm.pymux;
+  };
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 

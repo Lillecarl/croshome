@@ -101,30 +101,39 @@ async def hub_delivers(hub, recipient, needle, timeout=DEFAULT_TIMEOUT):
     """
     Poll the hub as the recipient would, until a delivery for the name
     carries the text. This is the client protocol end to end, not a
-    peek at the database; the sync client runs in a thread so the
-    loop keeps working while it waits.
+    peek at the database.
+
+    One client for the whole wait, and every zmq call in a worker
+    thread: `Client.close` ends in `ctx.destroy`, which blocks, and a
+    blocking call on the event loop thread wedges the loop -- the
+    heartbeats stop, the timeouts stop, and the test hangs forever.
+    The sandbox reaches that state in a dozen polls; a fast machine
+    may never see it, which is the worst kind of bug to leave behind.
     """
+    client = hub.client()
     deadline = time.monotonic() + timeout
     last = None
-    while time.monotonic() < deadline:
-        client = hub.client()
-        try:
+    try:
+        while time.monotonic() < deadline:
             ack, delivers = await anyio.to_thread.run_sync(
                 lambda: client.call(P.Poll(name=recipient, session="e2e-check"))
             )
-        finally:
-            client.close()
-        for delivery in delivers:
-            record = delivery.to_dict() if hasattr(delivery, "to_dict") else delivery
-            if needle in json.dumps(record, default=str):
-                return delivery
-            last = record
-        await asyncio.sleep(1.0)
+            for delivery in delivers:
+                record = (
+                    delivery.to_dict() if hasattr(delivery, "to_dict") else delivery
+                )
+                if needle in json.dumps(record, default=str):
+                    return delivery
+                last = record
+            await asyncio.sleep(1.0)
+    finally:
+        await anyio.to_thread.run_sync(client.close)
     raise AssertionError(
         "the hub never delivered %r to %s; the last poll was %r" % (needle, recipient, last)
     )
 
 
+@pytest.mark.tui
 @pytest.mark.anyio
 async def test_opencode_tui_sends_to_the_hub(hub, tmp_path):
     """
@@ -165,6 +174,7 @@ async def test_opencode_tui_sends_to_the_hub(hub, tmp_path):
             print("mock exhausted: %s" % llm.exhausted)
 
 
+@pytest.mark.tui
 @pytest.mark.anyio
 async def test_two_agents_converse_through_the_hub(hub, tmp_path):
     """
@@ -234,6 +244,6 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
                 )[0]
                 assert not (ack.asks or []), "alpha's ask never got its reply"
             finally:
-                client.close()
+                await anyio.to_thread.run_sync(client.close)
         finally:
             await asyncio.gather(alpha.stop(), beta.stop())
