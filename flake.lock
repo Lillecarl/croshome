@@ -367,11 +367,11 @@
     "pyedit": {
       "flake": false,
       "locked": {
-        "lastModified": 1789301047,
-        "narHash": "sha256-r0WPaW/tdjKxhuz5uDV0C5TkUIVLO81tgmSiwoN4I0k=",
+        "lastModified": 1789302530,
+        "narHash": "sha256-imwskvQNKJYqcc1QUeEL/H8teXyOum2Ff9hgH6cwUZs=",
         "owner": "Lillecarl",
         "repo": "pyedit",
-        "rev": "33b07ad1e93b4a63868e35ddc666ca7f843459dd",
+        "rev": "51c7ef92a0de4ec769cf253b00a1f297806df4ac",
         "type": "github"
       },
       "original": {
@@ -424,11 +424,11 @@
     "pyterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1789150440,
-        "narHash": "sha256-vVTOmPiBsSW/1pTdL1FTjZYJZq/txkC+SqmLDjuEof8=",
+        "lastModified": 1789374681,
+        "narHash": "sha256-EsaN4uWgX2o94vX56HaysDZMhpBj6VkoVXmYpE5lJpE=",
         "ref": "refs/heads/main",
-        "rev": "016f8a385be77d9cde6bebf8e5a08aa30d0724db",
-        "revCount": 362,
+        "rev": "20806419895885fc509e488a2fab3f7e73957c3f",
+        "revCount": 460,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Lillecarl/pyterm"
