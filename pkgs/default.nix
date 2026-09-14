@@ -41,8 +41,12 @@ let
   };
 
   joolPr456 = final.fetchpatch {
-    url = "https://github.com/NICXmx/Jool/pull/456.patch";
-    hash = "sha256-vYZFZ0wqV00TkIKXqRSmY+hFE1TLbeisVNEk7e1rXtA=";
+    url = "https://github.com/NICMx/Jool/pull/456.patch";
+    # 2026-09-14: the URL had a typo (NICXmx) that hid until nix-gc collected
+    # the old fetch result, and the fetch that followed brought a new hash --
+    # the PR was pushed to again since the pin. Re-read the patch on re-pin:
+    # it must stay one file, src/mod/common/stats.c, and keep the subject.
+    hash = "sha256-EcfBwFKOSFQOBWl8s5Pa2/RJg9lH1ziGzvV4ap2505M=";
   };
 
   # The pyterm collection's packages, built by this repository's package
