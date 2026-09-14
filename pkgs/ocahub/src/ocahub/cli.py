@@ -272,12 +272,31 @@ def cmd_monitor(c, args):
     background task with a line on stdout is the message arriving.
     Stdout carries the delivery and nothing else -- the ack goes to
     stderr, and a quiet wait ends with the timeout code.
+
+    The monitor is also the session's hub presence where no plugin
+    registers one: it hello's first, so `who` lists the session and
+    an MCP server sharing the directory resolves to the same
+    identity. Mail queued before it attached arrives on the hello,
+    as it does for every client.
     """
     name = args.name or os.environ.get("OCAHUB_NAME")
     session = args.session or os.environ.get("OCAHUB_SESSION")
     if not (name and session):
         print("ocac: monitor needs --name/--session (or OCAHUB_NAME/OCAHUB_SESSION)", file=sys.stderr)
         return EXIT_HUB
+    ack, delivers = c.hello(
+        name,
+        session,
+        [x for x in (args.caps or "").split(",") if x],
+        cwd=args.cwd or os.getcwd(),
+        title=args.title,
+    )
+    if not ack.ok:
+        raise HubError(ack.error or "unknown hub error")
+    for m, pl in delivers:
+        emit({**m.to_dict(), "payload": decode_payload(pl)})
+    if delivers:
+        return EXIT_OK
     ack, m, pl = c.poll_wait(name, session, wait=args.wait)
     if not ack.ok:
         raise HubError(ack.error or "unknown hub error")
@@ -411,10 +430,13 @@ def build_parser():
 
     p = sub.add_parser(
         "monitor",
-        help="block for one message, print it as one JSON line, exit -- the wake primitive",
+        help="register, block for one message, print it as one JSON line, exit",
     )
     p.add_argument("--name", default=None)
     p.add_argument("--session", default=None)
+    p.add_argument("--title", default=None, help="human-facing session title")
+    p.add_argument("--caps", default="", help="comma-separated capability tags")
+    p.add_argument("--cwd", default=None, help="working directory to advertise")
     p.add_argument(
         "--wait",
         type=float,

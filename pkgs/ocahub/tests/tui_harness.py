@@ -96,18 +96,20 @@ def _heartbeat(what, started, last_beat):
 
 class Tui:
     """
-    One opencode TUI, in a pane of its own, and the ways to read it.
+    One agent TUI, in a pane of its own, and the ways to read it.
 
-    `opencode_env` is the environment the TUI runs under: the XDG
+    `agent_env` is the environment the agent runs under: the XDG
     roots, the mock provider's config, the hub's directories, and the
     hub name this instance's MCP server registers under. Whatever it
-    names must already exist on disk.
+    names must already exist on disk. `command` is the binary the
+    pane runs -- opencode, claude -- started in `project`.
     """
 
-    def __init__(self, work, project, opencode_env, rows=30, columns=100):
+    def __init__(self, work, project, agent_env, rows=30, columns=100, command="opencode"):
         self.work = Path(work)
         self.project = Path(project)
-        self.opencode_env = dict(opencode_env)
+        self.agent_env = dict(agent_env)
+        self.command = command
         self.rows = rows
         self.columns = columns
 
@@ -147,12 +149,12 @@ class Tui:
 
     async def start(self, timeout=DEFAULT_TIMEOUT):
         """
-        Start the server with opencode in the pane, then the seat that
+        Start the server with the agent in the pane, then the seat that
         shows it, and wait until the TUI has drawn and gone still.
         """
         env = {
             **os.environ,
-            **self.opencode_env,
+            **self.agent_env,
             "SHELL": os.environ.get("OCABUILD_SHELL", "/bin/sh"),
             "LANG": "C.UTF-8",
         }
@@ -167,7 +169,7 @@ class Tui:
                 "-d",
                 "-s",
                 "test",
-                "opencode",
+                self.command,
             ],
             cwd=str(self.project),
             env=env,
@@ -294,8 +296,22 @@ class Tui:
         await self.send_keys(title, enter=True)
 
     async def capture(self):
-        "The pane as text, wrapped lines joined."
-        return await self._cli(["capture-pane", "-p", "-J"])
+        """
+        The pane as text, wrapped lines joined. The last good capture
+        is kept: a pane whose process has exited takes the pymux
+        server with it, and the next capture fails -- the screen the
+        agent died on is then only available from here.
+        """
+        try:
+            self._last_capture = await self._cli(["capture-pane", "-p", "-J"])
+        except TuiError:
+            if getattr(self, "_last_capture", None):
+                raise TuiError(
+                    "the pane is gone (the pymux server with it); the last "
+                    "capture before death was:\n" + self._last_capture
+                )
+            raise
+        return self._last_capture
 
     async def screenshot(self, path):
         "The whole output, as a picture. This is the AI-viewable one."

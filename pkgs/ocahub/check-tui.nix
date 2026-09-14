@@ -37,6 +37,8 @@
   # pymux from the pyterm tree, not nixpkgs' abandoned namesake -- see
   # the overlay's ocahub for the argument.
   pymux,
+  # The second agent format the suite stands up.
+  claude-code,
   # The seat: a headless compositor, the terminal it paints, and the
   # tools that photograph it. The same set the pyterm picture checks
   # use, for the same reasons: sway and not cage (it offers the
@@ -86,6 +88,9 @@ suite
       ocahub
       pymux
       opencode
+      # The second agent format the suite stands up: claude-code,
+      # against the mock's Anthropic route.
+      claude-code
       foot
       sway-unwrapped
       grim

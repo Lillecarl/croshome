@@ -75,7 +75,9 @@ class _HTTP:
             await self.answer(b"200 OK", b"application/json", payload)
             return
 
-        route = path.rstrip("/")
+        # The path may carry a query -- claude-code's client appends
+        # beta flags to /v1/messages -- and the route is the path alone.
+        route = path.split("?", 1)[0].rstrip("/")
         if method != "POST" or not (
             route.endswith("/chat/completions") or route.endswith("/messages")
         ):

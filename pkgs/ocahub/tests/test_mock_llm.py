@@ -162,16 +162,32 @@ def test_finish_reason_of_a_tool_turn(stream):
 A_TOOLS = [{"name": "Bash", "input_schema": {"type": "object"}}]
 
 
-def post_messages(llm, payload):
+def post_messages(llm, payload, path="/v1/messages"):
     host, port = llm.server_address
     connection = http.client.HTTPConnection(host, port, timeout=10)
     connection.request(
         "POST",
-        "/v1/messages",
+        path,
         body=json.dumps(payload),
         headers={"Content-Type": "application/json"},
     )
     return connection.getresponse()
+
+
+def test_anthropic_route_answers_with_a_query_string():
+    """
+    The client's real request carries beta flags as a query, and the
+    route is the path alone -- a 404 here reads as 'model not found'
+    at the other end, which is how the first sandbox run failed.
+    """
+    with MockLLM({"claude": [{"text": "hi"}]}) as llm:
+        answer = post_messages(
+            llm,
+            {"model": "claude", "stream": True, "tools": A_TOOLS, "messages": []},
+            path="/v1/messages?beta=true",
+        )
+        assert answer.status == 200
+        assert answer.getheader("Content-Type") == "text/event-stream"
 
 
 def test_anthropic_text_streams_as_the_event_sequence():

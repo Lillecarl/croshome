@@ -224,6 +224,10 @@ in
 
   ocahub = final.python3.pkgs.callPackage ./ocahub { };
 
+  # The mock provider the TUI checks stand up. Upstream, not ours: see
+  # the file.
+  ocahub-fakellm = final.callPackage ./ocahub/fakellm.nix { };
+
   # The TUI end-to-end check, a derivation of its own: a desktop stack
   # of inputs that no ordinary build of the hub should carry. pymux
   # from the pyterm tree, not nixpkgs' abandoned namesake -- callPackage

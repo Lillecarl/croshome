@@ -107,6 +107,120 @@ def spawn_agent(work, hub, name, llm):
     return Tui(root, root / "project", env)
 
 
+def spawn_claude(work, hub, name, llm):
+    """
+    One claude-code session's everything, beside spawn_agent: the
+    Anthropic mock as the only provider, the ocahub MCP server under
+    this build's PATH, permissions bypassed so nothing stops for a
+    prompt, and onboarding pre-seeded so the first screen is the
+    prompt. The monitor the wake stands on is not set up here -- the
+    session's own script starts it, as the real flow would.
+    """
+    root = work / name
+    for path in (root / "home" / ".claude", root / "project"):
+        path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(
+        ["git", "init", "-q"],
+        cwd=str(root / "project"),
+        check=True,
+        capture_output=True,
+    )
+    # The model id must be one claude's own catalog knows -- an
+    # unknown one is refused client-side, before any API traffic. The
+    # mock keys its scripts by the model string, so the script for
+    # this agent sits under the same id.
+    model = "claude-sonnet-4-5"
+    settings = {
+        "env": {
+            # The Anthropic client appends /v1/messages to the base
+            # url, and the mock's own url already carries /v1 -- so the
+            # bare origin goes here.
+            "ANTHROPIC_BASE_URL": "http://127.0.0.1:%d" % llm.port,
+            "ANTHROPIC_AUTH_TOKEN": "mock-key",
+            "ANTHROPIC_MODEL": model,
+            "ANTHROPIC_SMALL_FAST_MODEL": model,
+            "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+            "DISABLE_TELEMETRY": "1",
+            "DISABLE_AUTOUPDATER": "1",
+        },
+        "model": model,
+        "permissions": {"defaultMode": "bypassPermissions"},
+        "mcpServers": {
+            "ocahub": {
+                "command": "ocahub-mcp",
+                "args": [],
+                "env": {
+                    "OCAHUB_RUNTIME_DIR": hub.runtime,
+                    "OCAHUB_STATE_DIR": hub.state,
+                    "OCAHUB_NAME": name,
+                    "OCAHUB_TIMEOUT": "60",
+                },
+            }
+        },
+    }
+    (root / "home" / ".claude" / "settings.json").write_text(json.dumps(settings, indent=2))
+    # The project-scoped MCP config, as well as the settings one: which
+    # of the two this version reads is its own business, and a session
+    # with neither has no ocahub tools to call.
+    (root / "project" / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "ocahub": {
+                        "command": "ocahub-mcp",
+                        "args": [],
+                        "env": {
+                            "OCAHUB_RUNTIME_DIR": hub.runtime,
+                            "OCAHUB_STATE_DIR": hub.state,
+                            "OCAHUB_NAME": name,
+                            "OCAHUB_TIMEOUT": "60",
+                        },
+                    }
+                }
+            },
+            indent=2,
+        )
+    )
+    # The screens claude puts before the prompt, pre-answered: the
+    # folder trust dialog reads its answer from the project entry, and
+    # a "no" there is a clean exit -- which looks exactly like a crash
+    # with the pane already gone.
+    (root / "home" / ".claude.json").write_text(
+        json.dumps(
+            {
+                "hasCompletedOnboarding": True,
+                "theme": "dark",
+                "bypassPermissionsModeAccepted": True,
+                "projects": {
+                    str(root / "project"): {"hasTrustDialogAccepted": True}
+                },
+            }
+        )
+    )
+    # claude's dying words die with the pane: pymux exits when its last
+    # session's process does, and a TUI that crashes at startup leaves
+    # nothing else. The pane runs a wrapper that keeps --debug's
+    # stderr in a file the run's evidence copies out. Stdout stays the
+    # pty -- a piped stdout is how claude decides it is in --print
+    # mode, and print mode wants a prompt on argv.
+    wrapper = root / "claude-wrapper.sh"
+    wrapper.write_text(
+        "#!/bin/sh\n"
+        'cd "%s"\n'
+        "claude --debug 2>claude-session.log\n"
+        % (root / "project")
+    )
+    wrapper.chmod(0o755)
+    env = {
+        "HOME": str(root / "home"),
+        "OCAHUB_RUNTIME_DIR": hub.runtime,
+        "OCAHUB_STATE_DIR": hub.state,
+        "OCAHUB_TIMEOUT": "60",
+        "OCAHUB_NAME": name,
+    }
+    return Tui(root, root / "project", env, command=str(wrapper))
+
+
 async def hub_delivers(hub, recipient, needle, timeout=DEFAULT_TIMEOUT):
     """
     Poll the hub as the recipient would, until a delivery for the name
@@ -277,6 +391,121 @@ async def test_two_agents_converse_through_the_hub(hub, tmp_path):
             async with anyio.create_task_group() as tg:
                 tg.start_soon(alpha.stop)
                 tg.start_soon(beta.stop)
+
+
+@pytest.mark.tui
+@pytest.mark.anyio
+async def test_claude_answers_a_hub_ask(hub, tmp_path):
+    """
+    The second agent format, end to end: claude-code against the
+    Anthropic mock, woken by the monitor it started in the
+    background. Alpha -- an opencode, as before -- asks and blocks;
+    the ask reaches claude through `ocac monitor`, whose completed
+    background task is the wake; claude answers by the ask's id
+    through the MCP server, and alpha's pane shows the answer that
+    travelled claude -> hub -> alpha.
+
+    The monitor's session is a stranger to the ledger -- the reply is
+    matched by id -- so the clean ledger is read off the MCP server's
+    own registration, the one whose session id the hub knows.
+    """
+    scenario = {
+        "alpha": [
+            {"text": "hello"},
+            {
+                "tool_call": {
+                    "tool": "agent_send",
+                    "arguments": {
+                        "to": "claude",
+                        "kind": "ask",
+                        "wait": True,
+                        "timeout": 120,
+                        "message": "what is the plan?",
+                    },
+                }
+            },
+            {"text": "GOTREPLY"},
+        ],
+        "claude-sonnet-4-5": [
+            {
+                "tool_call": {
+                    "tool": "Bash",
+                    "arguments": {
+                        # Everything literal, nothing from the
+                        # environment: measured, claude's bash task
+                        # does not pass OCAHUB_* through, and a monitor
+                        # left to the default runtime dir answers from
+                        # the wrong hub. The wake line goes to a file
+                        # beside the pane, where the next turn reads it
+                        # and the evidence copies it out.
+                        "command": (
+                            "ocac --runtime-dir %s monitor --name claude"
+                            " --session claude-s1 --wait 180"
+                            " > claude-wake.json 2>> claude-monitor.log"
+                            % hub.runtime
+                        ),
+                        "run_in_background": True,
+                    },
+                }
+            },
+            {"text": "MONITORING"},
+            {"tool_call": {"tool": "Bash", "arguments": {"command": "cat claude-wake.json"}}},
+            {
+                "tool_call": {
+                    "tool": "agent_reply",
+                    "arguments": {"reply_to": "$ask_id", "message": "the plan is ocahub"},
+                }
+            },
+            {"text": "REPLIED"},
+        ],
+    }
+    with MockLLM(scenario) as llm:
+        claude = spawn_claude(tmp_path, hub, "claude", llm)
+        alpha = spawn_agent(tmp_path, hub, "alpha", llm)
+        try:
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(claude.start)
+                tg.start_soon(alpha.start)
+
+            # The wake is armed first: the monitor is in the
+            # background before anything is sent to anybody.
+            await claude.hello(reply="monitoring")
+            await alpha.hello()
+            await alpha.send_keys("ask claude what the plan is", enter=True)
+
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(claude.wait, lambda t: "REPLIED" in t)
+                tg.start_soon(alpha.wait, lambda t: "GOTREPLY" in t)
+
+            # What the mock was last asked carries the whole
+            # conversation: if the reply's arguments came out wrong,
+            # this is where the truth is. Alpha's request is usually
+            # the last one in, so claude's is picked by model.
+            last = [
+                r for r in llm.requests if str(r.get("model", "")).startswith("claude")
+            ][-1]
+            print("last claude request: %s" % json.dumps(last)[:200])
+            for m in last.get("messages") or []:
+                print("message: %s" % json.dumps(m)[:1200])
+
+            client = hub.client()
+            try:
+                who = (
+                    await anyio.to_thread.run_sync(lambda: client.call(P.Who()))
+                )[0]
+                claude_sessions = [
+                    s for s in (who.sessions or []) if s.get("name") == "claude"
+                ]
+                assert claude_sessions, "claude's MCP server never registered"
+                assert all(
+                    not (s.get("asks") or []) for s in claude_sessions
+                ), "claude's ask never got its reply"
+            finally:
+                await anyio.to_thread.run_sync(client.close)
+        finally:
+            async with anyio.create_task_group() as tg:
+                tg.start_soon(claude.stop)
+                tg.start_soon(alpha.stop)
 
 
 @pytest.mark.tui
