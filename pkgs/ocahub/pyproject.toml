@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "ocahub"
 version = "0.1.0"
 description = "Cross-agent message hub for OpenCode: a ZeroMQ broker and client CLI"
+license = "Apache-2.0"
 requires-python = ">=3.11"
 dependencies = ["anyio>=4", "mcp>=1", "pyzmq>=25"]
 

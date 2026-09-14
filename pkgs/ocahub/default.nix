@@ -28,7 +28,7 @@ buildPythonApplication {
   meta = {
     description = "Cross-agent message hub for OpenCode: a ZeroMQ broker daemon and client CLI";
     mainProgram = "ocac";
-    license = lib.licenses.mit;
+    license = lib.licenses.asl20;
     platforms = lib.platforms.all;
   };
 }
