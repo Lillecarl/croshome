@@ -42,6 +42,13 @@
       default-shell = lib.getExe config.programs.fish.package;
     };
 
+    # The theme is a client option, not a server one: it belongs to the
+    # terminal in front of you, so it reads from this machine's config even
+    # when the panes run on another. `pygments:` names the highlighter; the
+    # rest is a pygments style, of which the catppuccin package ships the
+    # four flavours.
+    clientSettings.theme = "pygments:catppuccin-mocha";
+
     # The bindings live in a file this reads at startup, not here. That file is
     # an out-of-store symlink, so a binding can be tried without a rebuild --
     # the same arrangement as ./tmux-linked.conf.
