@@ -14,7 +14,6 @@ import json
 import os
 import socket
 import struct
-import tempfile
 
 import pytest
 from jsonrpc import Dispatcher
@@ -22,24 +21,28 @@ from jsonrpc import Dispatcher
 from wrapty import wrapper as wrapty
 
 
-@pytest.fixture
-def sock_path():
-    """A socket path short enough to bind.
+def _sock_dir():
+    """AF_UNIX paths cannot exceed 104 bytes on macOS, and a sandboxed build
+    host puts pytest's tmp_path well past that. Pick the shortest writable
+    directory available for the socket file instead."""
+    best = None
+    for d in (os.getcwd(), os.environ.get("TMPDIR", ""), "/tmp"):
+        if d and os.path.isdir(d) and os.access(d, os.W_OK):
+            p = os.path.join(d, "control.sock")
+            if best is None or len(p) < len(best):
+                best = p
+    if best is None or len(best) > 90:
+        raise RuntimeError(f"no usable socket directory: {best!r}")
+    return os.path.dirname(best)
 
-    macOS caps sun_path at 104 bytes, and pytest's tmp_path puts the test's
-    own name under the build directory. On darwin that reaches 113 bytes and
-    bind() fails with "AF_UNIX path too long". So the socket gets a short
-    directory of its own.
-    """
-    with tempfile.TemporaryDirectory() as d:
-        path = os.path.join(d, "s")
-        assert len(path.encode()) < 100, f"socket path too long: {path}"
-        yield path
 
-
-def serve(sock_path, client):
+def serve(tmp_path, client):
     """Run the real connection handler against `client`, a blocking function
     that gets the socket path. Returns (client result, escaped exceptions)."""
+    short = _sock_dir()
+    sock_path = (
+        os.path.join(short, "control.sock") if short else str(tmp_path / "control.sock")
+    )
     escaped = []
 
     dispatcher = Dispatcher()
@@ -72,7 +75,13 @@ def serve(sock_path, client):
             except TimeoutError:
                 pass
 
-    return asyncio.run(main()), escaped
+    try:
+        return asyncio.run(main()), escaped
+    finally:
+        try:
+            os.unlink(sock_path)
+        except FileNotFoundError:
+            pass
 
 
 PING = json.dumps({"jsonrpc": "2.0", "method": "ping", "params": {}, "id": 1}).encode()
@@ -95,37 +104,37 @@ def send(sock_path, payload, read=True, reset=False):
     return None
 
 
-def test_a_valid_request_is_answered(sock_path):
-    reply, escaped = serve(sock_path, lambda p: send(p, PING + b"\n"))
+def test_a_valid_request_is_answered(tmp_path):
+    reply, escaped = serve(tmp_path, lambda p: send(p, PING + b"\n"))
     assert json.loads(reply)["result"] == "pong"
     assert escaped == []
 
 
-def test_a_malformed_line_is_answered_not_raised(sock_path):
-    reply, escaped = serve(sock_path, lambda p: send(p, b"this is not json\n"))
+def test_a_malformed_line_is_answered_not_raised(tmp_path):
+    reply, escaped = serve(tmp_path, lambda p: send(p, b"this is not json\n"))
     assert json.loads(reply)["error"]["code"] == -32700
     assert escaped == []
 
 
-def test_undecodable_bytes_are_answered_not_raised(sock_path):
+def test_undecodable_bytes_are_answered_not_raised(tmp_path):
     """A truncated multi-byte character must not reach .decode() unguarded."""
-    reply, escaped = serve(sock_path, lambda p: send(p, b"\xff\xfe broken\n"))
+    reply, escaped = serve(tmp_path, lambda p: send(p, b"\xff\xfe broken\n"))
     assert json.loads(reply)["error"]["code"] == -32700
     assert escaped == []
 
 
-def test_a_caller_that_leaves_before_reading_is_silent(sock_path):
+def test_a_caller_that_leaves_before_reading_is_silent(tmp_path):
     """The statusline does this. Claude Code starts it and does not wait."""
-    _, escaped = serve(sock_path, lambda p: send(p, PING + b"\n", read=False))
+    _, escaped = serve(tmp_path, lambda p: send(p, PING + b"\n", read=False))
     assert escaped == []
 
 
-def test_a_caller_that_resets_the_connection_is_silent(sock_path):
-    _, escaped = serve(sock_path, lambda p: send(p, PING + b"\n", read=False, reset=True))
+def test_a_caller_that_resets_the_connection_is_silent(tmp_path):
+    _, escaped = serve(tmp_path, lambda p: send(p, PING + b"\n", read=False, reset=True))
     assert escaped == []
 
 
-def test_several_requests_on_one_connection(sock_path):
+def test_several_requests_on_one_connection(tmp_path):
     def client(sock_path):
         s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         s.connect(sock_path)
@@ -139,7 +148,7 @@ def test_several_requests_on_one_connection(sock_path):
         finally:
             s.close()
 
-    replies, escaped = serve(sock_path, client)
+    replies, escaped = serve(tmp_path, client)
     codes = [json.loads(line) for line in replies.strip().split("\n")]
     assert codes[0]["result"] == "pong"
     assert codes[1]["error"]["code"] == -32700
