@@ -12,7 +12,6 @@
     ./linux-builder.nix
     ./vz-builder
     ./linux-vm
-    ./cocoa-way.nix
     ./aerospace.nix
     ./borders.nix
     ./ready.nix

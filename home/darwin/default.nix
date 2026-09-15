@@ -8,13 +8,11 @@
   # No XDG_RUNTIME_DIR exists on macOS: the spec makes it the login manager's
   # job and launchd has no equivalent hook. $TMPDIR is launchd's per-user
   # directory (0700, machine-local), so a subdirectory of it has the right
-  # properties and keeps sockets out of general temp churn.
-  #
-  # It has to be Cocoa-Way's own directory rather than a generic one: the
-  # compositor ignores an inherited XDG_RUNTIME_DIR and always binds its socket
-  # in `std::env::temp_dir()/cocoa-way` (main.rs), so pointing anywhere else
-  # leaves waypipe connecting to a path that does not exist.
-  home.sessionVariables.XDG_RUNTIME_DIR = "$TMPDIR/cocoa-way";
+  # properties. ask, ocahub and wrapty bind their sockets in subdirectories of
+  # it; without the variable they fall back to a /run/user that macOS does not
+  # have, or to the shared /tmp. A subdirectory rather than $TMPDIR itself, so
+  # a program that assumes it owns XDG_RUNTIME_DIR stays inside it.
+  home.sessionVariables.XDG_RUNTIME_DIR = "$TMPDIR/run";
 
   # config.fish sources the session variables before running shellInit, so
   # XDG_RUNTIME_DIR is already set here. Nothing creates it -- macOS has no

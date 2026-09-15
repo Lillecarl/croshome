@@ -56,9 +56,10 @@
       done
     '')
 
-    # Wayland: the protocol proxy and the clipboard tool. The MacBook reaches
-    # Linux applications through Cocoa-Way, which brings its own waypipe, and
-    # its clipboard is pbcopy -- see home/fish/functions/copy.fish.
+    # Wayland: the protocol proxy and the clipboard tool. waypipe is the server
+    # half here: a waypipe client elsewhere (hetztop-forward) shows this
+    # machine's applications over ssh. macOS is not Wayland, and its clipboard
+    # is pbcopy -- see home/fish/functions/copy.fish.
     waypipe
     wl-clipboard
   ];
