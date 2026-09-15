@@ -1,6 +1,7 @@
 { ... }:
 {
   imports = [
+    ./flush-dns.nix
     ./kitty.nix
   ];
 
