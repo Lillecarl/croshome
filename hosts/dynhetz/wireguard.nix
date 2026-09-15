@@ -200,7 +200,8 @@
       add interface=wg-dynhetz address=10.100.0.3/24
       /ipv6/address
       add interface=wg-dynhetz address=2a01:4f9:3071:11d7:90::3/112
-      # exit-node switch, only once the server NATs this tunnel:
+      # exit-node switch -- the server side (NAT, forwarding) is in
+      # place; these two lines route the LAN's internet out through it:
       # /ip/route add dst-address=0.0.0.0/0 gateway=wg-dynhetz
       # /ipv6/route add dst-address=::/0 gateway=wg-dynhetz
       EOF
@@ -209,4 +210,34 @@
   };
 
   networking.firewall.allowedUDPPorts = [ 51820 ];
+
+  # The MikroTik peer is an exit node. networking.nat does the IPv4 half
+  # -- MASQUERADE out eth0 for traffic arriving on wg-dynhetz, the
+  # matching FORWARD accept, and the forwarding sysctls. The firewall
+  # backend here is iptables (see ../libvirt-lab-net.nix), so this chain
+  # work is real and not a filterForward no-op.
+  #
+  # IPv6 does not NAT: the peer's address 2a01:4f9:3071:11d7:90::3 is a
+  # real global address out of the routed /64 (see the allocation table
+  # above), so forwarded packets leave with their own source and
+  # replies ride the /64's connected route back. networking.nat with
+  # enableIPv6 off adds no IPv6 rules at all, so the FORWARD accepts
+  # come from extraCommands -- trustedInterfaces is INPUT-only on the
+  # iptables backend and opens no forwarding.
+  #
+  # The MSS clamps cover LAN clients behind the MikroTik: they speak
+  # 1500-byte Ethernet, the tunnel carries 1420, and without the clamp
+  # their SYNs negotiate an MSS the tunnel drops mid-stream.
+  networking.nat = {
+    enable = true;
+    externalInterface = "eth0";
+    internalInterfaces = [ "wg-dynhetz" ];
+  };
+
+  networking.firewall.extraCommands = ''
+    ip46tables -A FORWARD -i wg-dynhetz -o eth0 -j ACCEPT
+    ip46tables -A FORWARD -i eth0 -o wg-dynhetz -m state --state ESTABLISHED,RELATED -j ACCEPT
+    ip46tables -A FORWARD -i wg-dynhetz -o eth0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    ip46tables -A FORWARD -i eth0 -o wg-dynhetz -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+  '';
 }
