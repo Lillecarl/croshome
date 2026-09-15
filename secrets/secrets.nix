@@ -207,6 +207,29 @@ in
     armor = true;
   };
 
+  # Mailbox passwords, one per account, both hosted by Migadu: the same
+  # imap.migadu.com and smtp.migadu.com, so the two secrets differ only in
+  # which address they belong to. Read at runtime by home agenix
+  # ($XDG_RUNTIME_DIR/agenix/migadu-*) from ../home/mail.nix, so they carry
+  # the user key and no host key: nothing decrypts them at system
+  # activation, and a taken VPS yields no mailbox. Not `lillecarl` either,
+  # for the floor-setting reason given twice above.
+  "migadu-postspace-pass.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl-ssh
+    ];
+    armor = true;
+  };
+
+  "migadu-lillecarl-pass.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl-ssh
+    ];
+    armor = true;
+  };
+
   # Adding another: name it here and in `age.secrets` in ./default.nix. Naming
   # it in only one of the two places is the usual mistake -- this file decides
   # who *can* decrypt, that file decides what actually gets decrypted and where

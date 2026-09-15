@@ -29,6 +29,7 @@
     ./helix.nix
     ./k9s.nix
     ./kagi-mcp.nix
+    ./mail.nix
     ./merged-file.nix
     ./opencode.nix
     ./packages.nix
