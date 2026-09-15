@@ -39,6 +39,9 @@
       # the option is only on or off.
       pane-border-status = true;
       extended-keys = "on";
+      # Shows the keys that follow a prefix as you wait, so a binding
+      # never has to be memorised to be found again.
+      which-key = true;
       # ./tmux-linked.conf sets it too: renumber after a window closes, so
       # numbers stay low.
       renumber-windows = true;
