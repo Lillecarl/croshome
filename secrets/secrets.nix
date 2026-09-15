@@ -207,22 +207,14 @@ in
     armor = true;
   };
 
-  # Mailbox passwords, one per account, both hosted by Migadu: the same
-  # imap.migadu.com and smtp.migadu.com, so the two secrets differ only in
-  # which address they belong to. Read at runtime by home agenix
-  # ($XDG_RUNTIME_DIR/agenix/migadu-*) from ../home/mail.nix, so they carry
-  # the user key and no host key: nothing decrypts them at system
+  # The mailbox password. One mailbox on Migadu: postspace.net is linked to
+  # lillecarl.com, so both addresses are sending identities of the same
+  # account and share this password. Read at runtime by home agenix
+  # ($XDG_RUNTIME_DIR/agenix/migadu-pass) from ../home/mail.nix, so it
+  # carries the user key and no host key: nothing decrypts it at system
   # activation, and a taken VPS yields no mailbox. Not `lillecarl` either,
   # for the floor-setting reason given twice above.
-  "migadu-postspace-pass.age" = {
-    publicKeys = [
-      lillecarl-age
-      lillecarl-ssh
-    ];
-    armor = true;
-  };
-
-  "migadu-lillecarl-pass.age" = {
+  "migadu-pass.age" = {
     publicKeys = [
       lillecarl-age
       lillecarl-ssh
