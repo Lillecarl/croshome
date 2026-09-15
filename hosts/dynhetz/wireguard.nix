@@ -1,9 +1,9 @@
 # General-purpose access to dynhetz itself -- not the lab-VPN role
 # (../openvpn.nix is the TLS-based one for that, for clients behind
 # restrictive firewalls), and not
-# scoped to any particular service: this just gets a peer (today,
-# lillecarl's MacBook) a real address dynhetz will route to, for whatever
-# dynhetz ends up hosting.
+# scoped to any particular service: this gets each peer (lillecarl's
+# MacBook, and a MikroTik router set up as an exit node) a real address
+# dynhetz will route to, for whatever dynhetz ends up hosting.
 #
 # IPv6 is the point, alongside the private IPv4 range every VPN like this
 # needs anyway: Hetzner routes dynhetz's whole /64
@@ -25,7 +25,10 @@
 # Peers deliberately do NOT get a pushed default route (0.0.0.0/0 /
 # ::/0) -- only 10.100.0.0/24 and the /64 are routed through the tunnel,
 # so this only ever carries traffic to dynhetz itself, never general
-# internet traffic.
+# internet traffic. The MikroTik is the exception: as an exit node its
+# own script routes everything in, and its server-side allowed-ips is
+# 0.0.0.0/0,::/0 to accept those sources. Until this host forwards and
+# NATs that traffic (not yet), such packets go nowhere.
 #
 # Sub-range allocation within the /64, so future networks don't collide
 # with this one by accident: each network gets its own /80, chosen by
@@ -135,15 +138,20 @@
         wg genkey > server.key
         wg pubkey < server.key > server.pub
       fi
-      # Only one peer today (lillecarl's MacBook), sharing the same
+      # Two peers, each with its own keypair and its own `wg set ... peer`
+      # line -- WireGuard has no equivalent of a certificate CN multiple
+      # peers can share. client.* is lillecarl's MacBook (same
       # "generate once, hand out the whole client config" approach as
-      # ../openvpn.nix -- unlike that file's shared OpenVPN cert
-      # though, a second real peer here would need its own keypair and
-      # its own `wg set ... peer` line, WireGuard has no equivalent of a
-      # certificate CN multiple peers can share.
+      # ../openvpn.nix). mikrotik.* is the MikroTik router: an exit-node
+      # client, so it may send from any address -- the NAT and forwarding
+      # on this host that make that reachable are a later change.
       if [ ! -f client.key ]; then
         wg genkey > client.key
         wg pubkey < client.key > client.pub
+      fi
+      if [ ! -f mikrotik.key ]; then
+        wg genkey > mikrotik.key
+        wg pubkey < mikrotik.key > mikrotik.pub
       fi
 
       ip link show wg-dynhetz >/dev/null 2>&1 || ip link add wg-dynhetz type wireguard
@@ -151,7 +159,9 @@
         private-key server.key \
         listen-port 51820 \
         peer "$(cat client.pub)" \
-        allowed-ips 10.100.0.2/32,2a01:4f9:3071:11d7:90::2/128
+        allowed-ips 10.100.0.2/32,2a01:4f9:3071:11d7:90::2/128 \
+        peer "$(cat mikrotik.pub)" \
+        allowed-ips 0.0.0.0/0,::/0
 
       ip addr replace 10.100.0.1/24 dev wg-dynhetz
       ip -6 addr replace 2a01:4f9:3071:11d7:90::1/112 dev wg-dynhetz
@@ -173,6 +183,28 @@
       PersistentKeepalive = 25
       EOF
       chmod 600 client.conf
+
+      # The MikroTik side as a paste-ready RouterOS 7 script, keys
+      # embedded. The default-route lines stay commented: they switch
+      # the LAN's internet traffic over, which is pointless until this
+      # host NATs it out.
+      cat <<EOF > mikrotik.rsc
+      /interface/wireguard
+      add name=wg-dynhetz mtu=1420 private-key="$(cat mikrotik.key)"
+      /interface/wireguard/peers
+      add interface=wg-dynhetz name=dynhetz \
+          public-key="$(cat server.pub)" \
+          endpoint-address=37.27.129.237 endpoint-port=51820 \
+          allowed-address=0.0.0.0/0,::/0 persistent-keepalive=25s
+      /ip/address
+      add interface=wg-dynhetz address=10.100.0.3/24
+      /ipv6/address
+      add interface=wg-dynhetz address=2a01:4f9:3071:11d7:90::3/112
+      # exit-node switch, only once the server NATs this tunnel:
+      # /ip/route add dst-address=0.0.0.0/0 gateway=wg-dynhetz
+      # /ipv6/route add dst-address=::/0 gateway=wg-dynhetz
+      EOF
+      chmod 600 mikrotik.rsc
     '';
   };
 
