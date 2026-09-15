@@ -39,6 +39,9 @@
       # the option is only on or off.
       pane-border-status = true;
       extended-keys = "on";
+      # ./tmux-linked.conf sets it too: renumber after a window closes, so
+      # numbers stay low.
+      renumber-windows = true;
       default-shell = lib.getExe config.programs.fish.package;
     };
 
