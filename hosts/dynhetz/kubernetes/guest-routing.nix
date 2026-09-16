@@ -72,11 +72,30 @@ let
   # to a virtual machine. Each guest is confined to the prefixes the allocation
   # table gives it, and `le 128` admits the per-node sub-prefixes and the /128
   # VIPs inside them.
+  #
+  # One prefix-list per `match` line, and one route-map entry per list. This
+  # read `match ipv6 address prefix-list <pods> <lb>` for both at once, which
+  # FRR does not accept:
+  #
+  #   line 13: % Unknown command[7]:  match ipv6 address prefix-list nixlab2-pods nixlab2-lb
+  #
+  # That is the trap. FRR rejects the line and keeps going, so the route-map
+  # still exists and still permits -- with no match clause at all, which
+  # permits everything. `show route-map nixlab2-in` printed an empty "Match
+  # clauses:" while the two prefix-lists sat there correct and unused, and the
+  # control this comment describes had never once been applied. A filter that
+  # fails open is worse than no filter, because the config reads as if one is
+  # there.
+  #
+  # Two entries, so the list that matches decides: an announcement matching
+  # neither falls off the end into the implicit deny.
   guestPolicy = guest: ''
     ipv6 prefix-list ${guest.name}-pods seq 10 permit ${guest.podSubnet} le 128
     ipv6 prefix-list ${guest.name}-lb seq 10 permit ${guest.lbSubnet} le 128
     route-map ${guest.name}-in permit 10
-     match ipv6 address prefix-list ${guest.name}-pods ${guest.name}-lb
+     match ipv6 address prefix-list ${guest.name}-pods
+    route-map ${guest.name}-in permit 20
+     match ipv6 address prefix-list ${guest.name}-lb
     !
   '';
 
