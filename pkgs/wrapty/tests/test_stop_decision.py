@@ -7,6 +7,8 @@ must not eat that permission either -- that leak is what put a need_user()
 from one turn onto some unrelated stop several turns later.
 """
 
+import os
+
 from wrapty import wrapper as wrapty
 
 
@@ -91,3 +93,32 @@ def test_a_pending_compaction_wins_over_everything():
     assert nudge_state["pending_compact"] is None
     assert nudge_state["resume"] is None
     assert nudge_state["allow_stop"] is False
+
+
+def test_a_monitor_whose_listener_died_stops_counting():
+    """monitor_done only runs when a listener exits cleanly. One killed with
+    its terminal would otherwise silence the nudge for the whole session."""
+    monitors = {
+        "inbox:live": {"pid": 11, "timeout": None, "started": 0},
+        "inbox:gone": {"pid": 12, "timeout": None, "started": 0},
+    }
+    dead = wrapty._dead_monitors(monitors, now=5, is_alive=lambda pid: pid == 11)
+    assert dead == ["inbox:gone"]
+
+
+def test_a_monitor_past_its_own_timeout_is_dead():
+    monitors = {"inbox:slow": {"pid": None, "timeout": 30, "started": 100}}
+    assert wrapty._dead_monitors(monitors, now=125, is_alive=lambda pid: True) == []
+    assert wrapty._dead_monitors(monitors, now=131, is_alive=lambda pid: True) == [
+        "inbox:slow"
+    ]
+
+
+def test_a_monitor_with_neither_a_pid_nor_a_timeout_is_left_alone():
+    monitors = {"inbox:1": {"pid": None, "timeout": None, "started": 0}}
+    assert wrapty._dead_monitors(monitors, now=10_000, is_alive=lambda pid: False) == []
+
+
+def test_this_process_reads_as_alive():
+    """The default liveness check, against the one pid we know is running."""
+    assert wrapty._pid_alive(os.getpid()) is True

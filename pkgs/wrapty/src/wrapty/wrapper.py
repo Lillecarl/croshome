@@ -218,6 +218,39 @@ STOP_WAIT = "wait"
 STOP_NUDGE = "nudge"
 
 
+def _pid_alive(pid):
+    """Whether this process still exists. Signal 0 asks the kernel without
+    sending anything, so it needs no /proc and works on darwin too. A pid
+    owned by somebody else is alive; only a missing one is dead."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except OSError:
+        return True  # alive, but not ours to signal
+    return True
+
+
+def _dead_monitors(monitors, now, is_alive=_pid_alive):
+    """The labels of registered monitors that are no longer there.
+
+    A monitor suppresses the stop nudge for as long as it is registered, and
+    monitor_done only runs when the listener exits cleanly. A listener killed,
+    crashed or lost with its terminal never deregisters, and the session it
+    was watching would then never be nudged again.
+    """
+    dead = []
+    for label, info in monitors.items():
+        pid = info.get("pid")
+        if pid is not None and not is_alive(pid):
+            dead.append(label)
+            continue
+        timeout = info.get("timeout")
+        if timeout is not None and now - info.get("started", now) > timeout:
+            dead.append(label)
+    return dead
+
+
 def _stop_decision(state, waiting):
     """Which kind of Stop this is, given the nudge state (see nudge_state in
     _run) and `waiting`, the background tasks the session has not heard the
@@ -594,6 +627,13 @@ async def _run(argv):
         except Exception:  # noqa: BLE001
             _log_exception("idle watchdog")
 
+    def _reap_monitors():
+        """Drop registrations whose listener is gone. monitor_done only runs
+        when a listener exits cleanly, and one killed with its terminal would
+        otherwise silence the nudge for the rest of the session."""
+        for label in _dead_monitors(nudge_state["monitors"], loop.time()):
+            nudge_state["monitors"].pop(label, None)
+
     def _cancel_watchdog():
         watchdog = nudge_state["watchdog"]
         nudge_state["watchdog"] = None
@@ -632,6 +672,7 @@ async def _run(argv):
         # A turn just ended, so any watchdog armed by an earlier stop is out
         # of date. This stop decides whether to arm a new one.
         _cancel_watchdog()
+        _reap_monitors()
         waiting = _waiting_on()
         action, payload = _stop_decision(nudge_state, waiting)
 
@@ -652,7 +693,10 @@ async def _run(argv):
     @dispatcher.add_method
     def monitor_register(label, until, pid=None, timeout=None):
         """Record a running wrapty-monitor. See nudge_state above for why an
-        outstanding monitor suppresses the stop nudge for its whole life."""
+        outstanding monitor suppresses the stop nudge for its whole life.
+
+        `timeout` is seconds, measured against loop.time(), not the
+        milliseconds Claude Code's own tools take. Nothing passes it yet."""
         nudge_state["monitors"][label] = {
             "until": until,
             "pid": pid,
