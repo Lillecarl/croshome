@@ -6,20 +6,22 @@
 }:
 {
   # Mail on Migadu: imap.migadu.com:993 and smtp.migadu.com:465 for every
-  # domain they host. One mailbox: postspace.net is linked to lillecarl.com,
-  # so both addresses are sending identities of the same account and share
-  # one password. It holds a placeholder until filled:
+  # domain they host. One mailbox, carl@postspace.net: postspace.net is
+  # linked to lillecarl.com, both domains carry a catch-all into that
+  # mailbox, and every address under either domain is a sending identity.
+  # The password holds a placeholder until filled:
   #
   #   cd secrets && agenix -e migadu-pass.age -i identity.age
   age.secrets.migadu-pass.file = ../secrets/migadu-pass.age;
 
   accounts.email.maildirBasePath = "mail";
 
-  accounts.email.accounts.lillecarl = {
+  accounts.email.accounts.postspace = {
     primary = true;
-    address = "lillecarl@lillecarl.com";
-    realName = "lillecarl";
-    userName = "lillecarl@lillecarl.com";
+    # The mailbox itself, which is also the IMAP and SMTP login.
+    address = "carl@postspace.net";
+    realName = "Carl";
+    userName = "carl@postspace.net";
     passwordCommand = "cat ${config.age.secrets.migadu-pass.path}";
     imap = {
       host = "imap.migadu.com";
@@ -38,14 +40,17 @@
       enable = true;
       # Through msmtp rather than neomutt's own SMTP, so scripts and mutt
       # share one account, one trust store and one queue. use_envelope_from
-      # makes neomutt pass -f, and the command line wins over the account's
-      # pinned from -- otherwise msmtp would send every message as the
-      # primary address.
+      # makes neomutt pass -f, so the envelope follows whatever identity
+      # the From header carries and Migadu permits all of them.
       sendMailCommand = "msmtp";
       extraConfig = ''
         set use_envelope_from = yes
-        send-hook '~t postspace\.net' 'set from = "carl@postspace.net"; set realname = "Carl"'
-        send-hook '! ~t postspace\.net' 'set from = "lillecarl@lillecarl.com"; set realname = "lillecarl"'
+        # Catch-all on both domains: a reply should come from the address
+        # the mail was sent to. alternates whitelists what can be a From,
+        # reverse_name picks the matching one; new mail goes out as the
+        # mailbox address unless the From is edited to another alias.
+        set reverse_name = yes
+        alternates ".*@postspace\\.net|.*@lillecarl\\.com"
       '';
     };
   };
