@@ -38,6 +38,10 @@ ALLOW = [
     # A file or argument that happens to be called git.
     ("cat > git", "redirection target named git"),
     ("ls git", "argument named git"),
+    # A loop variable called git. `for` is why the keyword list below is not
+    # simply every keyword: what follows it is a name, not a command.
+    ("for git in a b; do echo $git; done", "loop variable named git"),
+    ("case git in a) echo one;; esac", "case subject named git"),
     ("echo git", "bare word, not a command"),
     # A redirection before the subcommand. This is the case that makes
     # skipping redirection targets earn its keep: read as arguments, ">"
@@ -78,6 +82,12 @@ DENY = [
     ("git rebase main", "bare write"),
     ("git stash list", "dual-mode, deliberately not allowlisted"),
     ("/usr/bin/git push", "invoked by full path"),
+    # A keyword in front of the command. `!` was already a separator; these
+    # were not, so the command word was "while" and the write went through.
+    ("while git push; do sleep 5; done", "behind a while"),
+    ("if git commit -m x; then echo ok; fi", "behind an if"),
+    ("until git push; do sleep 1; done", "behind an until"),
+    ("if true; then git push; fi", "behind a then"),
     ("foo && git push", "after &&"),
     ("foo; git merge x", "after ;"),
     ("foo || git commit -m x", "after ||"),

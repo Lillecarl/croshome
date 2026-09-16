@@ -90,6 +90,11 @@ _COMMAND_SEPARATORS = {";", "&&", "||", "|", "|&", "&", "(", ")", "{", "}", "!",
 # names a file.
 _REDIRECTS = {">", ">>", "<", "<<", "<<<", ">&", "<&", "&>", ">|"}
 
+# Keywords whose next word is a command. `for`, `select` and `case` are
+# deliberately absent: what follows those is a variable name or a value, so
+# stripping them would read `for git in a b` as running git.
+_SHELL_KEYWORDS = {"if", "then", "elif", "else", "while", "until", "do"}
+
 # Wrappers that run another command, with their own options first. Stripping
 # them exposes the real command word underneath.
 _PREFIX_RUNNERS = {
@@ -175,9 +180,15 @@ def _strip_prefix_runners(argv):
     """Drop wrapper commands so the real command word is argv[0].
 
     For `env`, assignments of the form VAR=value precede the command too.
+    Shell keywords come off here as well: `!` is a separator already, but
+    `while git push; do ...` arrives with "while" in front and read as a
+    command named while, which allowed it.
     """
     while argv:
         head = os.path.basename(argv[0])
+        if head in _SHELL_KEYWORDS:
+            argv = argv[1:]
+            continue
         if head not in _PREFIX_RUNNERS:
             return argv
         argv = argv[1:]
