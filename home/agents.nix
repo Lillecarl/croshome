@@ -103,12 +103,14 @@ let
       gitWrite = buildHook "jj-block-git-write" "${scripts}/pretooluse-block-git-write.py";
       trailers = buildHook "jj-block-trailers" "${scripts}/pretooluse-block-trailers.py";
       pgrep = buildHook "agent-block-pgrep" "${wraptyScripts}/pretooluse-block-pgrep.py";
+      pythonEdit = buildHook "agent-block-python-edit" "${wraptyScripts}/pretooluse-block-python-edit.py";
     in
     pkgs.runCommand "agent-hooks" { } ''
       mkdir -p $out/bin
       cp ${gitWrite}/bin/jj-block-git-write $out/bin/jj-block-git-write
       cp ${trailers}/bin/jj-block-trailers $out/bin/jj-block-trailers
       cp ${pgrep}/bin/agent-block-pgrep $out/bin/agent-block-pgrep
+      cp ${pythonEdit}/bin/agent-block-python-edit $out/bin/agent-block-python-edit
 
       # The trailer test imports its neighbour out of $out/bin, and python
       # writes a __pycache__ beside whatever it imports. Left on, that
@@ -121,6 +123,8 @@ let
         $out/bin/jj-block-trailers
       ${lib.getExe pkgs.python3} ${wraptyScripts}/test_block_pgrep.py \
         $out/bin/agent-block-pgrep
+      ${lib.getExe pkgs.python3} ${wraptyScripts}/test_block_python_edit.py \
+        $out/bin/agent-block-python-edit
     '';
 in
 {

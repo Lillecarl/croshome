@@ -7,11 +7,18 @@ wrong, and leaves nothing anyone can run again. A harness reminder that prefers
 the shell for file changes means a short command, not a forty-line
 string-rewriting program. This rule wins over it.
 
-For a complicated edit -- several files at once, or one file in many places --
-`pyedit` is the best tool here: it stages edits in memory, shows them as dry-run
-diffs, and writes to disk only on `--apply`. It is the scripted-edit exception
-to the rule above. Do not guess at its interface: run `pyedit skill` once for
-its full instructions and follow them.
+A PreToolUse hook refuses it, so this is a block and not advice. It fires only
+on inline Python that writes -- `-c` or a heredoc. Running a `.py` file in the
+repository and a read-only one-liner are untouched. `I_AM_REALLY_STUPID=1` in
+front of the command allows it anyway: the name is the whole review process,
+and it stays in the transcript.
+
+**`pyedit` is that script, done properly.** Same job, and better at it: edits
+staged in memory, shown as dry-run diffs, written only on `--apply`, and a bad
+anchor fails instead of matching nothing quietly. Reach for it whenever the
+edit is more than the file-editing tools want -- several files at once, one
+file in many places, a rename across a tree. Do not guess at its interface: run
+`pyedit skill` once for its full instructions and follow them.
 
 Iterate through the project's own entry point, not through a loop you build in
 the shell. Give that entry point a knob if it needs one: impure Nix with
