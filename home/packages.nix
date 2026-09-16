@@ -174,6 +174,10 @@
     gron # JSON to greppable lines and back, for when the shape is unknown
     hyperfine # timing with warm-up, repeats and a variance figure, not one run
     jc # turns the output of ~100 classic commands into JSON
+    # The OSC52 clipboard: `osc copy` and `osc paste` ride the escape
+    # sequence the terminal already carries, so they work over ssh with no
+    # daemon and no xclip on the far end.
+    osc
     sqlite # query any .db directly instead of writing a script around it
     yq-go # jq syntax over YAML, TOML and XML
 
