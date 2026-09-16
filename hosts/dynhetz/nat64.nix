@@ -20,6 +20,38 @@
 # 64:ff9b::/96 is the well-known prefix from RFC 6052. Nothing here has to
 # allocate for it -- it is reserved globally for exactly this.
 #
+# The trap: a client that prefers IPv4
+# ------------------------------------
+# DNS64 synthesises an AAAA. It does not remove the A, and nothing here can:
+# the A record is the true answer to a question the client asked. So every
+# A-only name resolves to both an address that works from a v6-only pod and
+# one that cannot work, and which one the client picks is the client's
+# business.
+#
+# A JDK picks the broken one. java.net.preferIPv6Addresses is false by
+# default, so the IPv4 address sorts first, and connecting to it from a pod
+# with no IPv4 fails instantly -- java.net.SocketException: Network is
+# unreachable. Apache HttpClient 4 then never reaches the second address:
+# its retry loop falls through on SocketTimeout, Connect and NoRouteToHost,
+# and a plain SocketException escapes, so three attempts land inside one
+# millisecond and none of them is the address that works.
+#
+# This reads exactly like broken NAT64 and is not. Measured from one pod, by
+# name and by literal:
+#
+#   github.com               CONNECTED     (A-only, via DNS64 + Jool)
+#   appapi2.test.bankid.com  CONNECTED
+#   64:ff9b::b9c6:618        CONNECTED     (the same host, WKP literal)
+#   185.198.6.24             Network is unreachable
+#
+# The fix belongs to the client: -Djava.net.preferIPv6Addresses=true. Before
+# blaming this file, check the failure is a timeout rather than an instant
+# ENETUNREACH -- a translator that is up and dropping cannot produce the
+# second, because ENETUNREACH is generated locally and never left the pod.
+#
+# Found by the nixlab2 cluster's Keycloak, 2026-09-16, after the same evidence
+# had been read twice as a NAT64 regression.
+#
 # Jool, and the patch it needs
 # ----------------------------
 # Jool is stateful NAT64: many pods share one IPv4 address the way a home

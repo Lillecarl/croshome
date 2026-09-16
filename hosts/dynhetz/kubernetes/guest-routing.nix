@@ -5,8 +5,17 @@
 # gives that cluster. So this host has to be told which node owns which
 # sub-prefix, and it is the only direction that needs telling: a guest's own
 # egress works off the static default route in its machine configuration,
-# whether this daemon is running or not. What a session carries is the return
-# half.
+# whether this daemon is running or not.
+#
+# What a session carries is the half that reaches *in* -- and that is less
+# than it sounds, which is worth knowing before reading a missing route as an
+# outage. A guest that masquerades pod egress behind its node address needs no
+# route here at all for pods to reach the world: the reply is addressed to the
+# node, which is on the bridge and connected. nixlab2 does exactly that
+# (enable-ipv6-masquerade, ipv6-native-routing-cidr = its own pod /80), so it
+# ran for a day with no pod prefix advertised and nothing visibly wrong,
+# NAT64 included. These routes matter for traffic that starts on this side and
+# names a pod address.
 #
 # Why not static routes
 # ---------------------
