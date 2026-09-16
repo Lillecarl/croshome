@@ -42,6 +42,10 @@
       # Shows the keys that follow a prefix as you wait, so a binding
       # never has to be memorised to be found again.
       which-key = true;
+      # tmux's spelling, tmux's three values. `on` is what makes a copy
+      # inside pymux -- even from a program in a pane, over ssh -- reach
+      # the real clipboard through the terminal's OSC52 handling.
+      set-clipboard = "on";
       # ./tmux-linked.conf sets it too: renumber after a window closes, so
       # numbers stay low.
       renumber-windows = true;
