@@ -23,7 +23,7 @@ let
 
   # One PreToolUse hook script, built rather than executed straight out of the
   # tree. ./claude/skills/jj-worktrees/scripts holds two of them, and
-  # `jjAgentHooks` below builds both with this.
+  # `agentHooks` below builds all three with this.
   #
   # This pins the *interpreter* and nothing else. The shebang was
   # `#!/usr/bin/env python3`, which resolves against whatever python the
@@ -73,15 +73,22 @@ let
       lib.removePrefix "#!/usr/bin/env python3\n" (builtins.readFile source)
     );
 
-  # Both PreToolUse hooks, in one bin/.
+  # Every PreToolUse hook, in one bin/.
   #
-  # One package rather than two, because pretooluse-block-trailers.py imports
-  # its shell parsing from pretooluse-block-git-write.py at runtime, and finds
-  # it by looking in its own directory. Two `writePython3Bin` outputs are two
-  # store paths, so the lookup would fail and the trailer hook would allow
+  # One package rather than three, because two of them import their shell
+  # parsing from pretooluse-block-git-write.py at runtime, and find it by
+  # looking in their own directory. Separate `writePython3Bin` outputs are
+  # separate store paths, so the lookup would fail and those hooks would allow
   # everything -- silently, since a hook that finds no parser allows rather
-  # than refuses. Here they are neighbours, and the test below proves the
+  # than refuses. Here they are neighbours, and the tests below prove the
   # import resolves.
+  #
+  # The pgrep guard belongs to wrapty's plugin, not jj's -- a `pgrep -f` loop
+  # is a session that hangs -- but it is built here for that same neighbour
+  # rule, and its hooks.json lives with wrapty. It is deliberately not a
+  # console script of pkgs.wrapty either: the wrapty wrapper puts its own
+  # store bin/ at the front of PATH, so a running session keeps the binaries
+  # it started with and a new name there would not resolve until it restarts.
   #
   # Deciding whether a command *is* an invocation is a small shell parser, and
   # its failure mode is refusing legitimate commands -- which is both worse
@@ -89,16 +96,19 @@ let
   # here, against the built copies, and a regression is a failed build. Copied
   # rather than symlinked so $out is a package in its own right and the checks
   # cannot be skipped by depending on the built scripts directly.
-  jjAgentHooks =
+  agentHooks =
     let
       scripts = ./claude/skills/jj-worktrees/scripts;
+      wraptyScripts = ./claude/skills/wrapty/scripts;
       gitWrite = buildHook "jj-block-git-write" "${scripts}/pretooluse-block-git-write.py";
       trailers = buildHook "jj-block-trailers" "${scripts}/pretooluse-block-trailers.py";
+      pgrep = buildHook "agent-block-pgrep" "${wraptyScripts}/pretooluse-block-pgrep.py";
     in
-    pkgs.runCommand "jj-agent-hooks" { } ''
+    pkgs.runCommand "agent-hooks" { } ''
       mkdir -p $out/bin
       cp ${gitWrite}/bin/jj-block-git-write $out/bin/jj-block-git-write
       cp ${trailers}/bin/jj-block-trailers $out/bin/jj-block-trailers
+      cp ${pgrep}/bin/agent-block-pgrep $out/bin/agent-block-pgrep
 
       # The trailer test imports its neighbour out of $out/bin, and python
       # writes a __pycache__ beside whatever it imports. Left on, that
@@ -109,6 +119,8 @@ let
         $out/bin/jj-block-git-write
       ${lib.getExe pkgs.python3} ${scripts}/test_block_trailers.py \
         $out/bin/jj-block-trailers
+      ${lib.getExe pkgs.python3} ${wraptyScripts}/test_block_pgrep.py \
+        $out/bin/agent-block-pgrep
     '';
 in
 {
@@ -121,7 +133,7 @@ in
     config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
 
   home.packages = [
-    jjAgentHooks
+    agentHooks
 
     # The overlay in ../pkgs tracks upstream releases rather than the nixpkgs
     # pin, and picks the build for the host platform, so this one attribute
