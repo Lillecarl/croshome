@@ -713,6 +713,9 @@ async def _run(argv):
 
     @dispatcher.add_method
     def monitor_list():
+        # Same reaping on_stop does, so a caller asking what suppresses the
+        # nudge is told what actually suppresses it, not what once did.
+        _reap_monitors()
         now = loop.time()
         return {
             label: dict(info, waiting_seconds=round(now - info["started"], 1))
