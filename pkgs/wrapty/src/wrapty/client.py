@@ -10,6 +10,18 @@ def runtime_dir() -> str:
     return os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "wrapty")
 
 
+def state_dir() -> str:
+    """Where wrapty keeps what has to outlive the session.
+
+    Not runtime_dir: that is a tmpfs, emptied when the login session ends.
+    The journal is read days later, across sessions that are long gone.
+    """
+    return os.path.join(
+        os.environ.get("XDG_STATE_HOME", os.path.expanduser("~/.local/state")),
+        "wrapty",
+    )
+
+
 async def call(session_id: str, method: str, params: dict | None = None):
     sock_path = os.path.join(runtime_dir(), f"{session_id}.sock")
     request = JSONRPC20Request(method=method, params=params or {}, _id=1)

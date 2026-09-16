@@ -26,7 +26,7 @@ from jsonrpc.exceptions import (
 )
 from jsonrpc.jsonrpc2 import JSONRPC20Request, JSONRPC20Response
 
-from wrapty import transcript
+from wrapty import journal, transcript
 
 # Apps that distinguish typed input from a paste (Claude Code's own input box
 # included) treat a burst of text ending in Enter, delivered in one go, as a
@@ -563,7 +563,7 @@ async def _run(argv):
         return latest_stats
 
     @dispatcher.add_method
-    def need_user():
+    def need_user(reason):
         # The permanent kind of stop: no resume, so nothing types the agent
         # back afterwards. That is the whole point -- it is now the human's
         # turn.
@@ -572,6 +572,48 @@ async def _run(argv):
         # only the human can make blocks it. A summary earns nothing. The
         # nudge exists because agents stop to report progress and wait, and
         # every one of those stops is work the agent could have finished.
+        #
+        # Which is why the reason is mandatory and written down. Whether the
+        # rule is too strict, too loose, or simply not believed is a question
+        # about real stops, and the journal is the only place that answers
+        # it. See wrapty/journal.py.
+        text = (reason or "").strip()
+        if not text:
+            raise JSONRPCDispatchException(
+                code=-32602,
+                message=(
+                    "need_user needs a reason. One sentence: what is finished, "
+                    "or the decision only the user can make. If work is still "
+                    "running, say why you are stopping anyway."
+                ),
+            )
+
+        # Read before the reset below, or every record journals a zero.
+        stop_count = nudge_state["stop_count"]
+        transcript_path = nudge_state["transcript_path"]
+        journal.append(
+            "need_user",
+            reason=text,
+            wapty_id=wapty_id,
+            # The Claude Code session id, which is what opens the transcript
+            # and shows what the agent was actually doing when it stopped.
+            session_id=(
+                os.path.basename(transcript_path)[: -len(".jsonl")]
+                if transcript_path and transcript_path.endswith(".jsonl")
+                else None
+            ),
+            transcript_path=transcript_path,
+            cwd=os.getcwd(),
+            stop_count=stop_count,
+            # The two fields worth filtering on: nudged means the agent was
+            # already pushed back once and stopped again anyway, waiting
+            # means it handed the turn over with its own work still running.
+            nudged=stop_count > 0,
+            waiting=[task["description"] for task in _waiting_on()],
+            monitors=sorted(nudge_state["monitors"]),
+            used_pct=latest_stats.get("context_window", {}).get("used_percentage"),
+        )
+
         nudge_state["allow_stop"] = True
         nudge_state["resume"] = None
         nudge_state["stop_count"] = 0

@@ -74,7 +74,7 @@ async def get_stats() -> dict:
 
 
 @mcp.tool()
-async def need_user() -> str:
+async def need_user(reason: str) -> str:
     """Hand the turn back to the user, and permit the next Stop.
 
     Two things earn a stop. You finished everything you can do
@@ -87,8 +87,22 @@ async def need_user() -> str:
     back to work.
 
     Clears the Stop-nudge counter, so the next Stop is not treated as a
-    silent one."""
-    return await call(_session_id(), "need_user")
+    silent one.
+
+    Args:
+        reason: Why the turn ends here. One sentence, written for someone
+            reading it next week with none of your context: what is
+            finished, or what decision only the user can make. If work of
+            yours is still running, say why you are stopping anyway -- that
+            is the case worth knowing about. "done" is not a reason.
+
+            It is recorded, with the state around the call, so the rule
+            about when to stop can be checked against what really happens.
+            Write the true reason, including an awkward one: a record
+            saying you stopped to report progress is worth more than a
+            tidy sentence that hides it.
+    """
+    return await call(_session_id(), "need_user", {"reason": reason})
 
 
 @mcp.tool()

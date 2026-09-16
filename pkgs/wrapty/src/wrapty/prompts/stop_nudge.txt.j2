@@ -1,4 +1,4 @@
-You've now stopped {{ count }} {{ "time" if count == 1 else "times" }} in a row without calling need_user. Two things earn a stop: the work is done, or you are blocked on a decision only the user can make. Both need a need_user call. Nothing else is a stop.
+You've now stopped {{ count }} {{ "time" if count == 1 else "times" }} in a row without calling need_user. Two things earn a stop: the work is done, or you are blocked on a decision only the user can make. Both need a need_user call, with a reason saying which one it is. Nothing else is a stop.
 
 Writing a summary is not a stop. Do not end your turn to report progress, to lay out a plan, or to ask whether to continue. If you know the next step, take it now, in this turn. Say what you did on the way past. This nudge exists to catch exactly the stop you just made and put you back to work.
 
