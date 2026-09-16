@@ -28,7 +28,9 @@ the word, prose about it, and the policy file itself all still go through.
 
 Deciding that is a shell parser, and ./pretooluse-block-git-write.py already
 is one -- shlex with punctuation_chars, one argv per command position, prefix
-runners stripped, backticks and `sh -c` followed. This imports it rather than
+runners and shell keywords stripped, backticks and `sh -c` followed. A `while
+pgrep` that the parser used to hand over as a command named while is why it
+strips keywords now. This imports it rather than
 carrying a second copy that would drift from it, the same way
 ./pretooluse-block-trailers.py does. ../../../agents.nix puts all three in one
 bin/, which is what makes the import resolve.
@@ -52,14 +54,6 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _FULL_LINE_FLAG = re.compile(r"\A(?:--full\Z|-(?!-)[a-zA-Z]*f)")
 
 _GREPS = {"grep", "egrep", "fgrep"}
-
-# Shell keywords that sit in front of a command word. The sibling parser
-# splits on `!` but not on these, so `while pgrep -f X` arrives with "while"
-# as argv[0] and the command word one place along.
-_KEYWORDS = {
-    "if", "then", "elif", "else", "fi", "while", "until", "do", "done",
-    "case", "esac", "in", "for", "select", "function",
-}
 
 _MESSAGES = {
     "pgrep": (
@@ -99,20 +93,6 @@ def _load_git_write_hook():
     return None
 
 
-def _strip_leading_words(argv, parser):
-    """Everything before the real command word: shell keywords and the
-    sibling's prefix runners, in whatever order they come -- `while sudo
-    pgrep` has one of each."""
-    while argv:
-        stripped = parser._strip_prefix_runners(
-            argv[1:] if argv[0] in _KEYWORDS else argv
-        )
-        if stripped == argv:
-            return argv
-        argv = stripped
-    return argv
-
-
 def _denied(command, parser, depth=0):
     """The program this command would run against itself, or None."""
     if depth > 3:
@@ -136,7 +116,7 @@ def _denied(command, parser, depth=0):
 
     heads = []
     for argv in parser._argvs(tokens):
-        argv = _strip_leading_words(argv, parser)
+        argv = parser._strip_prefix_runners(argv)
         if not argv:
             continue
         head = os.path.basename(argv[0])
