@@ -68,6 +68,26 @@ COMPACT_MAX_WAIT = float(os.environ.get("WRAPTY_COMPACT_MAX_WAIT", "120"))
 RESUME_SETTLE_DELAY = float(os.environ.get("WRAPTY_RESUME_SETTLE_DELAY", "2"))
 CONTINUE_TEXT = os.environ.get("WRAPTY_CONTINUE_TEXT", "Continue with your task.")
 
+# A stop taken with background work running is not nudged, so nothing else
+# would ever bring that session back if the notification it waits for never
+# arrives -- a task killed with the machine, a monitor that expired quietly, a
+# notification lost to a crash. The watchdog is the floor under that: after
+# this long with no new line in the transcript, ask for a status.
+#
+# It backs off, because the wait may be legitimate: a 40-minute build should
+# not cost a turn every five minutes. Each poke doubles the interval, up to
+# the cap, and after IDLE_POKE_LIMIT pokes with no answer at all the session
+# is wedged rather than busy and more typing will not fix it.
+IDLE_POKE_SEC = float(os.environ.get("WRAPTY_IDLE_POKE_SEC", "300"))
+IDLE_POKE_MAX_SEC = float(os.environ.get("WRAPTY_IDLE_POKE_MAX_SEC", "1800"))
+IDLE_POKE_LIMIT = int(os.environ.get("WRAPTY_IDLE_POKE_LIMIT", "3"))
+IDLE_POKE_TEXT = os.environ.get(
+    "WRAPTY_IDLE_POKE_TEXT",
+    "Status? You stopped waiting on {tasks} and nothing has happened since. "
+    "Read the task output rather than polling for the process, then either "
+    "act on what it shows or say in one line what you are waiting for.",
+)
+
 
 # A full-screen TUI (the wrapped child) can leave the real terminal in a
 # mode this wrapper's raw pass-through never interprets or tracks --
@@ -231,6 +251,33 @@ def _stop_decision(state, waiting):
         return STOP_WAIT, waiting
     state["stop_count"] += 1
     return STOP_NUDGE, state["stop_count"]
+
+
+# What the idle watchdog does on one tick. See IDLE_POKE_SEC.
+IDLE_STOP = "stop"
+IDLE_POKE = "poke"
+IDLE_WAIT = "wait"
+
+
+def _idle_step(progressed, moved, waiting, interval, pokes):
+    """One tick of the watchdog: given whether the set of outstanding tasks
+    changed, whether the transcript moved at all, and what the session still
+    waits on, returns (action, next interval, poke count).
+
+    Only a change in the work resets the backoff. Movement alone does not,
+    and that distinction is the whole point: a poke the agent answers with
+    "still waiting" moves the transcript without changing anything, and
+    resetting on it would cost a turn every interval for the length of a long
+    build. Answering keeps the session off the poke that tick; it does not buy
+    back the ones already spent.
+    """
+    if not waiting:
+        return IDLE_STOP, IDLE_POKE_SEC, 0
+    if progressed:
+        return IDLE_WAIT, IDLE_POKE_SEC, 0
+    if moved:
+        return IDLE_WAIT, interval, pokes
+    return IDLE_POKE, min(interval * 2, IDLE_POKE_MAX_SEC), pokes + 1
 
 
 async def _run(argv):
@@ -435,6 +482,7 @@ async def _run(argv):
         "monitors": {},
         "transcript_path": None,
         "task": None,
+        "watchdog": None,
     }
     async def _type_and_submit(text_bytes, press_enter):
         """Delivers text_bytes a few bytes at a time with a short, jittered
@@ -496,6 +544,62 @@ async def _run(argv):
         nudge_state["stop_count"] = 0
         return "ok"
 
+    def _transcript_mark():
+        """A cheap fingerprint of the transcript, or None if there is none.
+
+        The transcript grows on every turn, every tool call and every
+        notification, so a mark that has not moved means nothing at all has
+        happened in the session. Cheaper and more honest than watching the
+        terminal, which redraws on its own.
+        """
+        path = nudge_state["transcript_path"]
+        if not path:
+            return None
+        try:
+            info = os.stat(path)
+        except OSError:
+            return None
+        return (info.st_size, info.st_mtime)
+
+    async def _watch_idle():
+        """Types a status request at a session that stopped with background
+        work running and then went quiet. See IDLE_POKE_SEC."""
+        interval = IDLE_POKE_SEC
+        pokes = 0
+        mark = _transcript_mark()
+        if mark is None:
+            return  # no transcript, so idle and busy look identical
+        open_ids = {task["id"] for task in _waiting_on()}
+        while pokes < IDLE_POKE_LIMIT:
+            await asyncio.sleep(interval)
+            current = _transcript_mark()
+            moved, mark = current != mark, current
+            waiting = _waiting_on()
+            ids = {task["id"] for task in waiting}
+            action, interval, pokes = _idle_step(
+                ids != open_ids, moved, waiting, interval, pokes
+            )
+            open_ids = ids
+            if action == IDLE_STOP:
+                return
+            if action == IDLE_POKE:
+                text = IDLE_POKE_TEXT.replace("{tasks}", transcript.describe(waiting))
+                await _type_and_submit(text.encode(), press_enter=True)
+
+    async def _watch_idle_logged():
+        try:
+            await _watch_idle()
+        except asyncio.CancelledError:
+            raise
+        except Exception:  # noqa: BLE001
+            _log_exception("idle watchdog")
+
+    def _cancel_watchdog():
+        watchdog = nudge_state["watchdog"]
+        nudge_state["watchdog"] = None
+        if watchdog is not None and not watchdog.done():
+            watchdog.cancel()
+
     def _waiting_on():
         """The background tasks the session has not heard the end of. Never
         raises: a transcript this cannot parse must leave the nudge working,
@@ -525,6 +629,9 @@ async def _run(argv):
         reason."""
         if transcript_path:
             nudge_state["transcript_path"] = transcript_path
+        # A turn just ended, so any watchdog armed by an earlier stop is out
+        # of date. This stop decides whether to arm a new one.
+        _cancel_watchdog()
         waiting = _waiting_on()
         action, payload = _stop_decision(nudge_state, waiting)
 
@@ -535,6 +642,8 @@ async def _run(argv):
         elif action == STOP_RESUME:
             nudge_state["task"] = loop.create_task(_run_pending_resume(payload))
         elif action == STOP_WAIT:
+            if waiting:
+                nudge_state["watchdog"] = loop.create_task(_watch_idle_logged())
             return {"nudge": False, "waiting_on": transcript.describe(waiting)}
         elif action == STOP_NUDGE:
             return {"nudge": True, "count": payload}
