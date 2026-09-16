@@ -40,6 +40,10 @@ GRACE_SEC = float(os.environ.get("WRAPTY_TASK_GRACE_SEC", "60"))
 # command started without one, and any agent. Deliberately generous -- a
 # wrong guess here only decides whether the session gets nudged or poked, and
 # both of those recover. Silence would not.
+#
+# Not the Bash tool's own 120s default, which does not apply to a background
+# command: one started with no timeout at all was measured still running,
+# unkilled, after 211 seconds.
 DEFAULT_BOUND_SEC = float(os.environ.get("WRAPTY_TASK_DEFAULT_BOUND_SEC", "3600"))
 
 _TERMINAL_STATUSES = ("completed", "failed", "killed")
