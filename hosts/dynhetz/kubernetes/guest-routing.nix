@@ -43,6 +43,7 @@
 {
   config,
   lib,
+  pkgs,
   ...
 }:
 let
@@ -134,6 +135,52 @@ in
 {
   config = {
     services.frr.bgpd.enable = true;
+
+    # Parse the configuration at build time, because FRR does not fail on a
+    # line it cannot parse.
+    #
+    # It logs `% Unknown command`, drops that line, and carries on with
+    # whatever the rest of the file built -- so a rejected `match` left a
+    # route-map that permits everything, and the daemon started clean, the
+    # sessions came up, and the routes flowed. Nothing about a running system
+    # said the filter was missing. `show route-map` did, to somebody who
+    # already suspected it.
+    #
+    # `vtysh --dryrun` parses without touching a kernel or a daemon, so it
+    # runs in a sandbox. It exits 0 either way -- checked, both branches --
+    # which is why this reads the output rather than the status.
+    #
+    # system.checks rather than system.extraDependencies: a check has to build
+    # before the switch, and this one has no business in the closure
+    # afterwards.
+    system.checks = [
+      (pkgs.runCommand "frr-config-dryrun"
+        {
+          nativeBuildInputs = [ pkgs.frr ];
+          conf = pkgs.writeText "frr-dryrun.conf" config.services.frr.config;
+        }
+        ''
+          # vtysh reads its own vtysh.conf before the input file, and a
+          # sandbox has no /etc/frr. Missing, that is "processing failure:
+          # 11" -- indistinguishable from a real rejection to a check reading
+          # the output, and it failed this derivation on a correct config
+          # until an empty one stood in for it.
+          mkdir -p etc
+          : > etc/vtysh.conf
+
+          report=$(vtysh --config_dir "$PWD/etc" --dryrun --inputfile "$conf" 2>&1 || true)
+          printf '%s\n' "$report"
+          if printf '%s' "$report" | grep -qE '% Unknown command|processing failure'; then
+            echo "" >&2
+            echo "FRR rejected a line in services.frr.config, above. It keeps" >&2
+            echo "going when it does, so this would have started and run with" >&2
+            echo "that line silently absent." >&2
+            exit 1
+          fi
+          touch "$out"
+        ''
+      )
+    ];
 
     # Policy first, router second. FRR reads this file from top to bottom. A
     # `neighbor ... route-map X` line that names a route-map the file has not
