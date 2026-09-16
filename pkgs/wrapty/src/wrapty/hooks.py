@@ -104,10 +104,22 @@ def main_stop():
     # even on a chained stop we won't block -- otherwise a need_user() call
     # made during a forced continuation never gets consumed, and silently
     # suppresses the nudge on some unrelated future stop instead.
+    #
+    # The transcript path goes with it: wrapty reads the session's still
+    # running background work out of it, and keeps the path for the watchdog
+    # that runs long after this process has exited. A wrapty older than that
+    # argument rejects the call, so fall back to the call it does know --
+    # otherwise a rebuild would silently stop every nudge in every session
+    # still running the old wrapper, and nothing would say so.
     try:
-        result = asyncio.run(call(wapty_id, "on_stop"))
+        result = asyncio.run(
+            call(wapty_id, "on_stop", {"transcript_path": transcript_path})
+        )
     except Exception:
-        return
+        try:
+            result = asyncio.run(call(wapty_id, "on_stop"))
+        except Exception:
+            return
 
     if result.get("nudge") and not hook_input.get("stop_hook_active"):
         used_pct = None

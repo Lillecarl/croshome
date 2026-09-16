@@ -26,6 +26,8 @@ from jsonrpc.exceptions import (
 )
 from jsonrpc.jsonrpc2 import JSONRPC20Request, JSONRPC20Response
 
+from wrapty import transcript
+
 # Apps that distinguish typed input from a paste (Claude Code's own input box
 # included) treat a burst of text ending in Enter, delivered in one go, as a
 # paste and don't submit it. Sending Enter as a separate write shortly after
@@ -185,6 +187,50 @@ async def _handle_client(reader, writer, dispatcher):
         _log_exception("control socket connection")
     finally:
         writer.close()
+
+
+# What one Stop event means. on_stop() does the side effects; the choice
+# between them is _stop_decision(), which is pure enough to test.
+STOP_COMPACT = "compact"
+STOP_RESUME = "resume"
+STOP_ALLOW = "allow"
+STOP_WAIT = "wait"
+STOP_NUDGE = "nudge"
+
+
+def _stop_decision(state, waiting):
+    """Which kind of Stop this is, given the nudge state (see nudge_state in
+    _run) and `waiting`, the background tasks the session has not heard the
+    end of. Returns (action, payload) and consumes whatever permitted the
+    stop.
+
+    Order matters. allow_stop is read before the waiting tasks because a
+    need_user() during a monitored session means the human's turn has come:
+    left unread, it would leak to some later, unrelated stop and silence the
+    nudge there instead.
+    """
+    pending = state["pending_compact"]
+    if pending is not None:
+        state["pending_compact"] = None
+        state["allow_stop"] = False
+        state["resume"] = None
+        state["stop_count"] = 0
+        return STOP_COMPACT, pending
+    if state["resume"] is not None:
+        resume = state["resume"]
+        state["resume"] = None
+        state["allow_stop"] = False
+        state["stop_count"] = 0
+        return STOP_RESUME, resume
+    if state["allow_stop"]:
+        state["allow_stop"] = False
+        state["stop_count"] = 0
+        return STOP_ALLOW, None
+    if state["monitors"] or waiting:
+        state["stop_count"] = 0
+        return STOP_WAIT, waiting
+    state["stop_count"] += 1
+    return STOP_NUDGE, state["stop_count"]
 
 
 async def _run(argv):
@@ -374,6 +420,12 @@ async def _run(argv):
     # That is also why --permit-stop is not the default. A listener lives as
     # long as the session, so registering one unasked would silence the nudge
     # for the whole session.
+    #
+    # The session's own background work is that same case, and nobody has to
+    # register it: a background command, a monitor or an async agent that has
+    # not reported yet is written in the transcript, and wrapty.transcript
+    # reads it back. The Stop hook hands over the path, kept here because the
+    # idle watchdog re-reads it long after that hook has exited.
     nudge_state = {
         "allow_stop": False,
         "resume": None,
@@ -381,6 +433,7 @@ async def _run(argv):
         "cooldowns": {},
         "pending_compact": None,
         "monitors": {},
+        "transcript_path": None,
         "task": None,
     }
     async def _type_and_submit(text_bytes, press_enter):
@@ -443,48 +496,49 @@ async def _run(argv):
         nudge_state["stop_count"] = 0
         return "ok"
 
+    def _waiting_on():
+        """The background tasks the session has not heard the end of. Never
+        raises: a transcript this cannot parse must leave the nudge working,
+        not break the stop path."""
+        path = nudge_state["transcript_path"]
+        if not path:
+            return []
+        try:
+            return transcript.open_tasks(path)
+        except Exception:  # noqa: BLE001
+            _log_exception("reading the transcript")
+            return []
+
     @dispatcher.add_method
-    def on_stop():
+    def on_stop(transcript_path=None):
         """Called once per Stop event. Returns whether the Stop hook should
-        nudge the agent, and clears/advances the stop_count accordingly.
+        nudge the agent; _stop_decision picks which kind of stop this is and
+        advances the state, and this runs the side effects.
 
         If a compact() call is pending, the turn ending now is exactly what
         it was waiting for: the wrapped session's input box only treats
         injected keystrokes as a real command submission when it's actually
         idle, not mid-turn, so the "/compact...\r" sequence couldn't be sent
         any earlier than this. Hand it off to a background task rather than
-        running it here, since this RPC call needs to return promptly."""
-        pending = nudge_state["pending_compact"]
-        if pending is not None:
-            nudge_state["pending_compact"] = None
-            nudge_state["allow_stop"] = False
-            nudge_state["resume"] = None
-            nudge_state["stop_count"] = 0
+        running it here, since this RPC call needs to return promptly. A
+        temporary stop (resume) is handed off the same way, for the same
+        reason."""
+        if transcript_path:
+            nudge_state["transcript_path"] = transcript_path
+        waiting = _waiting_on()
+        action, payload = _stop_decision(nudge_state, waiting)
+
+        if action == STOP_COMPACT:
             nudge_state["task"] = loop.create_task(
-                _run_pending_compact(pending["instructions"], pending["used_pct"])
+                _run_pending_compact(payload["instructions"], payload["used_pct"])
             )
-            return {"nudge": False}
-        # A temporary stop: whatever was queued gets its turn boundary, then
-        # the agent is typed back to. Same hand-off to a background task, and
-        # for the same reason.
-        if nudge_state["resume"] is not None:
-            resume = nudge_state["resume"]
-            nudge_state["resume"] = None
-            nudge_state["allow_stop"] = False
-            nudge_state["stop_count"] = 0
-            nudge_state["task"] = loop.create_task(_run_pending_resume(resume))
-            return {"nudge": False}
-        # Checked before allow_stop so it is not consumed: a monitor permits
-        # every stop until it reports, not just the next one.
-        if nudge_state["monitors"]:
-            nudge_state["stop_count"] = 0
-            return {"nudge": False}
-        if nudge_state["allow_stop"]:
-            nudge_state["allow_stop"] = False
-            nudge_state["stop_count"] = 0
-            return {"nudge": False}
-        nudge_state["stop_count"] += 1
-        return {"nudge": True, "count": nudge_state["stop_count"]}
+        elif action == STOP_RESUME:
+            nudge_state["task"] = loop.create_task(_run_pending_resume(payload))
+        elif action == STOP_WAIT:
+            return {"nudge": False, "waiting_on": transcript.describe(waiting)}
+        elif action == STOP_NUDGE:
+            return {"nudge": True, "count": payload}
+        return {"nudge": False}
 
     @dispatcher.add_method
     def monitor_register(label, until, pid=None, timeout=None):
