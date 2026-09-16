@@ -24,6 +24,22 @@ unless the work has to edit that suite.
 
 Set the shape up right early. One step now, saved on every iteration after.
 
+## Waiting on a process
+
+Never `pgrep -f`, `pkill -f` or `ps | grep`. Your command runs inside a wrapper
+shell whose argv holds the pattern, so the pattern always matches that shell.
+Measured: `pgrep -af zzzUniquePatternZzz` printed the wrapper's own line. A
+`while pgrep -f X` loop therefore never ends, and the tool call hangs until its
+timeout.
+
+Instead:
+
+- work you started -- `run_in_background: true` for one completion, a monitor
+  for repeated events. Both notify you. Do not poll and do not sleep.
+- a pid you hold -- `kill -0 $pid`.
+- a process you did not start -- `pidof <exe>` (exact name, no self-match), or
+  better, the state file, socket or API that answers the real question.
+
 ## Building with Nix
 
 Use the `nix` subcommands, never the older separate binaries. Spell flags
