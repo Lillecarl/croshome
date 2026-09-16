@@ -96,9 +96,15 @@ in
   # caller wrote it, so a rule naming a store path is only matched by someone
   # who typed that store path. `ai-rebuild` calls the helper by its absolute
   # /run/current-system/sw/bin path, which is where the rule looks.
+  #
+  # The grant is group-based on wheel, not user-based: the colleague
+  # accounts (./dynusers.nix) are unprivileged and not in wheel, so they
+  # stay outside it however many join, and nothing about the rule has to
+  # grow with them. Still NOPASSWD -- it runs activation with no terminal.
   security.sudo.extraRules = [
     {
-      users = [ "lillecarl" ];
+      users = [ ];
+      groups = [ "wheel" ];
       commands = [
         {
           command = "/run/current-system/sw/bin/ai-rebuild-activate";

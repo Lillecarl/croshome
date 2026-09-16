@@ -36,6 +36,7 @@
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix
+    ./scan-access.nix
     ./ollama.nix
     ./ttyd.nix
     # pynixd moved into the nanopynix monorepo, so its NixOS module comes from
