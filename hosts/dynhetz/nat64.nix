@@ -108,6 +108,52 @@ let
     "2a01:4ff:ff00::add:1"
     "2a01:4ff:ff00::add:2"
   ];
+
+  # sudo matches the command as it resolves it on PATH and does not follow the
+  # symlink, and this path survives an update where a store path would not --
+  # same reasoning as ./btrfs.nix, which this rule is modelled on.
+  jool = "/run/current-system/sw/bin/jool";
+
+  # Asking the kernel module anything at all needs CAP_NET_ADMIN, including
+  # "is there an instance". So the question this file exists to answer --
+  # whether NAT64 is up -- could not be asked without a password, and the only
+  # way to check was to run a pod through the translator and see. That is a
+  # fine end-to-end test and a terrible first question.
+  #
+  # Every operation here reads. What is deliberately absent is every one that
+  # writes: `instance add/remove/flush`, `global update`, `pool4 add/remove/
+  # flush`, `bib add/remove`. Those change how this host translates, and they
+  # keep the password prompt.
+  #
+  # `file check` is absent for the opposite reason: it parses a config without
+  # touching the kernel, so it needs no privilege and no rule.
+  #
+  # jool_siit gets nothing, because this host runs no SIIT instance. Add it
+  # the day it does, rather than granting for a translator that is not there.
+  readOnly = [
+    "instance display"
+    "instance status"
+    "stats display"
+    "global display"
+    "pool4 display"
+    "bib display"
+    "session display"
+  ];
+
+  # Three spellings of each, because sudo matches the whole command line.
+  # A `*` matches whitespace too, so one trailing `*` covers any number of
+  # output flags (`--csv`, `--no-headers`, `--numeric`) -- but it does not
+  # match the *absence* of an argument, so the bare form is listed as well.
+  # The `-i *` form is how a caller names an instance, which sits before the
+  # mode rather than after it.
+  #
+  # `-f <file>` is not offered. It names an instance through a JSON file this
+  # rule cannot see the contents of, and `-i` answers the same question.
+  joolCommands = lib.concatMap (command: [
+    "${jool} ${command}"
+    "${jool} ${command} *"
+    "${jool} -i * ${command}"
+  ]) readOnly;
 in
 {
   config = {
@@ -247,6 +293,16 @@ in
         }
       )
     );
+
+    security.sudo.extraRules = [
+      {
+        users = [ "lillecarl" ];
+        commands = map (command: {
+          inherit command;
+          options = [ "NOPASSWD" ];
+        }) joolCommands;
+      }
+    ];
 
     # ── DNS64: an AAAA for a name that has none ──────────────────────────
 
