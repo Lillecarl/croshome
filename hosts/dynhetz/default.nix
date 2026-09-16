@@ -15,6 +15,7 @@
 #  - `usePredictableInterfaceNames = false`, so the NIC is `eth0` here exactly
 #    as it was in the rescue system the machine was probed from.
 {
+  config,
   pkgs,
   lib,
   modulesPath,
@@ -58,10 +59,25 @@
     # is shared with the MacBook and ChromeOS.
     programs.fish.enable = true;
     users.users.lillecarl = {
+      # frrvty is what `vtysh` needs, and the only thing it needs: the daemons
+      # listen on /run/frr/*.vty, which are srwxrwx--- frr:frrvty, while
+      # /run/frr itself is world-traversable. Without it vtysh reaches no
+      # daemon at all and says to try a privileged user, so every look at the
+      # BGP session with a guest cluster costs a password.
+      #
+      # It is not read-only access. A member of frrvty can `configure
+      # terminal` and change this host's routing for as long as FRR runs --
+      # what it cannot do is write ./kubernetes/guest-routing.nix, so the next
+      # restart takes the configuration back. Granted deliberately, on the
+      # same reasoning as wheel above.
+      #
+      # Conditional on the daemon, because a group that no service creates is
+      # an activation failure rather than a missing capability.
       extraGroups = [
         "wheel"
         "podman"
-      ];
+      ]
+      ++ lib.optional config.services.frr.bgpd.enable "frrvty";
       hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
       isNormalUser = true;
       openssh.authorizedKeys.keyFiles = [ ../../lillecarl.pub ];
