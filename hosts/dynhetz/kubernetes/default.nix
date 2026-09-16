@@ -1,9 +1,9 @@
 # dynhetz as a single-node Kubernetes cluster, provisioned by kubeadm.
 #
-# The cluster exists to host KubeVirt, which in turn hosts the development
-# clusters that ../libvirt-lab-net.nix's VMs host today. That migration is not
-# this directory. This is the node underneath it: a container runtime, a
-# kubeadm bootstrap, a kubelet, and one bridge for pods to sit on.
+# The cluster exists to host KubeVirt, which hosts the development clusters
+# the libvirt lab on this host used to. That migration is done. This is the
+# node underneath it: a container runtime, a kubeadm bootstrap, a kubelet,
+# and one bridge for pods to sit on.
 #
 # What is in which file
 # ---------------------

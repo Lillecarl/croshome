@@ -64,21 +64,15 @@ in
       # not from the pod beside it.
       "net.bridge.bridge-nf-call-iptables" = 1;
       "net.bridge.bridge-nf-call-ip6tables" = 1;
-      # IPv6 forwarding is already on for the libvirt lab bridge -- see
-      # ../libvirt-lab-net.nix, which explains why "default" matters as much as
-      # "all" for an interface created after boot. cni0 is exactly that case.
-      # Repeated here rather than depended on: this must stand on its own the
-      # day the libvirt lab goes away. mkDefault because a sysctl is a unique
-      # option and two plain definitions of the same value are still a conflict
-      # -- so that file keeps the definition while it exists, and this one takes
-      # over when it does not.
-      "net.ipv6.conf.all.forwarding" = lib.mkDefault 1;
-      "net.ipv6.conf.default.forwarding" = lib.mkDefault 1;
+      # IPv6 forwarding: pod-to-pod traffic crosses cni0, and ./vm-network.nix's
+      # VM bridge is the same shape -- an interface created after boot, which is
+      # why "default" matters as much as "all". Plain now that this file is the
+      # only definition: a sysctl is a unique option, and two plain definitions
+      # of one value are a conflict rather than an override.
+      "net.ipv6.conf.all.forwarding" = 1;
+      "net.ipv6.conf.default.forwarding" = 1;
       # Nothing in this cluster carries IPv4, but kubeadm's preflight reads
-      # /proc/sys/net/ipv4/ip_forward and refuses to run when it is 0. It is 1
-      # on this host today only because libvirt set it imperatively at some
-      # point, which is not a thing to depend on -- ../libvirt-lab-net.nix's
-      # network is on its way out.
+      # /proc/sys/net/ipv4/ip_forward and refuses to run when it is 0.
       "net.ipv4.ip_forward" = lib.mkDefault 1;
       # Go runtimes reserve far more address space than they touch.
       "vm.overcommit_memory" = 1;

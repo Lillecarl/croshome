@@ -31,8 +31,6 @@
     ./initrd-ssh.nix
     ./installscript.nix
     ./podman.nix
-    ./libvirt.nix
-    ./libvirt-lab-net.nix
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix
@@ -63,7 +61,6 @@
       extraGroups = [
         "wheel"
         "podman"
-        "libvirtd"
       ];
       hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
       isNormalUser = true;
@@ -188,11 +185,9 @@
         ];
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
-          "nix-csi.cachix.org-1:i4w33gR4efO67jpz8U7g/MdvRQ6mQ3LEF9fB8tES60g="
           "lillecarl.cachix.org-1:NN/LLMg7mbyvZCu32Qlo8LpSHqNw7Rr3VBCEYQvRpT0="
         ];
         substituters = [
-          "https://nix-csi.cachix.org"
           "https://lillecarl.cachix.org"
         ];
         sandbox = "relaxed";
