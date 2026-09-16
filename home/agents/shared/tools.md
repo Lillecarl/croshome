@@ -24,6 +24,23 @@ unless the work has to edit that suite.
 
 Set the shape up right early. One step now, saved on every iteration after.
 
+## Keep the whole output
+
+`tee` before you narrow. Every filter -- `grep`, `head`, `jq`, `tail -1`,
+`--quiet` -- throws away the part that answers the next question, and a re-run
+does not reproduce the moment.
+
+```sh
+nix build ... 2>&1 | tee $SCRATCH/build.log | grep -E "error|warning"
+```
+
+Write the file to the scratchpad, name it after what made it, and give me the
+path when you report what the filter found. The error you grep for is rarely
+the error that matters; the line above it usually is.
+
+Same for a monitor or a background command: its output file already holds
+everything, so read that file instead of re-running the command.
+
 ## Waiting on a process
 
 Never `pgrep -f`, `pkill -f` or `ps | grep`. Your command runs inside a wrapper
