@@ -29,7 +29,11 @@
     };
     smtp = {
       host = "smtp.migadu.com";
-      port = 465;
+      # 587/STARTTLS, not 465: nothing on this network reaches Migadu's
+      # 465 -- every address in their pool times out, while 587 connects
+      # (Hetzner filters outbound mail ports; 587 is the one that lives).
+      port = 587;
+      tls.useStartTls = true;
     };
     mbsync = {
       enable = true;
