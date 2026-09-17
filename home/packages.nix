@@ -87,6 +87,9 @@
     bitwarden-cli
 
     gitui
+    # Transparent encryption inside a git repo. For other repositories -- this
+    # one keeps its secrets in ../secrets with agenix instead.
+    git-crypt
     # gh's opposite number. ./github.nix configures gh through a home-manager
     # module; glab has none, and its config lives in ~/.config/glab-cli
     # either way, so the package is the whole of it.
