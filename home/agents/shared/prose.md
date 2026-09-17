@@ -54,3 +54,37 @@ Prefer a better name over a comment that explains a bad one.
 
 This is not licence to strip the notes that hold a measurement or a reason.
 Those are the ones worth keeping. It is the narration around them that goes.
+
+### A comment describes the present
+
+Write what the code is, never what it was. Banned: "used to", "no longer",
+"any more", "this replaced", "was X before", "the first version of this".
+The diff holds the history and the commit explains it. A reader of the file
+has neither and needs neither.
+
+Test: would the sentence still be true if the file had always looked like
+this? If no, cut it.
+
+The near-miss to keep: a live alternative someone would otherwise pick, or a
+trap where the obvious edit reintroduces a fixed bug. Write it in the present
+tense and about the alternative, never about your own edit — "not
+mkNumberedList, because an index moves when the chart inserts a flag", never
+"this used to be an index override".
+
+## Length follows the change, not the work
+
+An issue, a PR body, a commit body and a reply each support one decision.
+Size them for that decision, not for the effort behind them.
+
+- Budget: an issue or PR body under 20 lines, a reply under 10. Past it, name
+  the fact that needs the space.
+- Say a thing once, where the reader will look. The same three paragraphs in a
+  commit body, a PR body and the reply is one artifact and two copies.
+- Cut: what you checked that turned out fine, alternatives nobody proposed,
+  reproduce steps the reader will do their own way, and any banner about your
+  own process.
+- Evidence lives in the artifact. The reply carries the outcome and the one
+  thing that changes what the reader does next.
+
+Test: delete a paragraph. If no decision changes, it was not carrying
+anything.
