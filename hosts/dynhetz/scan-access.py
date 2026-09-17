@@ -21,8 +21,15 @@ The scans, in order:
      not silently turn it into a leak.
   3. Reachable files whose CONTENT looks like a secret.
   4. Files other users can write -- worse than a read, always a finding.
+     /dev/shm is scanned here too; /run/user is not (systemd's own sockets
+     sit behind a 0700 directory, by design).
   5. The repository: tracked files checked for secret-shaped content, every
      .age file checked to really be ciphertext.
+  6. Paths writable by others whose owner is somebody else. sudo keeps the
+     caller's umask, so a root shell opened from a pane of the broken pymux
+     (umask 0) wrote root-owned 0666 files; nothing running as a user can
+     fix those, so they are recorded for whoever has the right to chmod
+     them.
 
 Find history is not scanned: this repository is public, and a scan that walks
 every historical blob is a different tool.
@@ -31,6 +38,7 @@ every historical blob is a different tool.
 import argparse
 import grp
 import os
+import pwd
 import re
 import stat
 import subprocess
@@ -128,12 +136,15 @@ def others_can_write(st, group):
 def others_can_reach(path):
     """Can an account outside the owner's session traverse to this path?
 
-    Reaching a known path needs search (x) on every directory above it;
-    listing needs r as well, which the home scan covers. Bit-based, like the
-    stat(1) checks it replaces: the scanner runs as the owner, so
-    os.access() would answer the wrong question.
+    Reaching a known path needs search (x) on every DIRECTORY above it --
+    the file's own bits are already the caller's predicate. The bash
+    version this replaces checked the target file too, which made every
+    non-executable file classify as unreachable; wrong for anything
+    outside the 0700 home. Bit-based, like the stat(1) checks it replaces:
+    the scanner runs as the owner, so os.access() would answer the wrong
+    question.
     """
-    p = os.path.abspath(path)
+    p = os.path.dirname(os.path.abspath(path))
     while p != "/":
         try:
             st = os.stat(p)
@@ -212,6 +223,13 @@ def scan_homes(report):
         report.note("  every home is closed to others")
 
 
+# Where the read scans look. The home is where private material lives, but
+# the umask bug also wrote 0666 files into the world-traversable scratch
+# trees; stripped to 644, they are still other-readable, so those trees are
+# scanned for sensitive names and secret-shaped content as well.
+READ_SCAN_ROOTS = (HOME_ROOT, "/tmp", "/var/tmp")
+
+
 def scan_sensitive(report):
     report.note("== 2. sensitive files reachable by others ==")
     found = False
@@ -219,15 +237,15 @@ def scan_sensitive(report):
     def want(path, name, st):
         return is_sensitive(path, name) and others_can_read(st, group_of(st))
 
-    for path, st in walk_files(HOME_ROOT, want):
-        found = True
-        if KEEP_NAME.fullmatch(os.path.basename(path)):
-            continue
-        rel = path
-        if others_can_reach(path):
-            report.bad(f"readable by others: {rel}")
-        else:
-            report.latent_line(f"bits say readable, the path does not: {rel}")
+    for root in READ_SCAN_ROOTS:
+        for path, st in walk_files(root, want):
+            found = True
+            if KEEP_NAME.fullmatch(os.path.basename(path)):
+                continue
+            if others_can_reach(path):
+                report.bad(f"readable by others: {path}")
+            else:
+                report.latent_line(f"bits say readable, the path does not: {path}")
     if not found:
         report.note("  none")
     report.show_latent()
@@ -240,12 +258,13 @@ def scan_content(report):
         return st.st_size < 1024 * 1024 and others_can_read(st, group_of(st))
 
     found = False
-    for path, st in walk_files(HOME_ROOT, want):
-        try:
-            with open(path, "rb") as fd:
-                data = fd.read()
-        except OSError:
-            continue
+    for root in READ_SCAN_ROOTS:
+        for path, st in walk_files(root, want):
+            try:
+                with open(path, "rb") as fd:
+                    data = fd.read()
+            except OSError:
+                continue
         if b"\0" in data[:8192]:
             continue
         if not SECRET_SHAPES.search(data.decode("utf-8", errors="replace")):
@@ -267,15 +286,88 @@ def scan_writable(report):
         return others_can_write(st, group_of(st))
 
     found = False
-    for path, st in walk_files(HOME_ROOT, want):
-        found = True
-        if others_can_reach(path):
-            report.bad(f"writable by others: {path}")
-        else:
-            report.latent_line(f"writable if the path ever opens: {path}")
+    roots = [HOME_ROOT] + (["/dev/shm"] if os.path.isdir("/dev/shm") else [])
+    for root in roots:
+        for path, st in walk_files(root, want):
+            found = True
+            if others_can_reach(path):
+                report.bad(f"writable by others: {path}")
+            else:
+                report.latent_line(f"writable if the path ever opens: {path}")
     if not found:
         report.note("  none")
     report.show_latent()
+
+
+def scan_foreign_writable(report, uid):
+    """Writable paths whose owner is somebody else, across the root fs.
+
+    sudo keeps the caller's umask: a root shell from a umask-0 pane wrote
+    root-owned 0666 files. Nothing running as a user can chmod those, so
+    they are recorded, not fixed. The designed world-writable shapes (a
+    sticky directory) are not findings; /nix, /proc, /sys, /dev and /run
+    are pruned -- /run/user holds systemd's own sockets by design.
+    """
+    report.note("== 6. paths writable by others, owned by someone else ==")
+    root_dev = os.stat("/").st_dev
+    stack = ["/"]
+    found = False
+
+    def anomalous(path, st):
+        group = group_of(st)
+        if stat.S_ISDIR(st.st_mode):
+            if st.st_mode & stat.S_ISVTX:
+                return False
+            if st.st_mode & (stat.S_ISUID | stat.S_ISGID):
+                return False
+        return bool(st.st_mode & stat.S_IWOTH) or (
+            bool(st.st_mode & stat.S_IWGRP) and group == "users"
+        )
+
+    while stack:
+        top = stack.pop()
+        if top == "/nix":
+            # The store: hundreds of thousands of root-owned entries, all
+            # 0444 or 0555 by construction. Walking it costs minutes and
+            # finds nothing, ever.
+            continue
+        try:
+            with os.scandir(top) as it:
+                entries = list(it)
+        except OSError:
+            continue
+        for entry in entries:
+            if entry.name in PRUNE_NAMES:
+                continue
+            path = entry.path
+            try:
+                if entry.is_symlink():
+                    continue
+                st = entry.stat(follow_symlinks=False)
+            except OSError:
+                continue
+            if stat.S_ISDIR(st.st_mode):
+                if st.st_dev == root_dev:
+                    stack.append(path)
+                elif st.st_uid != uid and anomalous(path, st):
+                    # A mount point rooted inside /: /dev/shm and friends.
+                    found = True
+                    report.bad(f"writable by others, owned by {owner_name(st)}: {path}")
+                continue
+            if not stat.S_ISREG(st.st_mode):
+                continue
+            if st.st_uid != uid and anomalous(path, st):
+                found = True
+                report.bad(f"writable by others, owned by {owner_name(st)}: {path}")
+    if not found:
+        report.note("  none")
+
+
+def owner_name(st):
+    try:
+        return pwd.getpwuid(st.st_uid).pw_name
+    except KeyError:
+        return str(st.st_uid)
 
 
 def scan_repo(report, repo):
@@ -336,6 +428,7 @@ def main(argv):
     scan_content(report)
     scan_writable(report)
     scan_repo(report, args.repo)
+    scan_foreign_writable(report, os.getuid())
 
     print()
     if report.findings:

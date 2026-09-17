@@ -22,7 +22,12 @@ Deliberately left alone, and reported as skips:
     world-writability is the design, not debris
   - anything not owned by the invoking user, including whole directory
     subtrees that user cannot read
-  - sockets, fifos and devices: recreated all the time, not file debris
+  - device nodes
+
+Sockets and fifos ARE included: a unix socket's write bit is the connect
+right, so a 0777 socket is reachable by anyone who can walk to it. They
+cannot be opened as files, so they are chmod by path under an lstat guard
+instead of through a descriptor.
 """
 
 import argparse
@@ -43,7 +48,7 @@ def parse_args(argv):
     parser.add_argument(
         "roots",
         nargs="*",
-        default=["/home/lillecarl", "/tmp", "/var/tmp"],
+        default=["/home/lillecarl", "/tmp", "/var/tmp", "/dev/shm"],
         help="trees to walk (default: %(default)s)",
     )
     parser.add_argument(
@@ -110,6 +115,18 @@ def chmod_fd(path, st, new_mode):
         os.close(fd)
 
 
+def chmod_entry(path, st, new_mode):
+    """chmod without travelling through a symlink or racing a swap-in."""
+    if stat.S_ISREG(st.st_mode) or stat.S_ISDIR(st.st_mode):
+        chmod_fd(path, st, new_mode)
+        return
+    # Sockets and fifos cannot be open()ed as files (ENXIO / blocking).
+    now = os.lstat(path)
+    if (now.st_ino, now.st_dev, now.st_mode) != (st.st_ino, st.st_dev, st.st_mode):
+        raise OSError(f"{path}: changed between scan and fix")
+    os.chmod(path, new_mode)
+
+
 def main(argv):
     args = parse_args(argv)
     uid = os.getuid()
@@ -145,8 +162,13 @@ def main(argv):
                     record("skipped: symlink", path)
                     continue
                 st = entry.stat(follow_symlinks=False)
-                if not stat.S_ISREG(st.st_mode) and not stat.S_ISDIR(st.st_mode):
-                    record("skipped: not a file or directory", path)
+                if not (
+                    stat.S_ISREG(st.st_mode)
+                    or stat.S_ISDIR(st.st_mode)
+                    or stat.S_ISSOCK(st.st_mode)
+                    or stat.S_ISFIFO(st.st_mode)
+                ):
+                    record("skipped: device node", path)
                     continue
             except OSError as err:
                 errors.append(str(err))
@@ -169,7 +191,7 @@ def main(argv):
                 report.line(f"{verdict}  {path}")
                 if args.apply:
                     try:
-                        chmod_fd(path, st, stat.S_IMODE(st.st_mode) & ~STRIP)
+                        chmod_entry(path, st, stat.S_IMODE(st.st_mode) & ~STRIP)
                         after = os.lstat(path)
                         if stat.S_IMODE(after.st_mode) & STRIP:
                             raise OSError(f"{path}: write bits survived the chmod")
