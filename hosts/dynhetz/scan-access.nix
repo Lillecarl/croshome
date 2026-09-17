@@ -1,20 +1,16 @@
-# The access scanner as a command on the host: ./scan-access.sh installed
-# as `scan-access`, so the check is runnable by anyone who can read this
-# repository and needs nothing from the store to run.
+# The access scanner as a command on the host: ./scan-access.py installed as
+# `scan-access`, so the check is runnable by anyone who can read this
+# repository and needs nothing from the store to run. jj comes from the
+# caller's PATH, exactly as it did for the bash version this replaces -- the
+# wrapper's injected errexit kept killing that one mid-run.
 {
   pkgs,
   ...
 }:
 {
   environment.systemPackages = [
-    (pkgs.writeShellApplication {
-      name = "scan-access";
-      runtimeInputs = with pkgs; [
-        coreutils
-        findutils
-        gnugrep
-      ];
-      text = builtins.readFile ./scan-access.sh;
-    })
+    (pkgs.writers.writePython3Bin "scan-access" { } (
+      builtins.readFile ./scan-access.py
+    ))
   ];
 }
