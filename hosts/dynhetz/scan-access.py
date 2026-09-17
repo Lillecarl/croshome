@@ -265,15 +265,15 @@ def scan_content(report):
                     data = fd.read()
             except OSError:
                 continue
-        if b"\0" in data[:8192]:
-            continue
-        if not SECRET_SHAPES.search(data.decode("utf-8", errors="replace")):
-            continue
-        found = True
-        if others_can_reach(path):
-            report.bad(f"secret-shaped content readable by others: {path}")
-        else:
-            report.latent_line(f"secret-shaped content, behind a closed path: {path}")
+            if b"\0" in data[:8192]:
+                continue
+            if not SECRET_SHAPES.search(data.decode("utf-8", errors="replace")):
+                continue
+            found = True
+            if others_can_reach(path):
+                report.bad(f"secret-shaped content readable by others: {path}")
+            else:
+                report.latent_line(f"secret-shaped content, behind a closed path: {path}")
     if not found:
         report.note("  none")
     report.show_latent()

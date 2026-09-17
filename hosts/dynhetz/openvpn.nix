@@ -59,6 +59,12 @@ let
 
   pamPlugin = "${pkgs.openvpn}/lib/openvpn/plugins/openvpn-plugin-auth-pam.so";
 
+  # The dynamist accounts, from the same directory dynusers.nix builds users
+  # from: the client config gets a copy in each of their homes.
+  dynUserNames = builtins.attrNames (
+    lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./dynusers)
+  );
+
   # Shared by both instances: everything except the device, the transport
   # and the pool. Kept in one place so the two servers cannot drift apart
   # on authentication or pushed routes.
@@ -234,6 +240,17 @@ in
       </tls-crypt>
       EOF
       chmod 600 lab-client.ovpn
+
+      # One copy per dynamist account, so nobody needs root to fetch it. The
+      # file still carries the shared client key and the tls-crypt key -- a
+      # copy in a home is acceptable because connecting also needs that
+      # user's own PAM credentials; possession alone is not access.
+      # Reinstalled on every run, so a user who deletes theirs finds it
+      # back at the next boot.
+      for user in ${toString dynUserNames}; do
+        home="$(getent passwd "$user" | cut -d: -f6)"
+        install -o "$user" -g "$(id -gn "$user")" -m 600 lab-client.ovpn "$home/lab-client.ovpn"
+      done
     '';
   };
 
