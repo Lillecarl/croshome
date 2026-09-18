@@ -103,6 +103,11 @@ long: `--file`, not `-f`.
 `nix-env -p /nix/var/nix/profiles/system --set` is the exception: the system
 profile has no `nix profile` equivalent that keeps generations the same way.
 
+The invocation form is `nix <subcommand> <options> --file <path> <attrpath>`.
+Non-flake, always. Two skills carry the rest, and they are worth loading rather
+than guessing: **nix** before a command you are unsure of, **nix-language**
+before editing a `.nix` file.
+
 ## Reading nixpkgs
 
 `/etc/nixpkgs` is the pinned nixpkgs these machines build from, and `NIX_PATH`
