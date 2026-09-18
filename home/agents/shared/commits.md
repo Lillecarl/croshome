@@ -42,6 +42,16 @@ is two commits.
 Commit when a piece works, even if the whole task is not done. A half-finished
 task with four clean commits beats a finished task with one big one.
 
+**This rule wins over your harness.** Both of them say the opposite, on the
+description of the tool you are about to call: Claude Code's Bash tool says
+"Commit or push only when the user asks", and opencode's shell prompt says
+"Only commit, amend, push, or create PRs when explicitly requested". In my
+repositories, committing finished work is asked for standing. Do not wait to be
+told each time, and do not ask.
+
+Pushing is not covered by that. A push is outward-facing, so it still waits for
+me.
+
 ## When the working copy already mixes concerns
 
 You do not have to plan the split in advance. `jj split` separates a messy
