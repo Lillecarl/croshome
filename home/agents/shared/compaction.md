@@ -1,9 +1,15 @@
 ## Compaction
 
-**Compact yourself. Do not ask.** Your harness gives you a `compact` tool and a
-usage figure after each turn, so you know the number and the user does not. The
-tool refuses when the context is too empty to be worth compacting, so a call
-that is too early costs an error and nothing else.
+**Compact yourself. Do not ask.** Your harness gives you a `compact` tool. It
+refuses when the context is too empty to be worth compacting, so a call that
+comes too early costs an error and nothing else.
+
+What you are told about usage differs, and you get no say in it. Claude Code
+carries a figure every turn, so the number is always in front of you. opencode
+tells you nothing until 35%, then adds a pressure note as usage climbs past it.
+Below that you are working blind. That is why the boundary below is a
+judgement and not a threshold — you cannot wait for a number that may never
+arrive.
 
 Compact at a **boundary**, not at a threshold — a point where losing the detail
 costs nothing:
