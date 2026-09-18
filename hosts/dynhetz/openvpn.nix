@@ -28,9 +28,10 @@
 # the tunnel up over IPv4 and get IPv6 inside it. The client config
 # connects by name (dynhetz.ch.se.eu.org), whose records carry both the
 # IPv4 and the IPv6 address; OpenVPN tries every address a name resolves
-# to, so the dual-stack fallback needs no literal remotes. The name does
-# mean a connect needs DNS before the tunnel exists; resolv-retry
-# infinite already rides out a resolver that is slow to answer.
+# to, so the name alone covers the dual-stack fallback. It is followed by
+# the IPv4 literal anyway, because a connect by name needs a resolver and
+# the one this tunnel pushes stops answering the moment the tunnel drops --
+# see `nodeIPv4` below for the full circle.
 #
 # Authentication is the machine's own users via PAM, on top of the
 # certificate: the plugin checks the username/password against the `login`
@@ -49,10 +50,24 @@
 # delete /var/lib/openvpn-lab; the next activation regenerates it.
 { pkgs, lib, ... }:
 let
-  # The client config connects by name. Both records point here: the A at
-  # the node's IPv4, the AAAA at nodeIPv6 below. An IP move is then a DNS
-  # update instead of a re-exported client config.
+  # The client config connects by name first. Both records point here: the A
+  # at nodeIPv4, the AAAA at nodeIPv6. An IP move is then a DNS update, and
+  # the literals below only have to be corrected before the next activation.
   vpnName = "dynhetz.ch.se.eu.org";
+
+  # Literal fallback remotes, listed after the name.
+  #
+  # A connect by name needs a resolver, and the tunnel pushes one that only
+  # answers through the tunnel (`dhcp-option DNS ${nodeIPv6}`, below). After
+  # an unclean disconnect the client keeps that resolver, so the name it
+  # needs to reconnect cannot be resolved -- and `redirect-gateway ipv6`
+  # leaves ::/1 and 8000::/1 behind pointing at a dead tun, so the query
+  # does not even leave. `resolv-retry infinite` then spins forever: it
+  # rides out a slow resolver, not a blackholed one.
+  #
+  # The literals break that circle. OpenVPN walks the remote list in order,
+  # so the name still wins whenever DNS works.
+  nodeIPv4 = "37.27.129.237";
 
   nodeIPv6 = "2a01:4f9:3071:11d7::2";
 
@@ -226,7 +241,9 @@ in
       client
       dev tun
       remote ${vpnName} 1194 udp
+      remote ${nodeIPv4} 1194 udp
       remote ${vpnName} 443 tcp
+      remote ${nodeIPv4} 443 tcp
       resolv-retry infinite
       nobind
       persist-key
