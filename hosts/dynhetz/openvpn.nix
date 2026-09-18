@@ -26,7 +26,11 @@
 # The transport itself stays dual-stack (`proto udp` / `tcp-server`,
 # without a 4/6 suffix): a client on an IPv4-only network can still bring
 # the tunnel up over IPv4 and get IPv6 inside it. The client config
-# therefore lists both the IPv4 and the IPv6 address as remotes.
+# connects by name (dynhetz.ch.se.eu.org), whose records carry both the
+# IPv4 and the IPv6 address; OpenVPN tries every address a name resolves
+# to, so the dual-stack fallback needs no literal remotes. The name does
+# mean a connect needs DNS before the tunnel exists; resolv-retry
+# infinite already rides out a resolver that is slow to answer.
 #
 # Authentication is the machine's own users via PAM, on top of the
 # certificate: the plugin checks the username/password against the `login`
@@ -45,7 +49,11 @@
 # delete /var/lib/openvpn-lab and rerun.
 { pkgs, lib, ... }:
 let
-  nodeIPv4 = "37.27.129.237";
+  # The client config connects by name. Both records point here: the A at
+  # the node's IPv4, the AAAA at nodeIPv6 below. An IP move is then a DNS
+  # update instead of a re-exported client config.
+  vpnName = "dynhetz.ch.se.eu.org";
+
   nodeIPv6 = "2a01:4f9:3071:11d7::2";
 
   # The whole routed /64, pushed to clients so everything behind this host
@@ -203,10 +211,8 @@ in
       cat <<EOF > lab-client.ovpn
       client
       dev tun
-      remote ${nodeIPv4} 1194 udp
-      remote ${nodeIPv6} 1194 udp
-      remote ${nodeIPv4} 443 tcp
-      remote ${nodeIPv6} 443 tcp
+      remote ${vpnName} 1194 udp
+      remote ${vpnName} 443 tcp
       resolv-retry infinite
       nobind
       persist-key
