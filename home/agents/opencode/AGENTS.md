@@ -1,5 +1,18 @@
 # Global OpenCode Rules
 
+## The question tool
+
+`question`. It puts multiple-choice questions to me and blocks until I answer.
+Each option carries a `label` (1-5 words) and a `description`; `custom` adds a
+free-text answer and defaults on, so never write an "Other" option yourself.
+
+This is the tool the workaround rule in **Offer both routes** requires. It is
+not `needs_user`, which ends a turn and asks nothing.
+
+The tool only registers when the client is `app`, `cli` or `desktop`, which
+covers the TUI. If it is missing, `OPENCODE_ENABLE_QUESTION_TOOL=1` forces it
+on.
+
 ## Version Control
 
 - Load the **jj** skill (`skill({ name: "jj" })`) before any VCS operation and

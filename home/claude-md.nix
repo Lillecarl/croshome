@@ -166,6 +166,7 @@ let
   ];
 
   claudeOnly = [
+    "ask-user.md"
     "compaction.md"
   ];
 

@@ -22,23 +22,23 @@ correct fix is someone else's or takes longer. Not "does this feel hacky".
 Qualifying moves that feel reasonable at the time: turning a feature off to
 dodge a bug in it, pinning an older version, overriding a computed value.
 
-Stop and give me both routes:
+Stop and ask, through the tool that puts a multiple-choice question to me and
+blocks for the answer. Your harness section names it. Two options, correct
+route first:
 
     correct route:  cost, benefit
     workaround:     cost, benefit
 
+Put each route's cost and benefit in that option's description. Mark the one
+you recommend `(Recommended)` at the end of its label.
+
+No exception, and no size threshold. A one-line pin needs the question as much
+as a rewrite does. This holds even when it stops you working autonomously:
+losing the autonomy costs one round trip, and taking the workaround unasked
+costs me the undo plus the unreported bug.
+
 Investigating a workaround is fine. The rule bites at implementing, not at
-looking. Where you have a `need_user` tool, calling it here is correct, not a
-delay.
-
-**Exception — a small workaround needs no question.** Both must hold:
-
-- No lock-in. One edit undoes it, nothing grows on top of it meanwhile.
-- Written where it is found again: a comment at the site, or a `git-bug` issue
-  if it outlives the task.
-
-Small is about the exit, not the diff. A three-line pin we then build on is not
-small.
+looking.
 
 Why this one is a rule: a workaround reported afterwards reads as progress, so
 I spend my own effort undoing a decision nobody offered me, and the real bug
