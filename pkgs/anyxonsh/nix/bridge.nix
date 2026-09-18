@@ -124,22 +124,37 @@ in
     bridge
     ;
 
-  /*
+  /**
     Build a pyproject.nix package set exposing all of Nixpkgs' Python packages,
     ready for `mkVirtualEnv`.
 
-    `python` must be the interpreter the packages were built against -- mixing
-    them trips nixpkgsPrebuilt's own ABI check.
+    # Inputs
+
+    `python`
+    : Interpreter the packages were built against. Mixing interpreters trips
+      nixpkgsPrebuilt's own ABI check.
+
+    `roots`
+    : Nixpkgs Python derivations whose closure must be resolvable by normalised
+      *pname*. The whole of `python.pkgs` is already exposed keyed by attribute
+      name; these are re-keyed by pname as well, because dependency specs are
+      generated from pnames and the two names do not always agree
+      (`pkgs.python3Packages.pyyaml` builds `PyYAML`).
+
+    `overlays`
+    : Extra overlays applied last, for packages that have no Nixpkgs equivalent
+      or that need patching.
+
+    # Type
+
+    ```
+    mkPythonSet :: AttrSet -> PythonSet
+    ```
   */
   mkPythonSet =
     {
       python,
-      # Nixpkgs Python derivations whose closure must be resolvable by
-      # normalised *pname*. See `closureOverlay` below for why this matters even
-      # though the whole of `python.pkgs` is already exposed.
       roots ? [ ],
-      # Extra overlays applied last, for packages that have no Nixpkgs
-      # equivalent or that need patching.
       overlays ? [ ],
     }:
     let

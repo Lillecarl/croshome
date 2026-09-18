@@ -19,39 +19,81 @@ let
   util = pkgs.callPackage build.util { };
 in
 {
-  /*
-    Build an anyxonsh environment.
+  /**
+    Build an anyxonsh environment: a xonsh shell bundled with the Python
+    distributions, xontribs and programs you name.
 
-    All arguments are additive: the defaults already give a working shell, and
+    Every argument is additive. The defaults already give a working shell, and
     each argument extends it rather than replacing anything.
+
+    # Inputs
+
+    `python`
+    : Interpreter to build against. Must be the one `pythonPackages` is drawn
+      from — nixpkgsPrebuilt rejects a mismatch rather than producing a subtly
+      broken venv.
+
+    `pythonPackages`
+    : Extra Python distributions, selected from Nixpkgs' Python package set.
+      Their transitive closure is pulled in automatically.
+
+    `xontribs`
+    : Xontribs, selected from `pkgs.xonsh.passthru.xontribs`.
+
+    `paths`
+    : Programs to place on the shell's PATH. Ordinary Nixpkgs derivations, not
+      Python packages.
+
+    `env`
+    : Extra environment variables, set before xonsh starts.
+
+    `overlays`
+    : Overlays applied to the pyproject.nix package set, for packages Nixpkgs
+      does not ship or that need patching.
+
+    `extraPackages`
+    : Packages to pull into the venv by *name*, resolved against the
+      pyproject.nix set. This is how anything defined in `overlays` gets in: such
+      a package has no Nixpkgs derivation for `pythonPackages` to take a name
+      from, so it is named here instead.
+
+    `projectRoot`
+    : Where `passthru.devVenv` installs anyxonsh editable from. Nothing else
+      reads it, so the default is right unless you are developing anyxonsh
+      itself.
+
+    `name`
+    : Derivation name.
+
+    # Type
+
+    ```
+    mkAnyxonsh :: AttrSet -> Derivation
+    ```
+
+    # Examples
+    :::{.example}
+    ## `mkAnyxonsh` usage example
+
+    ```nix
+    mkAnyxonsh {
+      pythonPackages = ps: [ ps.rich ps.requests ];
+      xontribs = xs: [ xs.xontrib-vox ];
+      paths = [ pkgs.ripgrep ];
+    }
+    ```
+
+    :::
   */
   mkAnyxonsh =
     {
-      # Interpreter to build against. Must be the one `pythonPackages` below is
-      # drawn from -- nixpkgsPrebuilt rejects a mismatch rather than producing a
-      # subtly broken venv.
       python ? pkgs.python3,
-      # Extra Python distributions, selected from Nixpkgs' Python package set.
-      # Their transitive closure is pulled in automatically.
       pythonPackages ? _ps: [ ],
-      # Xontribs, selected from `pkgs.xonsh.passthru.xontribs`.
       xontribs ? _xs: [ ],
-      # Programs to place on the shell's PATH. These are ordinary Nixpkgs
-      # derivations, not Python packages.
       paths ? [ ],
-      # Extra environment variables set before xonsh starts.
       env ? { },
-      # Overlays applied to the pyproject.nix package set, for packages Nixpkgs
-      # does not ship or that need patching.
       overlays ? [ ],
-      # Packages to pull into the venv by *name*, resolved against the
-      # pyproject.nix set. This is how anything defined in `overlays` gets in:
-      # such a package has no Nixpkgs derivation for `pythonPackages` to take a
-      # name from, so it is named here instead.
       extraPackages ? [ ],
-      # Where `passthru.devVenv` installs anyxonsh editable from. Only that one
-      # attribute reads it, so the default pointing at *this* checkout is right
-      # for the only thing it is for: developing anyxonsh itself.
       projectRoot ? toString ../.,
       name ? "anyxonsh",
     }:
