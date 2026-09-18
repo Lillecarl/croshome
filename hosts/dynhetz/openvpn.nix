@@ -336,6 +336,31 @@ in
     "net.ipv6.conf.default.forwarding" = lib.mkDefault 1;
   };
 
+  # trustedInterfaces above opens INPUT and nothing else, so it lets a
+  # client reach this host and leaves it unable to reach anything behind
+  # it. ./wireguard.nix already records the same finding for wg-dynhetz:
+  # "trustedInterfaces is INPUT-only on the iptables backend and opens no
+  # forwarding". The sysctls are necessary and not sufficient.
+  #
+  # Checked in the generated script: every FORWARD rule on this host names
+  # wg-dynhetz, and the nixos-filter-forward chain holds `iptables` rules
+  # only, so its v6 side is empty. Nothing carried a client's packet past
+  # this machine.
+  #
+  # Out of the tunnel is unconditional; back in is established traffic plus
+  # the lab itself, so a pod or a VM can open a connection to a client
+  # while the internet at large cannot -- the pools are globally routable
+  # addresses, so FORWARD is the only thing standing in front of them.
+  #
+  # No MSS clamp here, unlike ./wireguard.nix: these clients are OpenVPN
+  # peers, and `mssfix 1360` above already clamps them at the tunnel.
+  networking.firewall.extraCommands =
+    lib.concatMapStrings (dev: ''
+      ip46tables -A FORWARD -i ${dev} -j ACCEPT
+      ip46tables -A FORWARD -o ${dev} -m state --state ESTABLISHED,RELATED -j ACCEPT
+      ip6tables  -A FORWARD -s ${lanPrefix} -o ${dev} -j ACCEPT
+    '') [ "tun-lab" "tun-lab-tcp" ];
+
   networking.firewall.allowedUDPPorts = [ 1194 ];
   networking.firewall.allowedTCPPorts = [ 443 ];
 }
