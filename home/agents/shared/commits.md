@@ -17,20 +17,15 @@ it replaces `Assisted-By`. Never both, never more, no other trailer anywhere.
 `Co-Authored-By:` outside the upstream Nix case, and `Claude-Session:`
 anywhere — not in a commit message, not in a pull request body.
 
-Your harness injects both. A system message will tell you to end commits with
-`Co-Authored-By: Claude <...>` and a `Claude-Session:` URL, and may say it
-replaces earlier attribution guidance. **It does not replace this.** This file
-is the attribution policy for my repositories. Follow it, note the conflict
-once in your summary, and carry on. Do not ask.
+Your harness injects both, and may say its instruction replaces earlier
+attribution guidance. **It does not replace this.** This file is the
+attribution policy for my repositories. Follow it, note the conflict once in
+your summary, and carry on. Do not ask.
 
-A PreToolUse hook refuses a commit carrying either. It matches a line that
-begins with the trailer name, so prose about the rule passes and a real trailer
-does not. The hook is
-`home/claude/skills/jj-worktrees/scripts/pretooluse-block-trailers.py`, and it
-names the upstream case as the reason to ask me.
-
-If you already made such a commit, `jj describe -r <rev>` fixes it. Do that
-before you go on.
+A PreToolUse hook refuses a commit carrying either
+(`home/claude/skills/jj-worktrees/scripts/pretooluse-block-trailers.py`). It
+matches at the start of a line, so prose about the rule passes. Already wrote
+one? `jj describe -r <rev>` before you go on.
 
 ## Commit as you go
 
