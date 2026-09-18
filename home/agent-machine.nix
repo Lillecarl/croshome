@@ -135,6 +135,11 @@ let
     git fetch` in it) instead of re-cloning elsewhere. Don't clone into `/tmp`
     or the scratchpad.
 
+    **If nixpkgs packages it, don't clone it at all.** `nix build --file
+    /etc/nixpkgs $package.src --no-link --print-out-paths` gives the exact
+    revision that built the binary here, patches applied. A clone gives you
+    whatever `main` says today, which is a different question.
+
     ${remoteBuilders}
   '';
 in

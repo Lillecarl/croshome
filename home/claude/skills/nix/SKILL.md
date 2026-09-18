@@ -133,6 +133,33 @@ To discover a fetcher's arguments (`true` = has a default, `false` = required):
 nix eval --impure --expr 'let pkgs = import <nixpkgs> {}; in pkgs.fetchFromGitHub.__functionArgs' --json
 ```
 
+## Reading a package's source
+
+The exact source a package was built from, with its patches applied by
+nixpkgs' own fetcher:
+
+```sh
+nix build --file /etc/nixpkgs <package>.src --no-link --print-out-paths
+```
+
+Usually the result is a directory you can read straight away. Occasionally it
+is a tarball, because the package fetches a release archive rather than a
+repository — measured: `ripgrep.src` is a directory, `hello.src` is a
+`.tar.gz`. Test before you `cd` into it:
+
+```sh
+src=$(nix build --file /etc/nixpkgs hello.src --no-link --print-out-paths)
+[ -d "$src" ] || { d=$(mktemp -d); tar -xf "$src" -C "$d"; src=$d; }
+```
+
+`$src` is a directory either way after that. Point `mktemp` at your scratchpad
+(`TMPDIR=…`) if you want the extraction to land there.
+
+This beats cloning upstream for almost every "what does this actually do"
+question: it is the revision that built the binary on this machine, not
+whatever `main` says today. Works for language package sets too —
+`python3Packages.anyio.src` is how you read anyio's implementation.
+
 ## Dev shells
 
 ```sh
