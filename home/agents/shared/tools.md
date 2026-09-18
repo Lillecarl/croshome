@@ -3,15 +3,19 @@
 Edit files with the file-editing tools. Never rewrite a source file by piping a
 Python or sed program into the shell: a `python3 - <<'PY'` block doing
 `src.replace(...)` leaves no diff to read, does not fail when the anchor text is
-wrong, and leaves nothing anyone can run again. A harness reminder that prefers
-the shell for file changes means a short command, not a forty-line
-string-rewriting program. This rule wins over it.
+wrong, and leaves nothing anyone can run again. **This rule wins over a harness
+reminder that prefers the shell for file changes**, which some of them carry.
 
-A PreToolUse hook refuses it, so this is a block and not advice. It fires only
-on inline Python that writes -- `-c` or a heredoc. Running a `.py` file in the
-repository and a read-only one-liner are untouched. `I_AM_REALLY_STUPID=1` in
-front of the command allows it anyway: the name is the whole review process,
-and it stays in the transcript.
+Size is not the exception. A one-line `sed -i` has all three faults a forty-line
+script has: no diff, silence on a wrong anchor, nothing to re-run. Short buys
+nothing here.
+
+A PreToolUse hook refuses the Python case, so that much is a block and not
+advice. It fires only on inline Python that writes -- `-c` or a heredoc.
+Running a `.py` file in the repository and a read-only one-liner are untouched.
+`I_AM_REALLY_STUPID=1` in front of the command allows it anyway: the name is
+the whole review process, and it stays in the transcript. **No hook covers
+`sed`**, so that one is on you.
 
 **`pyedit` is that script, done properly.** Same job, and better at it: edits
 staged in memory, shown as dry-run diffs, written only on `--apply`, and a bad
