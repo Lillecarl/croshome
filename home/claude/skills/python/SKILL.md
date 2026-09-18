@@ -56,7 +56,8 @@ collector eats the task mid-flight.
 Take the primitive from `anyio` too, not the `asyncio` one beside it:
 `anyio.Lock`, `anyio.Event`, `anyio.Semaphore`, the memory object streams,
 `anyio.fail_after`, `anyio.move_on_after`, `anyio.create_task_group`,
-`anyio.open_process`, `anyio.to_thread`, `anyio.from_thread.BlockingPortal`.
+`anyio.open_process`, `anyio.to_thread`, `anyio.from_thread.BlockingPortal`,
+and **`anyio.Path`**, which is the one most often missed.
 Mixing the two families is where cancellation stops behaving. ruff's `TID251`
 banned-api rule enforces this per project, and a rule in the linter beats a
 rule in prose.
@@ -104,8 +105,15 @@ and it holds nothing the program needs at runtime.
   is `if not cond: raise RuntimeError(...)`.
 - **No silent `except Exception: pass`.** Log it, or use
   `contextlib.suppress(...)` with a comment saying why it is expected.
-- **`pathlib.Path` for paths.** Convert to `str` as late as you can, and only
-  where an interface demands it.
+- **`pathlib.Path` for paths, `anyio.Path` in async code.** Every method that
+  touches the filesystem is awaitable — `read_text`, `exists`, `mkdir` — while
+  the pure-path parts (`.parent`, `.parts`, `/`) stay synchronous. A
+  `pathlib.Path` inside a coroutine is a blocking call wearing a familiar name.
+
+  It is **not** a `pathlib.Path` subclass: `isinstance(p, pathlib.Path)` is
+  `False`, so a signature annotated `pathlib.Path` rejects it. It does satisfy
+  `os.PathLike`, so `open(p)` and anything taking a path-like still works.
+  Annotate with `anyio.Path`, and convert to `str` as late as you can.
 
 ---
 
