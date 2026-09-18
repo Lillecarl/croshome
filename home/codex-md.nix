@@ -70,6 +70,8 @@ let
     build time. Claude Code and opencode read that directory live; Codex
     sees an edit to it on the next rebuild.
 
+    ${config.programs.agentMachine.text}
+
     ## Version control
 
     Repositories in my checkouts use jj (Jujutsu), not git -- a `.jj` folder

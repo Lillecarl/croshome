@@ -48,8 +48,14 @@ let
   # reading order, and an explicit list keeps the check above meaningful.
   # comms.md is opencode-only for now (hub tooling), so it lives in
   # ./agents/opencode and rides the instructions list directly.
+  #
+  # The machine section leads, because opencode never reads ~/.claude/CLAUDE.md
+  # where the other harnesses get it: it takes the FIRST existing file out of
+  # ~/.config/opencode/AGENTS.md then ~/.claude/CLAUDE.md, and the AGENTS.md
+  # above shadows CLAUDE.md completely. See ./agent-machine.nix.
   instructions =
-    map (f: "${selfStr}/home/agents/shared/${f}") shared
+    [ "${config.home.homeDirectory}/${config.programs.agentMachine.relPath}" ]
+    ++ map (f: "${selfStr}/home/agents/shared/${f}") shared
     ++ [ "${selfStr}/home/agents/opencode/comms.md" ];
 in
 {

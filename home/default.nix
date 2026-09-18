@@ -17,6 +17,7 @@
   imports = [
     inputs.catppuccin.homeModules.catppuccin
     ./agenix.nix
+    ./agent-machine.nix
     ./agents.nix
     ./ask.nix
     ./claude-md.nix

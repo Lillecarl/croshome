@@ -17,9 +17,9 @@
   # the gate it looks like.
   programs.wrapty.enable = true;
 
-  # See ../../home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Only the
-  # values that differ per machine live here; the prose is shared.
-  programs.claudeInstructions = {
+  # See ../../home/agent-machine.nix -- the machine section every harness
+  # reads. Only the values that differ per machine live here.
+  programs.agentMachine = {
     enable = true;
     hostName = "hetztop";
     cloneDir = "~/Code";
@@ -29,6 +29,10 @@
       store instead of the daemon. Use it only when I ask for it by name.
     '';
   };
+
+  # See ../../home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Shared
+  # prose, read live out of the checkout through `@` imports.
+  programs.claudeInstructions.enable = true;
 
   # See ../../home/codex-md.nix -- generates ~/.codex/AGENTS.md. Shared prose
   # only, inlined at build time; Codex has no import mechanism.
