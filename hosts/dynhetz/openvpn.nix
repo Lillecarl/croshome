@@ -141,7 +141,7 @@ in
   # The subshell keeps the `cd` from leaking into the activation scripts
   # that run after this one.
   system.activationScripts.openvpn-lab-pki = ''
-    (
+      (
       set -euo pipefail
 
       # Renamed from openvpn-oob: carry the PKI across once, so already
@@ -238,7 +238,7 @@ in
       </tls-crypt>
       EOF
       chmod 600 lab-client.ovpn
-    )
+      )
   '';
 
   # One copy per dynamist account, so nobody needs root to fetch it. The file
