@@ -35,6 +35,7 @@ let
     "tools.md"
     "commits.md"
     "prose.md"
+    "compaction.md"
   ];
 
   onDisk = lib.attrNames (

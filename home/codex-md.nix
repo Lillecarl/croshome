@@ -26,13 +26,25 @@ let
   sharedDir = ./agents/shared;
 
   # Must agree with the `shared` lists in ./claude-md.nix and ./opencode.nix:
-  # all three name the prose every harness reads.
+  # together, `shared` and `skip` name every file in ./agents/shared.
   shared = [
     "autonomy.md"
     "next-thing.md"
     "tools.md"
     "commits.md"
     "prose.md"
+  ];
+
+  # Shared prose this harness deliberately does not take. A file named here is
+  # accounted for without being inlined, so the check below still catches a
+  # section nobody reads -- silence about a file is the failure it exists to
+  # stop, and "not for Codex" has to be said rather than left out.
+  #
+  # Codex has no compaction tool. Claude Code gets one from wrapty and opencode
+  # from ./agents/opencode/plugins/self-compact.ts, both named `compact`; there
+  # is no Codex equivalent to point the rule at.
+  skip = [
+    "compaction.md"
   ];
 
   onDisk = dir: lib.attrNames (
@@ -44,18 +56,19 @@ let
   # the list never reaches a session. Neither shows up as an error anywhere,
   # hence the eval-time check.
   check = {
-    missing = lib.subtractLists (onDisk sharedDir) shared;
-    unlisted = lib.subtractLists shared (onDisk sharedDir);
+    missing = lib.subtractLists (onDisk sharedDir) (shared ++ skip);
+    unlisted = lib.subtractLists (shared ++ skip) (onDisk sharedDir);
   };
 
   prose =
     assert lib.assertMsg (check.missing == [ ]) (
-      "home/codex-md.nix: `shared` names ${toString check.missing}, "
+      "home/codex-md.nix: `shared` or `skip` names ${toString check.missing}, "
       + "which does not exist in home/agents/shared."
     );
     assert lib.assertMsg (check.unlisted == [ ]) (
       "home/codex-md.nix: home/agents/shared holds ${toString check.unlisted}, "
-      + "which `shared` does not name, so it is never inlined."
+      + "which neither `shared` nor `skip` names, so it is never inlined and "
+      + "nobody decided that."
     );
     lib.concatStringsSep "\n" (map (f: builtins.readFile (sharedDir + "/${f}")) shared);
 

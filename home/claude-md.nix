@@ -54,11 +54,11 @@ let
     "tools.md"
     "commits.md"
     "prose.md"
+    "compaction.md"
   ];
 
   claudeOnly = [
     "ask-user.md"
-    "compaction.md"
   ];
 
   onDisk = dir: lib.attrNames (
