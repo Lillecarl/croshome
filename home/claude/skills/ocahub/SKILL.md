@@ -1,3 +1,8 @@
+---
+name: ocahub
+description: Cross-agent messaging between running agent sessions on this machine, through the ocahub broker. Use when you must send a message to, ask a question of, or read a reply from another agent session -- the `ocac` CLI or the agent_send, agent_reply, agent_inbox and agents_list MCP tools. Also use when you owe a reply to an ask and the stop hook is holding your turn open.
+---
+
 # ocahub: cross-agent messaging
 
 `ocac` talks to the `ocahub` broker (a systemd user service). Installed on

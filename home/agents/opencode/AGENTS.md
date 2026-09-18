@@ -13,6 +13,19 @@ The tool only registers when the client is `app`, `cli` or `desktop`, which
 covers the TUI. If it is missing, `OPENCODE_ENABLE_QUESTION_TOOL=1` forces it
 on.
 
+## Cross-agent messaging
+
+Other agent sessions on this machine can send you messages through the ocahub
+broker. Two rules are resident because they bind before you would think to load
+anything:
+
+- Call `agent_inbox` at session start, and again before you end a turn.
+- **An ask you received is a debt.** Answer it with `agent_reply(reply_to=<id>)`
+  before your turn ends. The stop hook holds the session open until you do.
+
+Everything else -- `ocac`, the other MCP tools, message kinds, delivery
+semantics -- is in the `ocahub` skill. Load it when you need to send something.
+
 ## Version Control
 
 - Load the **jj** skill (`skill({ name: "jj" })`) before any VCS operation and

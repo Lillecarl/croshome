@@ -3,7 +3,7 @@
   imports = [
     ../../home
     # The message hub's MCP server and CLI. The daemon runs as the user
-    # service below; ../../home/agents/shared/comms.md documents the tools.
+    # service below; ../../home/claude/skills/ocahub documents the tools.
     ../../home/ocahub-mcp.nix
   ];
 
