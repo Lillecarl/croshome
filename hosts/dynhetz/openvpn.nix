@@ -241,15 +241,17 @@ in
       )
   '';
 
-  # One copy per dynamist account, so nobody needs root to fetch it. The file
-  # still carries the shared client key and the tls-crypt key -- a copy in a
-  # home is acceptable because connecting also needs that user's own PAM
-  # credentials; possession alone is not access. tmpfiles runs at every
-  # activation and boot, replaces a copy left stale by a regenerated PKI,
-  # and restores one a user deleted.
+  # One copy per account, so nobody needs root to fetch it. The file still
+  # carries the shared client key and the tls-crypt key -- a copy in a home
+  # is acceptable because connecting also needs that user's own PAM
+  # credentials; possession alone is not access. lillecarl is in the list
+  # too: the admin account uses the VPN, and its copy is the one an agent
+  # can verify without root. tmpfiles runs at every activation and boot,
+  # replaces a copy left stale by a regenerated PKI, and restores one a
+  # user deleted.
   systemd.tmpfiles.rules = map (user: ''
     C /home/${user}/lab-client.ovpn 0600 ${user} users - /var/lib/openvpn-lab/pki/lab-client.ovpn
-  '') dynUserNames;
+  '') (dynUserNames ++ [ "lillecarl" ]);
 
   services.openvpn.servers.lab = {
     config = ''
