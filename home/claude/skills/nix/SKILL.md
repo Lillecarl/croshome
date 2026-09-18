@@ -35,8 +35,8 @@ That is the shape for every subcommand. `--file` selects the expression;
 
 ```sh
 nix build --file . dynhetz.config.system.build.toplevel
-nix eval  --file . --raw hostname
-nix run   --file . myTool -- --flag arg
+nix eval  --file . --raw dynhetz.config.networking.hostName
+nix run   --file /etc/nixpkgs ripgrep -- --version
 ```
 
 ## 3. `/etc/nixpkgs` is the system nixpkgs
