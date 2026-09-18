@@ -22,9 +22,9 @@ correct fix is someone else's or takes longer. Not "does this feel hacky".
 Qualifying moves that feel reasonable at the time: turning a feature off to
 dodge a bug in it, pinning an older version, overriding a computed value.
 
-Stop and ask, through the tool that puts a multiple-choice question to me and
-blocks for the answer. Your harness section names it. Two options, correct
-route first:
+Stop and ask, through the question tool — `AskUserQuestion` in Claude Code,
+`question` in opencode. It puts multiple-choice options to me and blocks for
+the answer. Two options, correct route first:
 
     correct route:  cost, benefit
     workaround:     cost, benefit
