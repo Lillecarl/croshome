@@ -64,6 +64,23 @@ Instead:
 - a process you did not start -- `pidof <exe>` (exact name, no self-match), or
   better, the state file, socket or API that answers the real question.
 
+## Timeouts
+
+Pick the number from what the command takes. Most finish in seconds, and every
+harness default is already longer than that.
+
+**A timeout that fires is a result.** It says the command did not finish.
+Raising it and running again buys that same answer more slowly, and every
+iteration after pays the new number. So troubleshooting moves a timeout *down*:
+a failure at 10s carries what a failure at 600s carries, and carries it sooner.
+
+Raise one only on evidence -- you watched the output advance right up to the
+cut, so more time plainly finishes it. "It might need longer" is not evidence,
+and neither is having been cut off once.
+
+Work that really does run for minutes gets no timeout at all. Background it and
+read the log. A long timeout blocks the session; a background job does not.
+
 ## Building with Nix
 
 Use the `nix` subcommands, never the older separate binaries. Spell flags
