@@ -14,6 +14,14 @@ answers and no cheap test.
 
 Read "before substantive work" as "before hard work".
 
+## This file
+
+`CLAUDE.md` is a symlink to it. Claude Code reads only `CLAUDE.md`, so without
+that link none of the rules below reach a Claude session — including the
+advisor rule above, and the advisor is a Claude-only tool. opencode takes the
+first of `AGENTS.md`, `CLAUDE.md`, `CONTEXT.md` that it finds and stops, so the
+link adds nothing there. Do not delete it as a duplicate.
+
 ## Layout
 
 Four hosts, one configuration.
