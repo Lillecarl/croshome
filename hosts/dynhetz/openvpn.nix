@@ -46,7 +46,7 @@
 #
 # The PKI is self-signed and generated once on the machine itself, kept
 # out of the Nix store (world readable) and out of the repo. To start over,
-# delete /var/lib/openvpn-lab and rerun.
+# delete /var/lib/openvpn-lab; the next activation regenerates it.
 { pkgs, lib, ... }:
 let
   # The client config connects by name. Both records point here: the A at
@@ -130,25 +130,18 @@ in
   # Self-signed CA + one server cert + one shared client cert, generated
   # once on the machine itself and kept out of the Nix store (world
   # readable) and out of the repo.
-  systemd.services.openvpn-lab-pki = {
-    description = "Generate the OpenVPN lab server's self-signed PKI";
-    wantedBy = [
-      "openvpn-lab.service"
-      "openvpn-lab-tcp.service"
-    ];
-    before = [
-      "openvpn-lab.service"
-      "openvpn-lab-tcp.service"
-    ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = [
-      pkgs.openssl
-      pkgs.openvpn
-    ];
-    script = ''
+  #
+  # This is an activation script rather than a systemd oneshot on purpose:
+  # activation runs at every switch and boot, so a change to the template
+  # below is in every user's home after the same switch that deployed it.
+  # The oneshot it replaces ran only at boot or on an explicit restart, and
+  # a switch never reruns a failed one -- which is how a config change once
+  # sat undistributed for days behind a service that looked green.
+  #
+  # The subshell keeps the `cd` from leaking into the activation scripts
+  # that run after this one.
+  system.activationScripts.openvpn-lab-pki = ''
+    (
       set -euo pipefail
 
       # Renamed from openvpn-oob: carry the PKI across once, so already
@@ -162,19 +155,19 @@ in
       install -d -m 0700 "$pki"
       cd "$pki"
 
-      # Skips regenerating anything that already exists, so a rebuild
+      # Skips regenerating anything that already exists, so an activation
       # doesn't invalidate the client cert every client already has
       # installed -- but still falls through past this, unconditionally,
       # to reassemble lab-client.ovpn below on every run, cheaply, in
       # case it's ever missing without the certs themselves being touched.
       if [ ! -f ca.crt ]; then
-        openssl ecparam -name prime256v1 -genkey -noout -out ca.key
-        openssl req -x509 -new -key ca.key -sha256 -days 3650 \
+        ${pkgs.openssl}/bin/openssl ecparam -name prime256v1 -genkey -noout -out ca.key
+        ${pkgs.openssl}/bin/openssl req -x509 -new -key ca.key -sha256 -days 3650 \
           -subj "/CN=dynhetz-lab-ca" -out ca.crt
 
-        openssl ecparam -name prime256v1 -genkey -noout -out server.key
-        openssl req -new -key server.key -subj "/CN=dynhetz-lab-server" -out server.csr
-        openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+        ${pkgs.openssl}/bin/openssl ecparam -name prime256v1 -genkey -noout -out server.key
+        ${pkgs.openssl}/bin/openssl req -new -key server.key -subj "/CN=dynhetz-lab-server" -out server.csr
+        ${pkgs.openssl}/bin/openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
           -days 3650 -sha256 \
           -extfile <(printf 'extendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n') \
           -out server.crt
@@ -182,9 +175,9 @@ in
 
         # Shared by all clients -- one identity is fine because PAM names
         # the user separately (see username-as-common-name above).
-        openssl ecparam -name prime256v1 -genkey -noout -out client.key
-        openssl req -new -key client.key -subj "/CN=lab-client" -out client.csr
-        openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+        ${pkgs.openssl}/bin/openssl ecparam -name prime256v1 -genkey -noout -out client.key
+        ${pkgs.openssl}/bin/openssl req -new -key client.key -subj "/CN=lab-client" -out client.csr
+        ${pkgs.openssl}/bin/openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
           -days 3650 -sha256 \
           -extfile <(printf 'extendedKeyUsage=clientAuth\nkeyUsage=digitalSignature\n') \
           -out client.crt
@@ -194,7 +187,7 @@ in
         # drops unauthenticated probes silently rather than replying,
         # which matters more than usual for a port that's deliberately
         # reachable from anywhere.
-        openvpn --genkey secret ta.key
+        ${pkgs.openvpn}/bin/openvpn --genkey secret ta.key
 
         chmod 600 ./*.key
         chmod 644 ./*.crt
@@ -205,9 +198,8 @@ in
       # rather than four separate files plus a hand-typed config. Every
       # client imports the same file, then authenticates as its own system
       # user: `auth-user-pass` prompts for the PAM username/password on
-      # each connect. Written here, at activation, because this service
-      # already runs as root with the key material on hand -- no separate
-      # script for someone to remember to run with their own sudo later.
+      # each connect. The copy in each home is distributed by the tmpfiles
+      # rules below.
       cat <<EOF > lab-client.ovpn
       client
       dev tun
@@ -246,8 +238,8 @@ in
       </tls-crypt>
       EOF
       chmod 600 lab-client.ovpn
-    '';
-  };
+    )
+  '';
 
   # One copy per dynamist account, so nobody needs root to fetch it. The file
   # still carries the shared client key and the tls-crypt key -- a copy in a
