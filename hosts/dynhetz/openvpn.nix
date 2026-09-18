@@ -90,9 +90,31 @@ let
     # here, and it leaves for the internet from this host. No NAT is needed
     # for that -- the client pools are world-routable space Hetzner already
     # routes here, so replies find their way back and forwarding carries
-    # them to the tunnel. IPv4 is untouched (there is none inside the
-    # tunnel): to egress v4 locally, or everything locally, disable the VPN.
-    push "redirect-gateway ipv6"
+    # them to the tunnel. To egress v4 locally, or everything locally,
+    # disable the VPN.
+    #
+    # `!ipv4` is not decoration. The `ipv6` flag means "redirect IPv6 *as
+    # well*": in openvpn 2.6.21 `options.c` it only sets RG_REROUTE_GW on
+    # the v6 route list, and leaves RG_ENABLE set on the v4 one. `!ipv4` is
+    # what clears the v4 half, and `ipv6 !ipv4` is the documented pair for
+    # redirecting v6 only (doc/man-sections/vpn-network-options.rst).
+    #
+    # Without it the client also attempts a v4 default redirect, which this
+    # tunnel cannot satisfy: it carries `ifconfig-ipv6` only, and the server
+    # logs `IPv4=(Not enabled)` for every client. `route.c` then warns
+    # "unable to redirect IPv4 default gateway -- VPN gateway parameter
+    # (--route-gateway or --ifconfig) is missing".
+    #
+    # A macOS client with `redirect-gateway ipv6` had no v6 routes at all,
+    # with the tunnel up and the data path healthy both ways. The generic
+    # `add_routes` path only warns on the v4 failure and still reaches the
+    # v6 routes, so why macOS ends up with none of them is NOT established
+    # here -- the platform route code is the place to look if it recurs.
+    # Asking for a v4 redirect on a tunnel with no v4 is wrong either way.
+    #
+    # The routes it installs are 2000::/4 and 3000::/4, which cover the v6
+    # unicast space and beat ::/0 on prefix length without replacing it.
+    push "redirect-gateway ipv6 !ipv4"
 
     # DNS follows the tunnel: clients resolve through this host's own
     # resolver (see ../nat64.nix), so they get the same DNS64 answers pods
