@@ -149,6 +149,81 @@ lib.optionalString true "s"     # => "s"         string -> string
 `optional` takes an item and wraps it. `optionals` takes a list and passes it
 through. Handing `optional` a list gives you a list of lists.
 
+## Doc comments
+
+`/** ... */` is a doc comment. nixpkgs documents `lib` this way, and nixdoc
+extracts it into the manual. Use it for anything with an interface: a function
+others call, an exported attribute, a package helper. See `/etc/nixpkgs/lib/`
+for hundreds of worked examples — `strings.nix` is a good one.
+
+This does not mean write more comments. The house rule stands: a comment earns
+its line, and narration inside a body earns nothing. What this governs is the
+*format* when you do document something callable.
+
+Three comment forms, and only one is extracted. Measured with nixdoc 3.2.0:
+
+| form | extracted | notes |
+| --- | --- | --- |
+| `/** ... */` | yes | you write the sections yourself |
+| `/* ... */` | yes, legacy | nixdoc synthesises a bare "Inputs" listing, which is worse than none |
+| `# ...` | **no** | invisible to the manual; right for internal notes |
+
+The shape, which renders as nixpkgs renders:
+
+````nix
+{
+  /**
+    One line saying what it does.
+
+    # Inputs
+
+    `sep`
+    : Separator placed between elements
+
+    `list`
+    : Strings to join
+
+    # Type
+
+    ```
+    join :: String -> [String] -> String
+    ```
+
+    # Examples
+    :::{.example}
+    ## `lib.demo.join` usage example
+
+    ```nix
+    join ", " [ "foo" "bar" ]
+    => "foo, bar"
+    ```
+
+    :::
+  */
+  join = sep: list: builtins.concatStringsSep sep list;
+}
+````
+
+Notes that cost a test each:
+
+- Headings demote by two. `#` in the source becomes `###` in the manual,
+  because the function's own name is `##`. Write `# Inputs`, never `### Inputs`.
+- The sections are a convention, not a schema. A description alone extracts
+  fine; nixdoc does not require Inputs, Type or Examples.
+- **Indentation must be even.** nixdoc strips the common leading whitespace, so
+  one under-indented line lowers the baseline and every other line keeps its
+  extra spaces — four or more of which markdown renders as a code block. Prose
+  turns into a code block with no error anywhere.
+- A blank line between the comment and the binding is harmless; the two stay
+  associated.
+- An attribute that is not a function documents the same way.
+
+Check your work rather than assume it:
+
+```sh
+nix run --file /etc/nixpkgs nixdoc -- --file <file>.nix --category demo --description D
+```
+
 ## Module system, briefly
 
 `imports` resolves before `config` exists. Reading `pkgs` or `config` to decide

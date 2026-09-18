@@ -48,6 +48,13 @@ It earns nothing by:
 - Telling the change history. That is what the commit is for.
 - Explaining the language or the standard library.
 
+**Documented interfaces are the exception, and they have a format.** A function
+or attribute others call gets a real doc comment, and in Nix that means
+`/** ... */`, the form nixdoc extracts into the manual — never `#`, which it
+drops. The `nix-language` skill has the shape and the traps. "Default to none"
+governs narration, not an interface someone has to call without reading the
+body.
+
 One line, sometimes two. A paragraph needs a fact that cost real work to find,
 and then it belongs at the top of the file or the function, not mid-body.
 Prefer a better name over a comment that explains a bad one.
