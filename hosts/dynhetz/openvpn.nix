@@ -127,8 +127,11 @@ let
     # here -- the platform route code is the place to look if it recurs.
     # Asking for a v4 redirect on a tunnel with no v4 is wrong either way.
     #
-    # The routes it installs are 2000::/4 and 3000::/4, which cover the v6
-    # unicast space and beat ::/0 on prefix length without replacing it.
+    # Which routes it installs depends on the client, so do not match on one.
+    # OpenVPN 2.6 uses 2000::/4 and 3000::/4 (its own man page). OpenVPN 3 --
+    # what OpenVPN Connect runs, and what connects here -- uses ::/1 and
+    # 8000::/1 (`tun/.../tunsetup.hpp`), observed on macOS. Either pair covers
+    # the unicast space and beats ::/0 on prefix length without replacing it.
     push "redirect-gateway ipv6 !ipv4"
 
     # DNS follows the tunnel: clients resolve through this host's own
