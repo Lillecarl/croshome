@@ -299,7 +299,7 @@ assert noCollision "IPv6" userV6;
         # same key and same address on two interfaces makes the server's
         # endpoint flap between them. The header comment in each file says so.
         wg_user_conf() {
-          local name="$1" allowed="$2" note="$3"
+          local name="$1" addr="$2" allowed="$3" note="$4"
           cat <<USERCONF > "users/$user$name.conf"
       # $note
       #
@@ -308,7 +308,7 @@ assert noCollision "IPv6" userV6;
       # the server will flap between whichever spoke last.
       [Interface]
       PrivateKey = $(cat "users/$user.key")
-      Address = $v4/16, $v6/80
+      Address = $addr
       DNS = 2a01:4f9:3071:11d7::2
 
       [Peer]
@@ -320,32 +320,51 @@ assert noCollision "IPv6" userV6;
           chmod 600 "users/$user$name.conf"
         }
 
-        wg_user_conf "" \
-          "10.101.0.0/16, 2a01:4f9:3071:11d7::/64, 64:ff9b::/96" \
-          "Lab only. Reaches dynhetz and everything it routes; the rest of your IPv6 traffic keeps its normal path."
+        # Two profiles, split by address family rather than by scope.
+        #
+        # IPv6-only carries no IPv4 anywhere -- not in Address, not in
+        # AllowedIPs. That is the point, not an omission. The -full profile
+        # this replaces had ::/0 and no 0.0.0.0/0, and WireGuard.app installed
+        # an IPv4 default route into the tunnel anyway, which blackholed every
+        # v4 destination: ping to 1.1.1.1 and 8.8.8.8 silent, curl -4 timing
+        # out at 12s, the user's Slack dead. An interface with no v4 address
+        # at all should give the app nothing to build v4 settings from.
+        #
+        # UNVERIFIED, and say so rather than discover it: the blackhole was
+        # measured, this cure is reasoned. If v4 still dies on this profile,
+        # the app is creating v4 settings regardless and the answer is the
+        # dual-stack profile below, which at least routes what it captures.
+        wg_user_conf "-v6" \
+          "$v6/80" \
+          "::/0" \
+          "IPv6 only. All IPv6 egresses from dynhetz with your own global address; IPv4 is not touched, not addressed and not routed here. Lab names and NAT64 both work, so IPv4-only sites still reach you over v6."
 
-        # ::/0 subsumes the lab /64 and 64:ff9b::/96, so they are not repeated.
+        # Both defaults, and 0.0.0.0/0 is load-bearing rather than tidy.
         #
-        # WARNING, measured on macOS with WireGuard.app: this profile takes
-        # IPv4 down with it. AllowedIPs carries no 0.0.0.0/0, so on paper v4
-        # should stay on the local link -- and it does not. The app installs
-        # an IPv4 default route into the tunnel once ::/0 makes this a full
-        # tunnel (`default link#22 UCSg utun4` beside the real one on en0),
-        # and since nothing routes v4 out of here for the peer, every v4
-        # destination blackholes. ping 1.1.1.1 and 8.8.8.8 both silent, curl
-        # -4 timing out at 12s. The mechanism inside the app is NOT isolated;
-        # the route table and the dead pings are.
+        # Measured on macOS with WireGuard.app: the app installs an IPv4
+        # default route into the tunnel as soon as ::/0 makes this a full
+        # tunnel, whether or not AllowedIPs asks for one. With v4 captured and
+        # nowhere to go, every v4 destination blackholed -- ping to 1.1.1.1
+        # and 8.8.8.8 silent, curl -4 timing out at 12s. Naming 0.0.0.0/0
+        # gives that capture somewhere to land instead of pretending it is not
+        # happening. ::/0 and 0.0.0.0/0 subsume the lab /64, 64:ff9b::/96 and
+        # 10.101.0.0/16, so none are repeated.
         #
-        # Left as-is rather than "fixed" by adding 0.0.0.0/0. dynhetz does NAT
-        # v4 for this interface already -- nixos-nat-pre marks by interface
-        # and MASQUERADEs out eth0, so adding it would work -- but that sends
-        # every user's IPv4 out of a Hetzner datacenter address, which buys
-        # CAPTCHAs and geolocation errors on services like Slack in exchange
-        # for nothing the lab needs. The user picks the profile; this says
-        # what picking it costs.
-        wg_user_conf "-full" \
-          "10.101.0.0/16, ::/0" \
-          "Full IPv6 tunnel -- and on macOS it BLACKHOLES IPv4: the app routes the v4 default here too and nothing carries it out. Use wg-dynhetz.conf unless you specifically need v6 egress from dynhetz."
+        # dynhetz NATs the v4 half, and has since the MikroTik exit node:
+        # nixos-nat-pre marks by interface, nixos-filter-forward accepts
+        # wg-dynhetz -> eth0, nixos-nat-post MASQUERADEs mark 1 out eth0. All
+        # three are interface-based, so the per-user /16 was covered the
+        # moment it appeared on wg-dynhetz. The v6 half needs no NAT at all --
+        # each peer's address is globally routable out of the /64.
+        #
+        # The cost is real and belongs in the file: everything now leaves from
+        # a Hetzner datacenter address, so expect CAPTCHAs, geolocation
+        # errors and the occasional rate-limit on consumer services. The
+        # IPv6-only profile above avoids that for IPv4 by leaving IPv4 alone.
+        wg_user_conf "-dual" \
+          "$v4/16, $v6/80" \
+          "0.0.0.0/0, ::/0" \
+          "Dual stack. ALL your traffic egresses from dynhetz -- IPv6 with your own global address, IPv4 NATed out of this host. Expect CAPTCHAs and wrong geolocation, since you appear to be in a Hetzner datacenter."
 
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
         # destination does not exist, so a rule cannot refresh a file a user
@@ -357,9 +376,15 @@ assert noCollision "IPv6" userV6;
         # runs before the MikroTik peer would be restored on a later boot.
         if id -u "$user" >/dev/null 2>&1 && [ -d "/home/$user" ]; then
           install -o "$user" -g users -m 0600 \
-            "users/$user.conf" "/home/$user/wg-dynhetz.conf" || true
+            "users/$user-v6.conf" "/home/$user/wg-dynhetz-v6.conf" || true
           install -o "$user" -g users -m 0600 \
-            "users/$user-full.conf" "/home/$user/wg-dynhetz-full.conf" || true
+            "users/$user-dual.conf" "/home/$user/wg-dynhetz-dual.conf" || true
+
+          # The previous names, removed rather than left to rot. wg-dynhetz.conf
+          # was lab-only and wg-dynhetz-full.conf blackholed IPv4; leaving
+          # either in a home means somebody imports it next month and hits a
+          # fault we already fixed.
+          rm -f "/home/$user/wg-dynhetz.conf" "/home/$user/wg-dynhetz-full.conf"
         fi
       }
 
@@ -375,6 +400,7 @@ assert noCollision "IPv6" userV6;
         esac
         wg set wg-dynhetz peer "$(cat "users/$stale.pub")" remove || true
         rm -f "users/$stale.key" "users/$stale.pub" \
+              "users/$stale-v6.conf" "users/$stale-dual.conf" \
               "users/$stale.conf" "users/$stale-full.conf"
       done
 
@@ -440,7 +466,14 @@ assert noCollision "IPv6" userV6;
     allowedTCPPorts = [ 53 ];
   };
 
-  # The MikroTik peer is an exit node. networking.nat does the IPv4 half
+  # Two things now rely on this, not one: the MikroTik exit node, and any
+  # user on the -full profile above, whose IPv4 default also lands here. The
+  # rules are interface-based rather than prefix-based, so the per-user
+  # 10.101.0.0/16 was covered the moment it appeared on wg-dynhetz -- do not
+  # narrow them to the /24 on the assumption that the MikroTik is the only
+  # client.
+  #
+  # networking.nat does the IPv4 half
   # -- MASQUERADE out eth0 for traffic arriving on wg-dynhetz, the
   # matching FORWARD accept, and the forwarding sysctls. The firewall
   # backend here is iptables (see ../libvirt-lab-net.nix), so this chain
