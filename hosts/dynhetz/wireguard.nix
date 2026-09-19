@@ -406,6 +406,24 @@ assert noCollision "IPv6" userV6;
 
   networking.firewall.allowedUDPPorts = [ 51820 ];
 
+  # The resolver the per-user configs point at listens on the node address,
+  # and a peer's query arrives on this interface. Nothing else opens 53 here:
+  # ../nat64.nix's own comment says the unbound access-control and the
+  # firewall "are both needed, and either one alone fails quietly", and this
+  # is what that looks like from the client -- ICMP answers, DNS times out,
+  # and the timeout reads as an unlisted source rather than a dropped packet.
+  #
+  # Scoped to this interface rather than adding wg-dynhetz to
+  # trustedInterfaces. ../openvpn.nix trusts its tun devices wholesale and can
+  # afford to: every packet there is an authenticated client. The same is true
+  # of a WireGuard peer, but the MikroTik peer holds allowed-ips 0.0.0.0/0,
+  # so trusting the interface would also expose this host's every port to
+  # whatever that router forwards. One port is the smaller statement.
+  networking.firewall.interfaces."wg-dynhetz" = {
+    allowedUDPPorts = [ 53 ];
+    allowedTCPPorts = [ 53 ];
+  };
+
   # The MikroTik peer is an exit node. networking.nat does the IPv4 half
   # -- MASQUERADE out eth0 for traffic arriving on wg-dynhetz, the
   # matching FORWARD accept, and the forwarding sysctls. The firewall
