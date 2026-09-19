@@ -175,7 +175,12 @@ in
   # not replace a managed symlink with a managed directory: it leaves
   # ~/.claude/skills and ~/.gemini/skills pointing at the old generation, and
   # the per-skill links never appear. Delete both symlinks, then activate.
-  # Nothing is lost -- they are links into the store.
+  #
+  # Put them back if that switch fails. Deleting costs nothing by itself --
+  # they are links into the store -- but until an activation succeeds the
+  # host has no skills at all, and a switch can abort in that window for
+  # reasons that have nothing to do with this. Measured on macbook, where
+  # darwin-rebuild stopped on a macOS App Management grant.
   home.file =
     repoSkillLinks ".claude"
     // repoSkillLinks ".gemini"
