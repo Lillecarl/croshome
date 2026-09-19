@@ -32,6 +32,7 @@ let
   shared = [
     "autonomy.md"
     "next-thing.md"
+    "messaging.md"
     "tools.md"
     "commits.md"
     "prose.md"
