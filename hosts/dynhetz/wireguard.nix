@@ -265,18 +265,70 @@ assert noCollision "IPv6" userV6;
         # Rewritten every activation, like client.conf above: self-heals if
         # deleted, and picks up a changed endpoint or address without anyone
         # having to notice the old file was stale.
-        cat <<USERCONF > "users/$user.conf"
+        # DNS is not optional here, and the reason is macOS-specific.
+        #
+        # getaddrinfo() asks for AAAA only when some network service has a
+        # global IPv6 address (AI_ADDRCONFIG, evaluated per interface). On a
+        # v4-only LAN nothing qualifies, so the resolver is flagged "Request A
+        # records", no AAAA query is ever sent, and every AAAA-only name in
+        # the lab is unresolvable -- measured on a Mac here: google.com came
+        # back with eight A records and zero AAAA while global IPv6 was up and
+        # working through the tunnel. Anything bypassing getaddrinfo (dig,
+        # ping6, Firefox over DoH) worked; Safari did not.
+        #
+        # The tunnel address above is global, so the tun interface is the one
+        # thing on such a machine that does qualify -- but only if it also
+        # carries a resolver. Hence this line.
+        #
+        # 64:ff9b::/96 rides along because that resolver does DNS64: a name
+        # with no AAAA is answered with a synthesized address in that prefix,
+        # and Jool on dynhetz translates it. Without the route those answers
+        # point nowhere. ../openvpn.nix needs no equivalent because it pushes
+        # a v6 default route, which covers the prefix by accident.
+        # Two files, one keypair. They differ only in AllowedIPs, which on the
+        # client side is a routing table and nothing else -- the server's
+        # allowed-ips for this peer stays the pair of host addresses either
+        # way, because the peer still only ever sends from its own address.
+        # So no server-side change distinguishes them, and a user can switch
+        # by activating the other tunnel.
+        #
+        # They share a key deliberately: two keys would mean two peers and two
+        # addresses for one person, and the hash gives one address per
+        # account. The cost is that running both at once is not allowed --
+        # same key and same address on two interfaces makes the server's
+        # endpoint flap between them. The header comment in each file says so.
+        wg_user_conf() {
+          local name="$1" allowed="$2" note="$3"
+          cat <<USERCONF > "users/$user$name.conf"
+      # $note
+      #
+      # Generated on dynhetz for $user. Do not run this at the same time as
+      # the other wg-dynhetz profile: both carry the same key and address, and
+      # the server will flap between whichever spoke last.
       [Interface]
       PrivateKey = $(cat "users/$user.key")
       Address = $v4/16, $v6/80
+      DNS = 2a01:4f9:3071:11d7::2
 
       [Peer]
       PublicKey = $(cat server.pub)
       Endpoint = 37.27.129.237:51820
-      AllowedIPs = 10.101.0.0/16, 2a01:4f9:3071:11d7::/64
+      AllowedIPs = $allowed
       PersistentKeepalive = 25
       USERCONF
-        chmod 600 "users/$user.conf"
+          chmod 600 "users/$user$name.conf"
+        }
+
+        wg_user_conf "" \
+          "10.101.0.0/16, 2a01:4f9:3071:11d7::/64, 64:ff9b::/96" \
+          "Lab only. Reaches dynhetz and everything it routes; the rest of your IPv6 traffic keeps its normal path."
+
+        # ::/0 subsumes the lab /64 and 64:ff9b::/96, so they are not repeated.
+        # IPv4 is deliberately still split: only the WireGuard network goes in,
+        # because this tunnel NATs no v4 and the peer has no v4 route out.
+        wg_user_conf "-full" \
+          "10.101.0.0/16, ::/0" \
+          "Full IPv6 tunnel. ALL your IPv6 traffic egresses from dynhetz, with your own global source address. IPv4 is untouched and keeps its normal path."
 
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
         # destination does not exist, so a rule cannot refresh a file a user
@@ -287,7 +339,10 @@ assert noCollision "IPv6" userV6;
         # peer is harmless, a wg-dynhetz that never comes up is not, and this
         # runs before the MikroTik peer would be restored on a later boot.
         if id -u "$user" >/dev/null 2>&1 && [ -d "/home/$user" ]; then
-          install -o "$user" -g users -m 0600 "users/$user.conf" "/home/$user/wg-dynhetz.conf" || true
+          install -o "$user" -g users -m 0600 \
+            "users/$user.conf" "/home/$user/wg-dynhetz.conf" || true
+          install -o "$user" -g users -m 0600 \
+            "users/$user-full.conf" "/home/$user/wg-dynhetz-full.conf" || true
         fi
       }
 
@@ -302,7 +357,8 @@ assert noCollision "IPv6" userV6;
           *" $stale "*) continue ;;
         esac
         wg set wg-dynhetz peer "$(cat "users/$stale.pub")" remove || true
-        rm -f "users/$stale.key" "users/$stale.pub" "users/$stale.conf"
+        rm -f "users/$stale.key" "users/$stale.pub" \
+              "users/$stale.conf" "users/$stale-full.conf"
       done
 
       # A ready-to-import wg-quick config -- reassembled every run

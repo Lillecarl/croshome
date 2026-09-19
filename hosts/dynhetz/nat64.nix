@@ -362,6 +362,13 @@ in
             # they resolve is refused.
             "2a01:4f9:3071:11d7:e0::/80 allow"
             "2a01:4f9:3071:11d7:e1::/80 allow"
+            # WireGuard per-user peers, owned by ./wireguard.nix (::e3::/80).
+            # Their config carries `DNS =` pointing here, so without this line
+            # every name they resolve is refused -- and on macOS that is worse
+            # than it sounds: a tunnel with no working resolver leaves
+            # getaddrinfo flagged "Request A records", so AAAA-only names stop
+            # resolving entirely rather than merely failing over.
+            "2a01:4f9:3071:11d7:e3::/80 allow"
             "${nodeIP}/128 allow"
             "::1/128 allow"
           ];
