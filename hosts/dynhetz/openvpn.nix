@@ -253,6 +253,10 @@ in
       # user: `auth-user-pass` prompts for the PAM username/password on
       # each connect. The copy in each home is distributed by the tmpfiles
       # rules below.
+      # Unquoted EOF on purpose: the <tag> blocks below need $(cat ...). The
+      # body is therefore live shell, not text, and it has no comments -- a #
+      # line is heredoc content. Never write a backtick or a $ in the prose
+      # here: it runs at activation and its output lands in the .ovpn.
       cat <<EOF > lab-client.ovpn
       client
       dev tun
@@ -282,7 +286,7 @@ in
       # On macOS this push cannot work at all, and the reason is worth the
       # paragraph because it cost a long evening to find.
       #
-      # macOS decides whether to send AAAA queries from `scutil --nwi`, which
+      # macOS decides whether to send AAAA queries from "scutil --nwi", which
       # reports IPv6 reachable only when a network SERVICE provides it. A
       # tunnel interface is not a service. OpenVPN Connect gives utun a global
       # IPv6 address and full working connectivity, and nwi still says "No
@@ -303,7 +307,7 @@ in
       #
       # What does work is a NetworkExtension client, which registers a real
       # service: with WireGuard.app the same machine reports
-      # `utunN flags 0x7 (IPv4,IPv6,DNS)`, nwi goes Reachable, ten resolvers
+      # "utunN flags 0x7 (IPv4,IPv6,DNS)", nwi goes Reachable, ten resolvers
       # flip to "Request AAAA records", and the pushed v6 resolver applies.
       # See ./wireguard.nix, whose per-user configs carry a DNS line for this
       # reason. wg-quick is NOT such a client and fails the same way this does.
