@@ -26,8 +26,11 @@ the whole review process, and it stays in the transcript. **No hook covers
 staged in memory, shown as dry-run diffs, written only on `--apply`, and a bad
 anchor fails instead of matching nothing quietly. Reach for it whenever the
 edit is more than the file-editing tools want -- several files at once, one
-file in many places, a rename across a tree. Do not guess at its interface: run
-`pyedit skill` once for its full instructions and follow them.
+file in many places, a rename across a tree.
+
+Do not guess at its interface. The package ships a `pyedit` skill, so a harness
+that loads skills already has it — load that. Without one, `pyedit skill`
+prints the same document.
 
 Iterate through the project's own entry point, not through a loop you build in
 the shell. Give that entry point a knob if it needs one: impure Nix with

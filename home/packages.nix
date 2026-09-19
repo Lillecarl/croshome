@@ -135,8 +135,8 @@
     (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
 
     # Scripted multi-file edits with dry-run diffs -- the tool agents reach for
-    # before bash.
-    (import "${inputs.pyedit}" { inherit pkgs; }).pyedit
+    # before bash. In ../pkgs, because ../home/agents.nix links its skill.
+    pyedit
     # Nix diagnostics, for machines that rebuild this much. ../../rebuild uses
     # both: nvd lists the packages a switch would move, nix-diff says why a
     # derivation differs when no version moved at all.

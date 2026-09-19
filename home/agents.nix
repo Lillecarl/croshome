@@ -145,6 +145,14 @@ let
         value.source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills/${name}";
       }) repoSkills
     );
+
+  # A plain store path, not an out-of-store symlink: this skill is generated
+  # by `pyedit skill` during the package build, so the file is the package's
+  # and a rebuild is the only way it changes. The double name is the nixpkgs
+  # convention, share/skills/$pname/<skill>, so a package can ship several.
+  pyeditSkillLink = agentDir: {
+    "${agentDir}/skills/pyedit".source = "${pkgs.pyedit}/share/skills/pyedit/pyedit";
+  };
 in
 {
   # Out-of-store symlinks, so editing a skill takes effect immediately rather
@@ -160,7 +168,11 @@ in
   # ~/.claude/skills and ~/.gemini/skills pointing at the old generation, and
   # the per-skill links never appear. Delete both symlinks, then activate.
   # Nothing is lost -- they are links into the store.
-  home.file = repoSkillLinks ".claude" // repoSkillLinks ".gemini";
+  home.file =
+    repoSkillLinks ".claude"
+    // repoSkillLinks ".gemini"
+    // pyeditSkillLink ".claude"
+    // pyeditSkillLink ".gemini";
 
   # Single keys merged into ~/.claude/settings.json. Every other key stays as
   # Claude Code wrote it; ./wrapty.nix explains why the file is not generated

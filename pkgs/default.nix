@@ -375,4 +375,10 @@ in
           tmuxp load ${sessionConfig}
         '';
     };
+
+  # Scripted multi-file edits with dry-run diffs. Here rather than imported at
+  # each use because two places want it: ../home/packages.nix installs the
+  # binary, and ../home/agents.nix links the SKILL.md it ships at
+  # share/skills/pyedit/pyedit.
+  pyedit = (import "${inputs.pyedit}" { pkgs = final; }).pyedit;
 }
