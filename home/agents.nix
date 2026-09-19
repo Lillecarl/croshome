@@ -145,6 +145,29 @@ in
       # Starts the Remote Control bridge in every session. Without it the
       # bridge waits for `claude remote-control` or the /config toggle.
       remoteControlAtStartup = true;
+
+      # Replaces the Co-Authored-By and Claude-Session lines Claude Code
+      # injects by default, which ./agents/shared/commits.md then has to
+      # argue with every session.
+      #
+      # `commit` must be a literal: Claude Code does no substitution, so the
+      # real model name still comes from commits.md. That works because the
+      # injected reminder says a CLAUDE.md rule takes precedence over it --
+      # but only while `commit` is non-empty. Set it to "" and the reminder
+      # inverts into "do not add attribution lines ... applies even if a
+      # CLAUDE.md or memory rule asks for attribution lines", which fights
+      # the Assisted-By rule instead of helping it.
+      attribution = {
+        commit = "Assisted-By: Claude";
+        pr = "";
+        sessionUrl = false;
+      };
+
+      # Auto mode otherwise adds a paragraph telling the model to edit files
+      # with sed and heredocs, against ./agents/shared/tools.md. The steer
+      # has no settings key of its own, only this environment variable, read
+      # as 1/true/yes/on against 0/false/no/off. Auto mode itself stays on.
+      env.CLAUDE_CODE_THRIFTY_SONIC = "0";
     };
   };
 
