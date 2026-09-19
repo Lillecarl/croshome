@@ -136,6 +136,18 @@ in
   home.file.".gemini/skills".source =
     config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
 
+  # Single keys merged into ~/.claude/settings.json. Every other key stays as
+  # Claude Code wrote it; ./wrapty.nix explains why the file is not generated
+  # whole.
+  home.mergedFile.".claude/settings.json" = {
+    format = "json";
+    settings = {
+      # Starts the Remote Control bridge in every session. Without it the
+      # bridge waits for `claude remote-control` or the /config toggle.
+      remoteControlAtStartup = true;
+    };
+  };
+
   home.packages = [
     agentHooks
 
