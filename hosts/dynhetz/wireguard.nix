@@ -323,21 +323,38 @@ assert noCollision "IPv6" userV6;
         # Two profiles, split by address family rather than by scope.
         #
         # IPv6-only carries no IPv4 anywhere -- not in Address, not in
-        # AllowedIPs. That is the point, not an omission. The -full profile
-        # this replaces had ::/0 and no 0.0.0.0/0, and WireGuard.app installed
-        # an IPv4 default route into the tunnel anyway, which blackholed every
-        # v4 destination: ping to 1.1.1.1 and 8.8.8.8 silent, curl -4 timing
-        # out at 12s, the user's Slack dead. An interface with no v4 address
-        # at all should give the app nothing to build v4 settings from.
+        # AllowedIPs -- and deliberately does NOT carry ::/0. Both halves of
+        # that are measured, and the second cost two attempts.
         #
-        # UNVERIFIED, and say so rather than discover it: the blackhole was
-        # measured, this cure is reasoned. If v4 still dies on this profile,
-        # the app is creating v4 settings regardless and the answer is the
-        # dual-stack profile below, which at least routes what it captures.
+        # Attempt one was ::/0 with no 0.0.0.0/0. Every IPv4 destination
+        # blackholed: ping to 1.1.1.1 and 8.8.8.8 silent, curl -4 timing out
+        # at 12s. The theory was that the client synthesised an IPv4 default
+        # into the tunnel with nowhere to send it.
+        #
+        # Attempt two dropped the v4 address as well, on the theory that an
+        # interface with no v4 settings gives the app nothing to build a v4
+        # route from. That half was right -- nwi reported `flags 0x6
+        # (IPv6,DNS)`, no IPv4 flag, and no utun default appeared. IPv4 died
+        # anyway, by a different mechanism: routing ::/0 makes the tunnel the
+        # primary service, macOS demotes en0, and its IPv4 default comes back
+        # IFSCOPE'd (`default 10.240.31.170 UGScIg en0`). An interface-scoped
+        # default is not a global one, so `route -n get -inet 1.1.1.1` answers
+        # "not in table" and connects fail instantly with Network
+        # unreachable. A primary service with no IPv4 leaves the host with no
+        # usable IPv4 default anywhere.
+        #
+        # So "all IPv6 through the tunnel, IPv4 untouched" is not available on
+        # this platform, and no server-side setting buys it. What is available
+        # is this: no default route, so the tunnel never becomes primary, en0
+        # keeps its unscoped IPv4 default, and the tunnel still carries a
+        # global IPv6 address -- which is the thing that makes nwi report IPv6
+        # and getaddrinfo ask for AAAA at all. Lab access and NAT64 both work
+        # through it. Route everything instead and you want the dual-stack
+        # profile, which routes the IPv4 it takes rather than dropping it.
         wg_user_conf "-v6" \
           "$v6/80" \
-          "::/0" \
-          "IPv6 only. All IPv6 egresses from dynhetz with your own global address; IPv4 is not touched, not addressed and not routed here. Lab names and NAT64 both work, so IPv4-only sites still reach you over v6."
+          "2a01:4f9:3071:11d7::/64, 64:ff9b::/96" \
+          "IPv6 only, and no default route. Reaches the lab and NAT64 over IPv6 with no IPv4 anywhere; your normal IPv4 and your normal IPv6 egress are both untouched. This is the one to use day to day."
 
         # Both defaults, and 0.0.0.0/0 is load-bearing rather than tidy.
         #
