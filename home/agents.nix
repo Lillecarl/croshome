@@ -154,6 +154,12 @@ in
   # One link per skill rather than one for the directory. Linking the
   # directory made every entry under it come from the checkout, which left no
   # way to put a skill a package ships beside the repo's own.
+  #
+  # A host still on the old shape needs one manual step. home-manager does
+  # not replace a managed symlink with a managed directory: it leaves
+  # ~/.claude/skills and ~/.gemini/skills pointing at the old generation, and
+  # the per-skill links never appear. Delete both symlinks, then activate.
+  # Nothing is lost -- they are links into the store.
   home.file = repoSkillLinks ".claude" // repoSkillLinks ".gemini";
 
   # Single keys merged into ~/.claude/settings.json. Every other key stays as
