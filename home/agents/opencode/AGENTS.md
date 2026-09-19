@@ -61,6 +61,21 @@ it say whether it can answer.
 - No `edit` tool (some subagents): read the file, then `write` it whole. Still
   never `sed`.
 
+## Timeouts
+
+The bash tool's `timeout` is milliseconds, and the lazy default is ten
+minutes. A wedged command then costs the whole ten before it reports
+anything.
+
+- Default to no explicit timeout, or one near the command's real duration.
+  Most commands finish in seconds.
+- **Any timeout above 3 minutes (180000) needs a motivation.** One line next
+  to the call: why this command needs it — what it waits on, or a measured
+  duration. "It might be slow" is not a motivation.
+- Work that truly runs for minutes gets no big timeout: run it in the
+  background and read the log file. A timeout that fires is a result; get it
+  sooner, not later.
+
 ## Working copy hygiene
 
 Check `jj status` through the jj skill before starting new work, and report
