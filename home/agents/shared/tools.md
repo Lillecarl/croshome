@@ -43,6 +43,23 @@ unless the work has to edit that suite.
 
 Set the shape up right early. One step now, saved on every iteration after.
 
+## Test the artifact, not a reconstruction of it
+
+Two ways the thing under test stops being the thing you ship. Both print
+plausible output and read as passes.
+
+**A doctoring step that no-ops.** `sed` and string-replace report success on
+zero matches, and a built script is not indented like its source, so an anchor
+taken from the source matches nothing there. Doctor a file with an editing
+tool, which fails on a missed anchor, and prove the edit landed -- diff it, or
+count what you removed -- before you read the run.
+
+**The wrong interpreter.** `bash script` ignores the shebang. On darwin bare
+`bash` is 3.2.57 and nothing nix-built runs under it. Run the file directly and
+let the kernel read the shebang, or invoke the interpreter the shebang names.
+
+If you cannot say what the broken case prints, you have not tested it.
+
 ## Keep the whole output
 
 `tee` before you narrow. Every filter -- `grep`, `head`, `jq`, `tail -1`,
