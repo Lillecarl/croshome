@@ -265,6 +265,35 @@ in
       # DNS arrives as a server push (dhcp-option DNS). The official clients
       # and NetworkManager apply it themselves; a plain CLI client on Linux
       # needs update-resolv-conf or systemd-resolved handling to honor it.
+      #
+      # On macOS this push cannot work at all, and the reason is worth the
+      # paragraph because it cost a long evening to find.
+      #
+      # macOS decides whether to send AAAA queries from `scutil --nwi`, which
+      # reports IPv6 reachable only when a network SERVICE provides it. A
+      # tunnel interface is not a service. OpenVPN Connect gives utun a global
+      # IPv6 address and full working connectivity, and nwi still says "No
+      # IPv6 states found, Not Reachable" -- the interface only ever gets
+      # State:/Network/Interface/utunN/IPv6, never a Service entry. Every
+      # resolver on the machine is then flagged "Request A records", so
+      # getaddrinfo() stops asking for AAAA for ANY name: measured, google.com
+      # returned eight A records and zero AAAA while global IPv6 was up
+      # through this tunnel. Every AAAA-only name in the lab becomes
+      # unresolvable, and Safari fails while dig, ping6 and Firefox-over-DoH
+      # all work, because those do not use getaddrinfo.
+      #
+      # Two fixes that look right and are not: an /etc/resolver file (tested,
+      # it registers and is reachable and is STILL flagged A-only, because the
+      # flag is not per-resolver), and writing the missing Service key by hand
+      # (configd recomputes nwi from its own machinery and ignores writes it
+      # did not make).
+      #
+      # What does work is a NetworkExtension client, which registers a real
+      # service: with WireGuard.app the same machine reports
+      # `utunN flags 0x7 (IPv4,IPv6,DNS)`, nwi goes Reachable, ten resolvers
+      # flip to "Request AAAA records", and the pushed v6 resolver applies.
+      # See ./wireguard.nix, whose per-user configs carry a DNS line for this
+      # reason. wg-quick is NOT such a client and fails the same way this does.
 
       <ca>
       $(cat ca.crt)

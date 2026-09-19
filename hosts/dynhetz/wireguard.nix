@@ -267,18 +267,19 @@ assert noCollision "IPv6" userV6;
         # having to notice the old file was stale.
         # DNS is not optional here, and the reason is macOS-specific.
         #
-        # getaddrinfo() asks for AAAA only when some network service has a
-        # global IPv6 address (AI_ADDRCONFIG, evaluated per interface). On a
-        # v4-only LAN nothing qualifies, so the resolver is flagged "Request A
-        # records", no AAAA query is ever sent, and every AAAA-only name in
-        # the lab is unresolvable -- measured on a Mac here: google.com came
-        # back with eight A records and zero AAAA while global IPv6 was up and
-        # working through the tunnel. Anything bypassing getaddrinfo (dig,
-        # ping6, Firefox over DoH) worked; Safari did not.
+        # macOS sends AAAA queries only when `scutil --nwi` reports IPv6
+        # reachable, and that is decided by network SERVICES, not interfaces.
+        # ../openvpn.nix has the long version beside its own DNS push: a tun
+        # interface with a global address and working connectivity does not
+        # count, every resolver is then flagged "Request A records", and
+        # getaddrinfo stops returning AAAA for any name at all.
         #
-        # The tunnel address above is global, so the tun interface is the one
-        # thing on such a machine that does qualify -- but only if it also
-        # carries a resolver. Hence this line.
+        # This line only does its job with a client that registers a real
+        # network service. Measured: with WireGuard.app (NetworkExtension) the
+        # interface reports flags 0x7 (IPv4,IPv6,DNS), nwi goes Reachable, ten
+        # resolvers flip to "Request AAAA records" and this resolver applies.
+        # With wg-quick it will not, for the same reason OpenVPN Connect
+        # cannot -- so hand users the app, not the CLI.
         #
         # 64:ff9b::/96 rides along because that resolver does DNS64: a name
         # with no AAAA is answered with a synthesized address in that prefix,
