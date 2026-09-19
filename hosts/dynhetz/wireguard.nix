@@ -343,18 +343,39 @@ assert noCollision "IPv6" userV6;
         # unreachable. A primary service with no IPv4 leaves the host with no
         # usable IPv4 default anywhere.
         #
-        # So "all IPv6 through the tunnel, IPv4 untouched" is not available on
-        # this platform, and no server-side setting buys it. What is available
-        # is this: no default route, so the tunnel never becomes primary, en0
-        # keeps its unscoped IPv4 default, and the tunnel still carries a
-        # global IPv6 address -- which is the thing that makes nwi report IPv6
-        # and getaddrinfo ask for AAAA at all. Lab access and NAT64 both work
-        # through it. Route everything instead and you want the dual-stack
-        # profile, which routes the IPv4 it takes rather than dropping it.
+        # Attempt three dropped ::/0 as well, to stop the tunnel becoming
+        # primary. IPv4 came back clean -- `default 10.240.31.170 UGScg en0`,
+        # no capital I, and route -n get returning en0 -- and IPv6 vanished
+        # from nwi entirely, with the global address plainly still on the
+        # interface. That is the finding that decides the whole design:
+        #
+        #   macOS reports IPv6 in nwi only when the tunnel is the primary
+        #   IPv6 service, which takes a DEFAULT ROUTE. A global address on
+        #   the interface is not enough.
+        #
+        # And nwi reporting IPv6 is what makes getaddrinfo ask for AAAA, so
+        # without it Safari cannot resolve a lab name -- the exact fault this
+        # all started from. Four shapes, one client, one night:
+        #
+        #   AllowedIPs                v4 addr | nwi IPv6 | IPv4 on macOS
+        #   ::/0, 10.101.0.0/16         yes   | present  | dead, blackholed
+        #   ::/0                         no   | present  | dead, en0 IFSCOPE'd
+        #   lab prefixes, no ::/0       yes   | ABSENT   | works
+        #   0.0.0.0/0, ::/0             yes   | present  | works (UNTESTED)
+        #
+        # The two requirements meet in exactly one place on a Mac: carry ::/0
+        # so nwi sees IPv6, and carry 0.0.0.0/0 so the IPv4 that demotion
+        # takes away has somewhere to go. That is the dual profile below.
+        #
+        # This profile keeps ::/0 and no IPv4 because that is what "IPv6
+        # only" means, and it is correct on Linux and Android, where none of
+        # the nwi or IFSCOPE machinery exists. On macOS it costs IPv4, and
+        # the file says so in its own header rather than leaving someone to
+        # find out.
         wg_user_conf "-v6" \
           "$v6/80" \
-          "2a01:4f9:3071:11d7::/64, 64:ff9b::/96" \
-          "IPv6 only, and no default route. Reaches the lab and NAT64 over IPv6 with no IPv4 anywhere; your normal IPv4 and your normal IPv6 egress are both untouched. This is the one to use day to day."
+          "::/0" \
+          "IPv6 only -- all IPv6 egresses from dynhetz, no IPv4 anywhere. ON macOS THIS COSTS YOU IPv4: routing ::/0 makes this the primary service and macOS scopes away the Wi-Fi IPv4 default, leaving none usable. Use wg-dynhetz-dual.conf on a Mac. Correct on Linux and Android."
 
         # Both defaults, and 0.0.0.0/0 is load-bearing rather than tidy.
         #
