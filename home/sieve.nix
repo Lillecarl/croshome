@@ -187,14 +187,18 @@ let
         exit 1
       fi
 
-      case "$1" in
+      # `''${1:-}` again, not `$1`. The case above exits on an empty argument,
+      # so `$1` is always set here today. Delete that `exit 0` as redundant
+      # and `sieve` with no arguments dies on nounset instead of printing
+      # usage, which is a strange way to find out. This costs nothing.
+      case "''${1:-}" in
         list) sc --list ;;
         check) sc --checkscript --localsieve "''${2:-$file}" ;;
         diff) cmd_diff "''${2:-$file}" ;;
         pull) cmd_pull "''${2:-}" ;;
         push) cmd_push "''${2:-$file}" "$confirmed" ;;
         *)
-          echo "sieve: no such command: $1" >&2
+          echo "sieve: no such command: ''${1:-}" >&2
           usage >&2
           exit 1
           ;;
