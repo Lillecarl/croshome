@@ -101,7 +101,16 @@
 # hooks PREROUTING rather than owning an interface -- so there is no device
 # here wanting an address of its own.
 #
-# The next network takes ::00e3::/80 (::00e2::/80's first /112 is taken
+#   2a01:4f9:3071:11d7:00e3::/80  -- one WireGuard peer per user account, in
+#                                    use: this file. A whole /80 rather than a
+#                                    /112 out of ::90:: on purpose: addresses
+#                                    here are chosen by hashing the username,
+#                                    and 48 bits of host space makes a
+#                                    collision between nine users about 1 in
+#                                    7e12. The ::90::/112 above stays for the
+#                                    two hand-declared peers.
+#
+# The next network takes ::00e4::/80 (::00e2::/80's first /112 is taken
 # above, its remainder is free).
 #
 # Not a systemd.network.netdevs entry like ../openvpn.nix's dummy/
@@ -113,7 +122,63 @@
   # "generated once, locally, kept out of the repo" (see ../openvpn.nix
 # for the same reasoning applied to its PKI). Configuring the interface
 # imperatively via `wg set`, entirely at activation time, sidesteps that.
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
+let
+  # Same source of truth as ../openvpn.nix's client distribution: one
+  # directory per account. Read again rather than shared through an option,
+  # because the coupling would be one readDir either way.
+  wgUsers = builtins.attrNames (
+    lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./dynusers)
+  ) ++ [ "lillecarl" ];
+
+  # WireGuard has no address assignment. A peer's address is written into its
+  # own config and repeated in the server's allowed-ips, and the two must
+  # agree forever -- so the address has to be a pure function of something
+  # stable. The username is the only such thing here.
+  #
+  # Hashing it, rather than indexing a sorted list, is what makes removing an
+  # account safe: an index shifts every account after the removed one onto a
+  # different address, silently invalidating configs already in homes and
+  # pointing allowed-ips at the wrong person. A hash moves nobody.
+  #
+  # The salt is a literal purpose string, so the same username in a future
+  # network gets different addresses.
+  hashOf = user: builtins.hashString "sha256" ("wg-dynhetz:" + user);
+
+  # 16 bits for v4, which is the starved family: 10.101.0.0/16 leaves .0.0 and
+  # .255.255 alone and reserves .0.1 for this host, so the hash maps onto
+  # 2..65534.
+  v4Num = user: 2 + lib.mod (lib.fromHexString (builtins.substring 0 4 (hashOf user))) 65533;
+  userV4 = user: "10.101.${toString (v4Num user / 256)}.${toString (lib.mod (v4Num user) 256)}";
+
+  # 48 bits for v6, the whole host part of the /80. Three hextets straight out
+  # of the hash; no reduction, so nothing to get wrong.
+  userV6 =
+    user:
+    let h = hashOf user;
+    in "2a01:4f9:3071:11d7:e3:${builtins.substring 4 4 h}:${builtins.substring 8 4 h}:${builtins.substring 12 4 h}";
+
+  # A hash can collide, and a collision here hands two people one address and
+  # breaks both. 1 in 1800 for v4 at this headcount, far less for v6 -- rare
+  # enough to never see and not rare enough to ignore, so it fails the build
+  # instead. The fix if it ever fires is to change the salt above.
+  noCollision =
+    family: f:
+    let
+      addrs = map f wgUsers;
+      dupes = lib.subtractLists (lib.unique addrs) addrs;
+    in
+    lib.assertMsg (dupes == [ ]) (
+      "hosts/dynhetz/wireguard.nix: ${family} hash collision on ${toString dupes}. "
+      + "Change the salt in `hashOf`."
+    );
+
+  peerLines = lib.concatMapStrings (user: ''
+    wg_user_peer ${user} ${userV4 user} ${userV6 user}
+  '') wgUsers;
+in
+assert noCollision "IPv4" userV4;
+assert noCollision "IPv6" userV6;
 {
   systemd.services.wireguard-dynhetz = {
     description = "Bring up the dynhetz WireGuard interface (general access)";
@@ -165,7 +230,80 @@
 
       ip addr replace 10.100.0.1/24 dev wg-dynhetz
       ip -6 addr replace 2a01:4f9:3071:11d7:90::1/112 dev wg-dynhetz
+
+      # The per-user network. Both addresses are on the same interface, so the
+      # kernel's connected routes carry each range without anything further.
+      ip addr replace 10.101.0.1/16 dev wg-dynhetz
+      ip -6 addr replace 2a01:4f9:3071:11d7:e3::1/80 dev wg-dynhetz
+
       ip link set wg-dynhetz up
+
+      # One peer per account. The addresses come from ../wireguard.nix's hash
+      # of the username, computed at eval time, so the allowed-ips here and
+      # the Address in the user's own file cannot drift: both are printed from
+      # the same Nix expression.
+      #
+      # A user's key is theirs alone -- unlike ../openvpn.nix's shared client
+      # certificate, which is safe to copy into every home because connecting
+      # also needs that user's PAM password. A WireGuard config is the whole
+      # credential, so each file is 0600 and owned by its user, and nobody
+      # else's file is readable.
+      install -d -m 0700 users
+
+      wg_user_peer() {
+        local user="$1" v4="$2" v6="$3"
+
+        if [ ! -f "users/$user.key" ]; then
+          wg genkey > "users/$user.key"
+          wg pubkey < "users/$user.key" > "users/$user.pub"
+        fi
+
+        wg set wg-dynhetz \
+          peer "$(cat "users/$user.pub")" \
+          allowed-ips "$v4/32,$v6/128"
+
+        # Rewritten every activation, like client.conf above: self-heals if
+        # deleted, and picks up a changed endpoint or address without anyone
+        # having to notice the old file was stale.
+        cat <<USERCONF > "users/$user.conf"
+      [Interface]
+      PrivateKey = $(cat "users/$user.key")
+      Address = $v4/16, $v6/80
+
+      [Peer]
+      PublicKey = $(cat server.pub)
+      Endpoint = 37.27.129.237:51820
+      AllowedIPs = 10.101.0.0/16, 2a01:4f9:3071:11d7::/64
+      PersistentKeepalive = 25
+      USERCONF
+        chmod 600 "users/$user.conf"
+
+        # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
+        # destination does not exist, so a rule cannot refresh a file a user
+        # already has. ../openvpn.nix has that bug today and its home copies
+        # are frozen at whatever the first activation wrote.
+        # Guarded on both sides: a listed account may have no system user yet,
+        # or no home. Neither is worth failing the unit for -- an unconfigured
+        # peer is harmless, a wg-dynhetz that never comes up is not, and this
+        # runs before the MikroTik peer would be restored on a later boot.
+        if id -u "$user" >/dev/null 2>&1 && [ -d "/home/$user" ]; then
+          install -o "$user" -g users -m 0600 "users/$user.conf" "/home/$user/wg-dynhetz.conf" || true
+        fi
+      }
+
+      ${peerLines}
+      # An account that no longer exists keeps neither a peer nor a key. `wg
+      # set` is incremental and never removes, so stale peers would otherwise
+      # accumulate and keep working forever.
+      for keyfile in users/*.key; do
+        [ -e "$keyfile" ] || continue
+        stale="$(basename "$keyfile" .key)"
+        case " ${lib.concatStringsSep " " wgUsers} " in
+          *" $stale "*) continue ;;
+        esac
+        wg set wg-dynhetz peer "$(cat "users/$stale.pub")" remove || true
+        rm -f "users/$stale.key" "users/$stale.pub" "users/$stale.conf"
+      done
 
       # A ready-to-import wg-quick config -- reassembled every run
       # (cheap), even once the keys themselves are already in place, so
