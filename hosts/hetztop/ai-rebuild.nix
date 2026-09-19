@@ -49,7 +49,7 @@ let
         exit 1
       }
 
-      ${pkgs.nix}/bin/nix-env \
+      ${lib.getExe' pkgs.nix "nix-env"} \
         -p /nix/var/nix/profiles/system --set "$toplevel"
 
       # switch-to-configuration restarts units, and a restarted unit takes its
@@ -60,7 +60,7 @@ let
       # switch here, loudly, not silently. NIXOS_INSTALL_BOOTLOADER=0 is the
       # value upstream passes unless --install-bootloader was asked for.
       export NIXOS_INSTALL_BOOTLOADER=0
-      exec ${pkgs.systemd}/bin/systemd-run \
+      exec ${lib.getExe' pkgs.systemd "systemd-run"} \
         -E LOCALE_ARCHIVE \
         -E NIXOS_INSTALL_BOOTLOADER \
         -E NIXOS_NO_CHECK \
