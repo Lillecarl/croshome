@@ -51,6 +51,30 @@ def _render(template_name, **context):
     return _jinja_env.get_template(template_name).render(**context)
 
 
+def _attended():
+    """Whether a human is watching the session this hook fired for.
+
+    Claude Code sets CLAUDE_CODE_SESSION_ATTENDED to "1" or "0" in the
+    environment of everything it spawns, hooks included. It is "0" for print
+    mode (`claude -p`) and for background and daemon sessions. Absent means a
+    Claude Code too old to set it, and those are all interactive.
+
+    Two things go wrong without this check, and the second is the worse one.
+
+    A nudge blocks the stop to push the agent back to work, and the only way
+    out is need_user. Nobody reads it with no human there, and a headless run
+    is usually not permitted to call an MCP tool anyway, so the nudge turns
+    every finished -p run into a blocked stop and a complaint.
+
+    WAPTY_ID is inherited. A `claude -p` started from inside a wrapped
+    session gets its own session id but its parent's WAPTY_ID, so its Stop
+    hook calls on_stop on the *parent's* control socket -- advancing that
+    session's stop_count and consuming a need_user it had banked. Measured: a
+    -p child launched from a Bash tool reported its parent's WAPTY_ID.
+    """
+    return os.environ.get("CLAUDE_CODE_SESSION_ATTENDED") != "0"
+
+
 def _emit(system_message):
     print(json.dumps({"systemMessage": system_message}))
 
@@ -94,6 +118,9 @@ def main_stop():
     hook_input = json.load(sys.stdin)
     wapty_id = os.environ.get("WAPTY_ID")
     if not wapty_id:
+        return
+
+    if not _attended():
         return
 
     transcript_path = hook_input.get("transcript_path")
