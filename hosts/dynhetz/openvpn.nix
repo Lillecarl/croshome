@@ -214,13 +214,13 @@ in
       # to reassemble lab-client.ovpn below on every run, cheaply, in
       # case it's ever missing without the certs themselves being touched.
       if [ ! -f ca.crt ]; then
-        ${pkgs.openssl}/bin/openssl ecparam -name prime256v1 -genkey -noout -out ca.key
-        ${pkgs.openssl}/bin/openssl req -x509 -new -key ca.key -sha256 -days 3650 \
+        ${lib.getExe pkgs.openssl} ecparam -name prime256v1 -genkey -noout -out ca.key
+        ${lib.getExe pkgs.openssl} req -x509 -new -key ca.key -sha256 -days 3650 \
           -subj "/CN=dynhetz-lab-ca" -out ca.crt
 
-        ${pkgs.openssl}/bin/openssl ecparam -name prime256v1 -genkey -noout -out server.key
-        ${pkgs.openssl}/bin/openssl req -new -key server.key -subj "/CN=dynhetz-lab-server" -out server.csr
-        ${pkgs.openssl}/bin/openssl x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+        ${lib.getExe pkgs.openssl} ecparam -name prime256v1 -genkey -noout -out server.key
+        ${lib.getExe pkgs.openssl} req -new -key server.key -subj "/CN=dynhetz-lab-server" -out server.csr
+        ${lib.getExe pkgs.openssl} x509 -req -in server.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
           -days 3650 -sha256 \
           -extfile <(printf 'extendedKeyUsage=serverAuth\nkeyUsage=digitalSignature,keyEncipherment\n') \
           -out server.crt
@@ -228,9 +228,9 @@ in
 
         # Shared by all clients -- one identity is fine because PAM names
         # the user separately (see username-as-common-name above).
-        ${pkgs.openssl}/bin/openssl ecparam -name prime256v1 -genkey -noout -out client.key
-        ${pkgs.openssl}/bin/openssl req -new -key client.key -subj "/CN=lab-client" -out client.csr
-        ${pkgs.openssl}/bin/openssl x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
+        ${lib.getExe pkgs.openssl} ecparam -name prime256v1 -genkey -noout -out client.key
+        ${lib.getExe pkgs.openssl} req -new -key client.key -subj "/CN=lab-client" -out client.csr
+        ${lib.getExe pkgs.openssl} x509 -req -in client.csr -CA ca.crt -CAkey ca.key -CAcreateserial \
           -days 3650 -sha256 \
           -extfile <(printf 'extendedKeyUsage=clientAuth\nkeyUsage=digitalSignature\n') \
           -out client.crt
@@ -240,7 +240,7 @@ in
         # drops unauthenticated probes silently rather than replying,
         # which matters more than usual for a port that's deliberately
         # reachable from anywhere.
-        ${pkgs.openvpn}/bin/openvpn --genkey secret ta.key
+        ${lib.getExe pkgs.openvpn} --genkey secret ta.key
 
         chmod 600 ./*.key
         chmod 644 ./*.crt

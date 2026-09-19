@@ -32,8 +32,8 @@ let
   # normal default (terminate) and the wait still ends there.
   initrdUnlockShell = pkgs.writeShellScript "initrd-unlock-shell" ''
     trap : INT
-    ${config.boot.initrd.systemd.package}/bin/systemd-tty-ask-password-agent --query --watch
-    exec ${pkgs.bashInteractive}/bin/bash
+    ${lib.getExe' config.boot.initrd.systemd.package "systemd-tty-ask-password-agent"} --query --watch
+    exec ${lib.getExe pkgs.bashInteractive}
   '';
 in
 {

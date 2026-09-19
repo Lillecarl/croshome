@@ -49,7 +49,7 @@ let
         exit 1
       }
 
-      ${pkgs.nix}/bin/nix-env \
+      ${lib.getExe' pkgs.nix "nix-env"} \
         -p /nix/var/nix/profiles/system --set "$toplevel"
 
       # switch-to-configuration restarts units, and a restarted unit takes its
@@ -58,7 +58,7 @@ let
       # the flags are its SWITCH_TO_CONFIGURATION_CMD_PREFIX, copied so this
       # detaches the same way.
       export NIXOS_INSTALL_BOOTLOADER=0
-      exec ${pkgs.systemd}/bin/systemd-run \
+      exec ${lib.getExe' pkgs.systemd "systemd-run"} \
         -E LOCALE_ARCHIVE \
         -E NIXOS_INSTALL_BOOTLOADER \
         -E NIXOS_NO_CHECK \

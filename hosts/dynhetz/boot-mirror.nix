@@ -27,10 +27,10 @@ in
 {
   config = lib.mkIf cfg.enable {
     boot.loader.systemd-boot.extraInstallCommands = ''
-      if ${pkgs.util-linux}/bin/mountpoint -q ${espMirror}; then
+      if ${lib.getExe' pkgs.util-linux "mountpoint"} -q ${espMirror}; then
         if ! (
           set -e
-          ${pkgs.rsync}/bin/rsync -a --delete ${espMain}/ ${espMirror}/
+          ${lib.getExe pkgs.rsync} -a --delete ${espMain}/ ${espMirror}/
           # Always `install`, never `update`: rsync just copied every file
           # `update` would touch anyway (the loader binary, entries,
           # random-seed), so the only thing bootctl still adds here is the
@@ -41,7 +41,7 @@ in
           # Varlink instead of trusting that exit code -- this hook shells
           # out directly, so it inherited the bug. Confirmed on the real
           # machine: rsync exit 0, `bootctl ... update` exit 1, no stderr.
-          ${config.systemd.package}/bin/bootctl --esp-path=${espMirror} ${graceful} install
+          ${lib.getExe' config.systemd.package "bootctl"} --esp-path=${espMirror} ${graceful} install
         ); then
           echo "" >&2
           echo "boot-mirror: failed to refresh the secondary ESP at ${espMirror}." >&2

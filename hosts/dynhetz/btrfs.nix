@@ -1,4 +1,4 @@
-{ pkgs, ... }:
+{ pkgs, lib, ... }:
 let
   # sudo matches the command as it resolves it on PATH, and does not follow the
   # symlink, so this is the path `sudo btrfs` actually presents. It is also the
@@ -57,7 +57,7 @@ in
     description = "btrfs balance of / (reclaim mostly-empty data chunks)";
     serviceConfig = {
       Type = "oneshot";
-      ExecStart = "${pkgs.btrfs-progs}/bin/btrfs balance start -dusage=20 /";
+      ExecStart = "${lib.getExe pkgs.btrfs-progs} balance start -dusage=20 /";
       # Losing to anything that actually wants the disk is fine; this is
       # housekeeping and it has all week.
       Nice = 19;

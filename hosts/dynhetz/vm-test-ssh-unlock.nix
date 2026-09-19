@@ -114,8 +114,8 @@ in
         # storePaths alone left both commands "not found" even though their
         # closures were present.
         boot.initrd.systemd.extraBin = {
-          socat = "${pkgs.socat}/bin/socat";
-          sed = "${pkgs.gnused}/bin/sed";
+          socat = lib.getExe pkgs.socat;
+          sed = lib.getExe pkgs.gnused;
         };
 
         # Mirrors ./disko.nix's real shape closely enough to be meaningful:
