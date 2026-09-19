@@ -1,6 +1,6 @@
 ---
 name: nix-language
-description: The Nix language itself — syntax and semantics that models reliably get wrong. Use before writing or editing any .nix file, and when a Nix expression fails to parse or evaluates to something unexpected. Covers attribute key quoting, the shallow // merge, with scoping, list syntax, paths versus strings, string escaping, function arguments and the lib.optional family. For running nix commands, use the nix skill.
+description: The Nix language itself — syntax and semantics that models reliably get wrong. Use before writing or editing any .nix file, and when a Nix expression fails to parse or evaluates to something unexpected. Covers attribute key quoting, the shallow // merge, with scoping, list syntax, paths versus strings, string escaping, function arguments, the lib.optional family, and lib.getExe/lib.getExe' for package binaries. For running nix commands, use the nix skill.
 ---
 
 # The Nix language
@@ -148,6 +148,26 @@ lib.optionalString true "s"     # => "s"         string -> string
 
 `optional` takes an item and wraps it. `optionals` takes a list and passes it
 through. Handing `optional` a list gives you a list of lists.
+
+## Package binaries: `lib.getExe` and `lib.getExe'`
+
+Never build a binary path by hand. `"${pkgs.foo}/bin/foo"` works but bypasses
+the `bin` output on multi-output packages; use:
+
+```nix
+lib.getExe pkgs.hello                  # => "/nix/store/jxxp01dayz0pv6vp7n39r9042ycsiicx-hello-2.12.3/bin/hello"
+lib.getExe' pkgs.imagemagick "convert" # => "/nix/store/1fj0wg21ba24hv612yg4kqwzxbnyappm-imagemagick-7.1.2-29/bin/convert"
+```
+
+`getExe pkg` takes the package and reads `meta.mainProgram`. `getExe' pkg name`
+takes the binary name too and evaluates to `"${getBin pkg}/bin/${name}"` — the
+`bin` output when there is one.
+
+Prefer `getExe` when the package sets `meta.mainProgram`; prefer `getExe'` when
+it does not. On a package with no `meta.mainProgram`, `getExe` warns and falls
+back to the package name — deprecated, because the guess can pick a binary that
+is not the one you mean. `getExe'` asserts its arguments: a derivation, a
+string, and a name with no `/` in it.
 
 ## Doc comments
 
