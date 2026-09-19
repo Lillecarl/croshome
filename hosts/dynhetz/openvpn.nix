@@ -326,20 +326,31 @@ in
       </tls-crypt>
       EOF
       chmod 600 lab-client.ovpn
+
+      # One copy per account, so nobody needs root to fetch it. The file
+      # carries the shared client key and the tls-crypt key; a copy in a home
+      # is acceptable because connecting also needs that user's own PAM
+      # credentials, so possession alone is not access. lillecarl is in the
+      # list too: the admin account uses the VPN, and its copy is the one an
+      # agent can verify without root.
+      #
+      # install(1) rather than a tmpfiles `C` rule, which is what this was.
+      # `C` copies only when the destination is absent, so it never refreshed
+      # a home copy after the first one, and `C+` does not change that for a
+      # file -- its + governs descending into a non-empty destination
+      # directory. Measured under both spellings: a copy from an older PKI
+      # survived every activation, unchanged.
+      #
+      # Guarded on both sides: a listed account may have no system user yet,
+      # or no home.
+      for user in ${lib.escapeShellArgs (dynUserNames ++ [ "lillecarl" ])}; do
+        if id -u "$user" >/dev/null 2>&1 && [ -d "/home/$user" ]; then
+          install -m 0600 -o "$user" -g users \
+            lab-client.ovpn "/home/$user/lab-client.ovpn"
+        fi
+      done
       )
   '';
-
-  # One copy per account, so nobody needs root to fetch it. The file still
-  # carries the shared client key and the tls-crypt key -- a copy in a home
-  # is acceptable because connecting also needs that user's own PAM
-  # credentials; possession alone is not access. lillecarl is in the list
-  # too: the admin account uses the VPN, and its copy is the one an agent
-  # can verify without root. tmpfiles runs at every activation and boot,
-  # replaces a copy left stale by a regenerated PKI, and restores one a
-  # user deleted.
-  systemd.tmpfiles.rules = map (user: ''
-    C /home/${user}/lab-client.ovpn 0600 ${user} users - /var/lib/openvpn-lab/pki/lab-client.ovpn
-  '') (dynUserNames ++ [ "lillecarl" ]);
 
   services.openvpn.servers.lab = {
     config = ''

@@ -443,8 +443,8 @@ assert noCollision "IPv6" userV6;
 
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
         # destination does not exist, so a rule cannot refresh a file a user
-        # already has. ../openvpn.nix has that bug today and its home copies
-        # are frozen at whatever the first activation wrote.
+        # already has. ../openvpn.nix distributes its client config the same
+        # way, for the same reason.
         # Guarded on both sides: a listed account may have no system user yet,
         # or no home. Neither is worth failing the unit for -- an unconfigured
         # peer is harmless, a wg-dynhetz that never comes up is not, and this
