@@ -325,11 +325,27 @@ assert noCollision "IPv6" userV6;
           "Lab only. Reaches dynhetz and everything it routes; the rest of your IPv6 traffic keeps its normal path."
 
         # ::/0 subsumes the lab /64 and 64:ff9b::/96, so they are not repeated.
-        # IPv4 is deliberately still split: only the WireGuard network goes in,
-        # because this tunnel NATs no v4 and the peer has no v4 route out.
+        #
+        # WARNING, measured on macOS with WireGuard.app: this profile takes
+        # IPv4 down with it. AllowedIPs carries no 0.0.0.0/0, so on paper v4
+        # should stay on the local link -- and it does not. The app installs
+        # an IPv4 default route into the tunnel once ::/0 makes this a full
+        # tunnel (`default link#22 UCSg utun4` beside the real one on en0),
+        # and since nothing routes v4 out of here for the peer, every v4
+        # destination blackholes. ping 1.1.1.1 and 8.8.8.8 both silent, curl
+        # -4 timing out at 12s. The mechanism inside the app is NOT isolated;
+        # the route table and the dead pings are.
+        #
+        # Left as-is rather than "fixed" by adding 0.0.0.0/0. dynhetz does NAT
+        # v4 for this interface already -- nixos-nat-pre marks by interface
+        # and MASQUERADEs out eth0, so adding it would work -- but that sends
+        # every user's IPv4 out of a Hetzner datacenter address, which buys
+        # CAPTCHAs and geolocation errors on services like Slack in exchange
+        # for nothing the lab needs. The user picks the profile; this says
+        # what picking it costs.
         wg_user_conf "-full" \
           "10.101.0.0/16, ::/0" \
-          "Full IPv6 tunnel. ALL your IPv6 traffic egresses from dynhetz, with your own global source address. IPv4 is untouched and keeps its normal path."
+          "Full IPv6 tunnel -- and on macOS it BLACKHOLES IPv4: the app routes the v4 default here too and nothing carries it out. Use wg-dynhetz.conf unless you specifically need v6 egress from dynhetz."
 
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
         # destination does not exist, so a rule cannot refresh a file a user
