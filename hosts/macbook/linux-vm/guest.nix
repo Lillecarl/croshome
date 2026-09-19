@@ -179,7 +179,7 @@ in
     };
     systemd.services.nix-daemon.serviceConfig.ExecStart = [
       ""
-      "@${config.nix.package}/bin/nix-daemon nix-daemon --daemon --store ${
+      "@${lib.getExe' config.nix.package "nix-daemon"} nix-daemon --daemon --store ${
         lib.replaceStrings [ "%" ] [ "%%" ] overlayStoreUri
       }"
     ];
@@ -196,8 +196,8 @@ in
     # never meets this because it never pivots; here it made every store write
     # fail with EROFS. One mount, made once, by hand:
     boot.initrd.systemd.storePaths = [
-      "${pkgs.util-linux}/bin/mount"
-      "${pkgs.coreutils}/bin/mkdir"
+      "${lib.getExe' pkgs.util-linux "mount"}"
+      "${lib.getExe' pkgs.coreutils "mkdir"}"
     ];
     boot.initrd.systemd.services.nix-store-overlay = {
       description = "Mount /nix/store over the host store";
@@ -228,11 +228,11 @@ in
         StandardOutput = "journal+console";
         StandardError = "journal+console";
         ExecStart = [
-          "${pkgs.coreutils}/bin/mkdir -p -m 0755 /sysroot/nix/store /sysroot/nix/.rw-store/store /sysroot/nix/.rw-store/work"
+          "${lib.getExe' pkgs.coreutils "mkdir"} -p -m 0755 /sysroot/nix/store /sysroot/nix/.rw-store/store /sysroot/nix/.rw-store/work"
           # nodev,nosuid stated here so stage 2's enforcement pass finds
           # nothing missing and skips its self-bind -- see
           # boot.nixStoreMountOpts below.
-          "${pkgs.util-linux}/bin/mount -t overlay overlay -o lowerdir=/sysroot/host-nix/nix/store,upperdir=/sysroot/nix/.rw-store/store,workdir=/sysroot/nix/.rw-store/work,nodev,nosuid /sysroot/nix/store"
+          "${lib.getExe' pkgs.util-linux "mount"} -t overlay overlay -o lowerdir=/sysroot/host-nix/nix/store,upperdir=/sysroot/nix/.rw-store/store,workdir=/sysroot/nix/.rw-store/work,nodev,nosuid /sysroot/nix/store"
         ];
       };
     };

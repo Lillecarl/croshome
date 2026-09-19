@@ -60,7 +60,7 @@ let
       export HOME=~root
 
       # Registering the generation is what makes `../../rebuild rollback` work.
-      ${config.nix.package}/bin/nix-env \
+      ${lib.getExe' config.nix.package "nix-env"} \
         -p /nix/var/nix/profiles/system --set "$toplevel"
 
       # The pinned nix-darwin has folded all activation back into this one

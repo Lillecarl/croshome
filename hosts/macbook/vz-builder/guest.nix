@@ -562,7 +562,7 @@ in
       # nothing like an escaping bug.
       systemd.services.nix-daemon.serviceConfig.ExecStart = [
         "" # clear the inherited definition rather than add a second one
-        "@${config.nix.package}/bin/nix-daemon nix-daemon --daemon --store ${
+        "@${lib.getExe' config.nix.package "nix-daemon"} nix-daemon --daemon --store ${
           lib.replaceStrings [ "%" ] [ "%%" ] overlayStoreUri
         }"
       ];
