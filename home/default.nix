@@ -35,6 +35,7 @@
     ./opencode.nix
     ./packages.nix
     ./pymux.nix
+    ./sieve.nix
     ./tmux.nix
     ./vcs.nix
     ./wrapty.nix
