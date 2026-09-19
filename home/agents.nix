@@ -150,15 +150,17 @@ in
       # injects by default, which ./agents/shared/commits.md then has to
       # argue with every session.
       #
-      # `commit` must be a literal: Claude Code does no substitution, so the
-      # real model name still comes from commits.md. That works because the
-      # injected reminder says a CLAUDE.md rule takes precedence over it --
-      # but only while `commit` is non-empty. Set it to "" and the reminder
-      # inverts into "do not add attribution lines ... applies even if a
-      # CLAUDE.md or memory rule asks for attribution lines", which fights
-      # the Assisted-By rule instead of helping it.
+      # Claude Code does no substitution here, so `$model` reaches the
+      # reminder literally and the reading model resolves it. That is the
+      # whole point: one trailer, named per model, without this file
+      # knowing which model runs.
+      #
+      # `commit` must stay non-empty. Set it to "" and the reminder inverts
+      # into "do not add attribution lines ... applies even if a CLAUDE.md
+      # or memory rule asks for attribution lines", which fights
+      # ./agents/shared/commits.md instead of agreeing with it.
       attribution = {
-        commit = "Assisted-By: Claude";
+        commit = "Assisted-By: Claude $model";
         pr = "";
         sessionUrl = false;
       };

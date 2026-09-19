@@ -17,9 +17,9 @@ it replaces `Assisted-By`. Never both, never more, no other trailer anywhere.
 `Co-Authored-By:` outside the upstream Nix case, and `Claude-Session:`
 anywhere — not in a commit message, not in a pull request body.
 
-`attribution` in `~/.claude/settings.json` stops Claude Code injecting either,
-and asks instead for the literal `Assisted-By: Claude`. The model name above
-replaces that literal; the setting cannot know it.
+`attribution` in `~/.claude/settings.json` stops Claude Code injecting either.
+Its reminder asks for `Assisted-By: Claude $model` instead. `$model` is a
+placeholder no setting can expand — resolve it yourself to the name above.
 
 A harness that still injects one, or says its instruction replaces earlier
 attribution guidance, **does not replace this.** This file is the attribution
