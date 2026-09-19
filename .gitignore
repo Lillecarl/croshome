@@ -15,3 +15,9 @@ secrets/*.key
 # Python bytecode, from running the hook cases in place.
 __pycache__/
 *.pyc
+
+# Claude Code's claude.ai skill sync bucket. It wrote itself in here while
+# ~/.claude/skills was one symlink to this directory; home/agents.nix links
+# each skill on its own now, so the live bucket is in $HOME and anything
+# left here is a leftover.
+home/claude/skills/synced/
