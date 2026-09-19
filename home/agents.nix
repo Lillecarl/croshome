@@ -126,15 +126,35 @@ let
       ${lib.getExe pkgs.python3} ${wraptyScripts}/test_block_python_edit.py \
         $out/bin/agent-block-python-edit
     '';
+
+  # `synced` is not a skill. It is the bucket Claude Code writes its
+  # claude.ai skill sync into, and it is left out so that sync lands in
+  # $HOME. Linked like the rest, it wrote 4M of Anthropic's own skills into
+  # this repository.
+  repoSkills = lib.attrNames (
+    lib.filterAttrs (name: type: type == "directory" && name != "synced") (
+      builtins.readDir ./claude/skills
+    )
+  );
+
+  repoSkillLinks =
+    agentDir:
+    lib.listToAttrs (
+      map (name: {
+        name = "${agentDir}/skills/${name}";
+        value.source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills/${name}";
+      }) repoSkills
+    );
 in
 {
   # Out-of-store symlinks, so editing a skill takes effect immediately rather
-  # than after a rebuild. Both agents read the same directory: a skill is
-  # prose, and nothing in it is Claude-specific.
-  home.file.".claude/skills".source =
-    config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
-  home.file.".gemini/skills".source =
-    config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills";
+  # than after a rebuild. Both agents read the same set: a skill is prose, and
+  # nothing in it is Claude-specific.
+  #
+  # One link per skill rather than one for the directory. Linking the
+  # directory made every entry under it come from the checkout, which left no
+  # way to put a skill a package ships beside the repo's own.
+  home.file = repoSkillLinks ".claude" // repoSkillLinks ".gemini";
 
   # Single keys merged into ~/.claude/settings.json. Every other key stays as
   # Claude Code wrote it; ./wrapty.nix explains why the file is not generated
