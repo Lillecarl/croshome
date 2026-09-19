@@ -40,13 +40,16 @@ let
   # in general.
   #
   # ./claude/skills/jj-worktrees/hooks/hooks.json names both by bare command,
-  # the same arrangement ./wrapty.nix uses for wrapty's hooks. A store path
-  # there is not an option: the skills directory is one out-of-store symlink,
-  # so no file inside it can be nix-generated.
+  # the same arrangement ./wrapty.nix uses for wrapty's hooks. That was forced
+  # while the skills directory was one out-of-store symlink and nothing inside
+  # it could be nix-generated. It no longer is, so a store path there is now
+  # possible and is the better answer: hooks.json would name an exact build
+  # rather than whatever PATH resolves to.
   #
-  # The cost is that these two scripts no longer follow the "edit takes effect
-  # immediately" rule the rest of that directory does -- changing one now needs
-  # a rebuild.
+  # Bare commands still have one property a store path does not. PATH is
+  # re-resolved on every invocation, so a rebuild reaches a running session's
+  # hook scripts at once; a store path in hooks.json would not, because a
+  # session reads that file when it loads the plugin.
   #
   # Adding a hook is a third thing again, and slower than either. A rebuild
   # reaches the *script* at once, because hooks.json names a bare command and
@@ -142,26 +145,31 @@ let
     lib.listToAttrs (
       map (name: {
         name = "${agentDir}/skills/${name}";
-        value.source = config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/claude/skills/${name}";
+        value.source = ./claude/skills + "/${name}";
       }) repoSkills
     );
 
-  # A plain store path, not an out-of-store symlink: this skill is generated
-  # by `pyedit skill` during the package build, so the file is the package's
-  # and a rebuild is the only way it changes. The double name is the nixpkgs
-  # convention, share/skills/$pname/<skill>, so a package can ship several.
+  # The skill pyedit generates during its own build. Nothing distinguishes it
+  # from the repo's own skills above any more -- both are store paths. The
+  # double name is the nixpkgs convention, share/skills/$pname/<skill>, so a
+  # package can ship several.
   pyeditSkillLink = agentDir: {
     "${agentDir}/skills/pyedit".source = "${pkgs.pyedit}/share/skills/pyedit/pyedit";
   };
 in
 {
-  # Out-of-store symlinks, so editing a skill takes effect immediately rather
-  # than after a rebuild. Both agents read the same set: a skill is prose, and
-  # nothing in it is Claude-specific.
+  # One store path per skill. Both agents read the same set: a skill is
+  # prose, and nothing in it is Claude-specific.
   #
-  # One link per skill rather than one for the directory. Linking the
-  # directory made every entry under it come from the checkout, which left no
-  # way to put a skill a package ships beside the repo's own.
+  # Editing a skill needs `ai-rebuild` before the next session sees it. That
+  # is the trade for a skill being content-addressed like everything else
+  # here, and for a package being able to ship one: the directory holds
+  # exactly what the configuration says it holds.
+  #
+  # One entry per skill rather than one for the directory, and the directory
+  # itself stays real and writable. Claude Code writes its claude.ai skill
+  # sync into ~/.claude/skills/synced, so a store-owned directory there would
+  # break that sync outright.
   #
   # A host still on the old shape needs one manual step. home-manager does
   # not replace a managed symlink with a managed directory: it leaves

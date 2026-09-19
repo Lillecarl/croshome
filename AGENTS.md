@@ -149,5 +149,11 @@ decides:
   VCS this repo uses, not against a determined caller.
 
 `home/agents.nix` builds the hook and installs it as `jj-block-git-write`, so
-editing its script needs a rebuild — unlike the rest of `home/claude/skills/`,
-an out-of-store symlink that applies at once.
+editing its script needs a rebuild. So does every other file under
+`home/claude/skills/`: each skill is a store path, linked one by one into
+`~/.claude/skills` and `~/.gemini/skills`. Edit the skill in this repository,
+never the link, and run `ai-rebuild` before you expect a session to see it.
+
+The directory holding those links stays writable on purpose. Claude Code
+writes its claude.ai skill sync into `~/.claude/skills/synced`, which is
+gitignored here — it used to write itself into this repository, 4M of it.

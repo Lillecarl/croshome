@@ -3,9 +3,9 @@
 # name (wrapty-mcp, wrapty-monitor, wrapty-hook-stop, wrapty-hook-posttooluse)
 # rather than a store path or the old /Users/lillecarl/Dynamist/wrapty/
 # result/... path from when wrapty was its own standalone repo. Those
-# manifest files are plain, hand-edited JSON under an out-of-store symlink
-# (see ./agents.nix), not generated here -- nothing in this module writes
-# to them.
+# manifest files are plain, hand-edited JSON in this repository, copied to
+# the store with the rest of the skill (see ./agents.nix), not generated
+# here -- nothing in this module writes to them.
 #
 # A rebuild does not reach a session that is already running. wrapty is the
 # long-lived process wrapping `claude` (see ../home/fish/functions/claude.fish)
