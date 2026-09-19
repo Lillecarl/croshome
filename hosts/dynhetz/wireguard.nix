@@ -298,18 +298,27 @@ assert noCollision "IPv6" userV6;
         # account. The cost is that running both at once is not allowed --
         # same key and same address on two interfaces makes the server's
         # endpoint flap between them. The header comment in each file says so.
+        # dnsline is a whole line or empty, not an address, because a profile
+        # that does not route 64:ff9b::/96 must not point at a DNS64
+        # resolver: it would answer every IPv4-only name with a synthesized
+        # address the tunnel cannot carry, which is worse than not answering
+        # at all. Empty leaves a blank line, which an INI section does not
+        # mind.
         wg_user_conf() {
-          local name="$1" addr="$2" allowed="$3" note="$4"
-          cat <<USERCONF > "users/$user$name.conf"
+          local name="$1" addr="$2" allowed="$3" dnsline="$4" note="$5"
+          # `cat -s` because an empty dnsline leaves its own blank line next
+          # to the section separator, and two in a row reads like a mistake
+          # in a file people open by hand.
+          cat <<USERCONF | cat -s > "users/$user$name.conf"
       # $note
       #
       # Generated on dynhetz for $user. Do not run this at the same time as
-      # the other wg-dynhetz profile: both carry the same key and address, and
+      # another wg-dynhetz profile: they carry the same key and address, and
       # the server will flap between whichever spoke last.
       [Interface]
       PrivateKey = $(cat "users/$user.key")
       Address = $addr
-      DNS = 2a01:4f9:3071:11d7::2
+      $dnsline
 
       [Peer]
       PublicKey = $(cat server.pub)
@@ -375,7 +384,34 @@ assert noCollision "IPv6" userV6;
         wg_user_conf "-v6" \
           "$v6/80" \
           "::/0" \
+          "DNS = 2a01:4f9:3071:11d7::2" \
           "IPv6 only -- all IPv6 egresses from dynhetz, no IPv4 anywhere. ON macOS THIS COSTS YOU IPv4: routing ::/0 makes this the primary service and macOS scopes away the Wi-Fi IPv4 default, leaving none usable. Use wg-dynhetz-dual.conf on a Mac. Correct on Linux and Android."
+
+        # The smallest profile: our /64 and nothing else. No IPv4 address, no
+        # IPv4 route, no default route in either family, and no DNS.
+        #
+        # It is row three of the table above, so its one limitation is known
+        # rather than waiting to be found: with no default route the tunnel
+        # never becomes the primary IPv6 service, macOS does not report IPv6
+        # in nwi, and getaddrinfo therefore does not ask for AAAA. Safari and
+        # anything else going through getaddrinfo will not resolve a lab name
+        # on a Mac. Tools that ask for AAAA themselves -- curl -6, dig,
+        # ping6 -- work fine, and so does everything on Linux, where none of
+        # that machinery exists.
+        #
+        # No DNS line on purpose. The lab names are in public DNS (verified
+        # against Cloudflare and Google), so the system resolver already
+        # answers them correctly, and pointing at the DNS64 resolver without
+        # routing 64:ff9b::/96 would break every IPv4-only name instead of
+        # helping.
+        #
+        # What it buys over the other two is blast radius: it touches exactly
+        # one prefix and leaves every other route on the machine alone.
+        wg_user_conf "-lab" \
+          "$v6/80" \
+          "2a01:4f9:3071:11d7::/64" \
+          "" \
+          "Lab only, IPv6 only. Routes our /64 and nothing else -- no IPv4 anywhere, no default route, your normal traffic untouched. On macOS, Safari will NOT resolve lab names on this profile (no default route means macOS reports no IPv6, so getaddrinfo skips AAAA); curl -6, dig and ping6 work, as does everything on Linux."
 
         # Both defaults, and 0.0.0.0/0 is load-bearing rather than tidy.
         #
@@ -402,6 +438,7 @@ assert noCollision "IPv6" userV6;
         wg_user_conf "-dual" \
           "$v4/16, $v6/80" \
           "0.0.0.0/0, ::/0" \
+          "DNS = 2a01:4f9:3071:11d7::2" \
           "Dual stack. ALL your traffic egresses from dynhetz -- IPv6 with your own global address, IPv4 NATed out of this host. Expect CAPTCHAs and wrong geolocation, since you appear to be in a Hetzner datacenter."
 
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
@@ -413,6 +450,8 @@ assert noCollision "IPv6" userV6;
         # peer is harmless, a wg-dynhetz that never comes up is not, and this
         # runs before the MikroTik peer would be restored on a later boot.
         if id -u "$user" >/dev/null 2>&1 && [ -d "/home/$user" ]; then
+          install -o "$user" -g users -m 0600 \
+            "users/$user-lab.conf" "/home/$user/wg-dynhetz-lab.conf" || true
           install -o "$user" -g users -m 0600 \
             "users/$user-v6.conf" "/home/$user/wg-dynhetz-v6.conf" || true
           install -o "$user" -g users -m 0600 \
@@ -438,7 +477,8 @@ assert noCollision "IPv6" userV6;
         esac
         wg set wg-dynhetz peer "$(cat "users/$stale.pub")" remove || true
         rm -f "users/$stale.key" "users/$stale.pub" \
-              "users/$stale-v6.conf" "users/$stale-dual.conf" \
+              "users/$stale-lab.conf" "users/$stale-v6.conf" \
+              "users/$stale-dual.conf" \
               "users/$stale.conf" "users/$stale-full.conf"
       done
 
