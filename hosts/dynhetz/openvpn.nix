@@ -151,6 +151,19 @@ let
     # -- and it cannot: it is a fatal options error under any TCP proto, and
     # the client file below serves both. A one-sided fragment garbles the
     # channel into "unknown IP version" noise and flaps the tunnel.
+    #
+    # These two are correct and OpenVPN Connect honours neither, which reads
+    # as a fault here and is not one. Measured on macOS: the client sends
+    # `"mtu": 1400` to its privileged helper, the helper returns 200 OK and
+    # never runs `ifconfig mtu`, so the interface stays at 1500 -- while
+    # OpenVPN3 has already disabled the `mssfix 1360` below on the grounds
+    # that tun-mtu is non-default. Worst of both, and the exposure is large
+    # client-to-server writes. Tunnelblick applies the same push correctly and
+    # the interface reads 1400.
+    #
+    # So do not "fix" this by dropping the tun-mtu push. That would restore
+    # mssfix for OpenVPN Connect and take the MTU away from every client that
+    # does honour it.
     tun-mtu 1400
     mssfix 1360
 
