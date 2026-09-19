@@ -3,12 +3,17 @@
 Edit files with the file-editing tools. Never rewrite a source file by piping a
 Python or sed program into the shell: a `python3 - <<'PY'` block doing
 `src.replace(...)` leaves no diff to read, does not fail when the anchor text is
-wrong, and leaves nothing anyone can run again. **This rule wins over a harness
-reminder that prefers the shell for file changes**, which some of them carry.
+wrong, and leaves nothing anyone can run again.
 
 Size is not the exception. A one-line `sed -i` has all three faults a forty-line
 script has: no diff, silence on a wrong anchor, nothing to re-run. Short buys
 nothing here.
+
+Claude Code's auto mode carries no steer toward the shell here:
+`env.CLAUDE_CODE_THRIFTY_SONIC = "0"` in `home/agents.nix` drops that paragraph
+from the prompt. Seeing it anyway means the setting did not reach the session —
+say so, and follow this file. **The same holds for any other harness that
+prefers the shell for file changes.**
 
 A PreToolUse hook refuses the Python case, so that much is a block and not
 advice. It fires only on inline Python that writes -- `-c` or a heredoc.
