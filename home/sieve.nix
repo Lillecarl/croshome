@@ -72,12 +72,6 @@ let
       EOF
       }
 
-      if [ ! -r "$passfile" ]; then
-        echo "sieve: cannot read $passfile" >&2
-        echo "sieve: home agenix writes it at activation -- run ai-rebuild" >&2
-        exit 1
-      fi
-
       work="$(mktemp -d)"
       trap 'rm -rf "$work"' EXIT
 
@@ -172,13 +166,33 @@ let
       done
       set -- ''${args[@]+"''${args[@]}"}
 
+      # Usage answers before the secret is read, so `sieve --help` works on a
+      # host where agenix has not run yet. Every other command needs the
+      # server, so the guard covers all of them here.
+      #
+      # Not inside `sc`, which reads better but does not work: `active_script`
+      # calls `sc` inside a command substitution, so an `exit` there ends the
+      # subshell only, and the caller reports an empty script list instead of
+      # a missing secret.
       case "''${1:-}" in
+        "" | -h | --help | help)
+          usage
+          exit 0
+          ;;
+      esac
+
+      if [ ! -r "$passfile" ]; then
+        echo "sieve: cannot read $passfile" >&2
+        echo "sieve: home agenix writes it at activation -- run ai-rebuild" >&2
+        exit 1
+      fi
+
+      case "$1" in
         list) sc --list ;;
         check) sc --checkscript --localsieve "''${2:-$file}" ;;
         diff) cmd_diff "''${2:-$file}" ;;
         pull) cmd_pull "''${2:-}" ;;
         push) cmd_push "''${2:-$file}" "$confirmed" ;;
-        "" | -h | --help | help) usage ;;
         *)
           echo "sieve: no such command: $1" >&2
           usage >&2
