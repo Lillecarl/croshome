@@ -1,6 +1,6 @@
 ---
 name: python
-description: House standards for Python in Lillecarl's own projects — async by default, anyio over bare asyncio, real type annotations, `from __future__ import annotations` and `if TYPE_CHECKING:`. Load before writing or editing Python in a repository he maintains, or when starting a new one. Deliberately does NOT apply to external projects; see Scope.
+description: House standards for Python in Lillecarl's own projects — async by default, anyio over bare asyncio, real type annotations, `from __future__ import annotations` and `if TYPE_CHECKING:`, named values (StrEnum, Literal, Final) over scattered literals. Load before writing or editing Python in a repository he maintains, or when starting a new one. Deliberately does NOT apply to external projects; see Scope.
 ---
 
 # Python standards
@@ -95,6 +95,44 @@ without it you should add the import rather than quote the name.
 `if TYPE_CHECKING:` is for type-only imports — the ones that would be a
 circular import or a needless runtime cost. It goes last among the imports,
 and it holds nothing the program needs at runtime.
+
+## Named values over scattered literals
+
+A value with a meaning gets a name at the point that owns the meaning, and
+everything else imports it. Lightest thing that carries it:
+
+- **`enum.StrEnum`** (3.11+) for a set that crosses a boundary — config, JSON,
+  CLI flags, storage. Members are plain strings, so they serialize and compare
+  without ceremony. On an older runtime, `class X(str, Enum)`.
+- **`enum.Enum`** for a set that never needs to read as a string or a number —
+  internal kinds, states, priorities. Members are opaque objects: no accidental
+  comparison with ints, no accidental serialization.
+- **`enum.IntEnum`** when the value is genuinely a number — bit flags, C or
+  struct interop, exit codes, a column stored as an int. It compares equal to
+  plain ints, which is the interop wanted and the type safety lost:
+  `QUEUED == 0` is true.
+- **`typing.Literal`** when the set exists only for the type checker — three
+  legal spellings for one parameter, no behavior attached.
+- **`NAME: Final = ...`** for a single shared constant.
+
+`auto()` numbers members by declaration order, so reordering members
+renumbers everything ever persisted through it. Spell values out whenever a
+number is stored or exchanged; `auto()` only where nothing can see the value.
+
+```python
+class JobState(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    FAILED = "failed"
+```
+
+The win is not the comparison line — it is that adding or renaming a member is
+one edit where the meaning lives, instead of a repo-wide grep and the typos
+that survive it. Prefer these over scattering raw strings and ints, and over
+inventing a third spelling of the same value in a second file.
+
+Tests repeat literals freely; that is what they are for. Promote a constant
+out of test code only when the same literal keeps coming back in many places.
 
 ## A few more that keep coming up
 
