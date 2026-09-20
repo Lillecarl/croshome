@@ -60,6 +60,7 @@ let
 
   claudeOnly = [
     "ask-user.md"
+    "ci-monitors.md"
   ];
 
   onDisk = dir: lib.attrNames (
