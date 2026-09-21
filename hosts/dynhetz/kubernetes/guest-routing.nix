@@ -55,10 +55,26 @@ let
 
   # Each guest cluster: what it may announce, and who may announce it.
   #
-  # `peers` are node addresses chosen by whoever declares the machines -- see
-  # ./network.nix's `vmSubnet` for why a guest node's address is chosen rather
-  # than allocated. Adding a node here is what admits it; a machine on the
-  # bridge with no entry gets no session.
+  # `nodeSubnet` is a listen range, not a list of neighbours. Any machine in it
+  # that dials this host gets a session, so a node added to the cluster later
+  # needs no change here.
+  #
+  # That is the point of the range. A node absent from a neighbour list peers
+  # with nobody, and nothing on this host says so: its Cilium session sits in
+  # `active` with 0 routes, and this side simply has one fewer session than the
+  # cluster has nodes. Four of nixlab2's five nodes were configured and it went
+  # unnoticed, because every LoadBalancer Service used externalTrafficPolicy
+  # Cluster -- all four peers advertise such a VIP whatever node the backend is
+  # on. The first Service with externalTrafficPolicy Local, whose VIP only the
+  # node holding the pod advertises, landed on the fifth node and was
+  # unroutable.
+  #
+  # So what admits a guest is the prefix plus the inbound filter below, not an
+  # address list. The prefix is ./network.nix's bridge subnet, which only
+  # machines this host declares are on, and the filter confines each session to
+  # the prefixes the allocation table gives that cluster. A second guest
+  # cluster needs its own sub-range: two listen ranges that overlap leave one
+  # machine matching two peer-groups.
   guests = [
     {
       name = "nixlab2";
@@ -67,12 +83,9 @@ let
       # LoadBalancer VIPs, first /112 out of the 00e2::/80 the allocation
       # table in ../wireguard.nix reserves for them.
       lbSubnet = "2a01:4f9:3071:11d7:e2::/112";
-      peers = [
-        "2a01:4f9:3071:11d7:c0::10"
-        "2a01:4f9:3071:11d7:c0::11"
-        "2a01:4f9:3071:11d7:c0::12"
-        "2a01:4f9:3071:11d7:c0::13"
-      ];
+      # The whole bridge, because nixlab2 is the only cluster on it. Not the
+      # site /64: that also holds the pod prefix, the VIP pool and eth0.
+      nodeSubnet = network.vmSubnet;
     }
   ];
 
@@ -115,22 +128,27 @@ let
   # the `router bgp` and `address-family` contexts. FRR parses by context and
   # not by column, so it would read either -- but a routing configuration
   # nobody can see the shape of is one nobody can check.
+  # A peer-group and a listen range, one per guest. The settings live on the
+  # group, and a machine that dials from inside the range joins it.
+  #
+  # A dynamic neighbour is passive: this host answers, it never calls. Cilium
+  # dials, so every node opens its own session. A machine that never dials gets
+  # none, and `show bgp ipv6 unicast summary` is then the only place the
+  # absence shows.
+  #
+  # Order matters to FRR. The group must exist and carry its remote-as before
+  # the listen range can name it.
   neighbourLines =
     guest:
-    lib.concatMapStrings (
-      peer:
-      " neighbor ${peer} remote-as ${toString guest.asn}\n"
-      + " neighbor ${peer} description ${guest.name}\n"
-    ) guest.peers;
+    " neighbor ${guest.name} peer-group\n"
+    + " neighbor ${guest.name} remote-as ${toString guest.asn}\n"
+    + " bgp listen range ${guest.nodeSubnet} peer-group ${guest.name}\n";
 
   activateLines =
     guest:
-    lib.concatMapStrings (
-      peer:
-      "  neighbor ${peer} activate\n"
-      + "  neighbor ${peer} route-map ${guest.name}-in in\n"
-      + "  neighbor ${peer} route-map announce-nothing out\n"
-    ) guest.peers;
+    "  neighbor ${guest.name} activate\n"
+    + "  neighbor ${guest.name} route-map ${guest.name}-in in\n"
+    + "  neighbor ${guest.name} route-map announce-nothing out\n";
 in
 {
   config = {
