@@ -100,6 +100,10 @@
     glab
     jj-hunk
     lazygit
+    # Jujutsu through Python, from ../pkgs: `pyjj` the CLI, `pyjjui` the TUI.
+    # Neither replaces `jj`, which stays the nixpkgs build.
+    pyjj-cli
+    pyjjui
     shellcheck # check a shell script before it is the thing that ran
     shfmt
     tree

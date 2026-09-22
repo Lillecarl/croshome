@@ -52,6 +52,23 @@ let
   # The pyterm collection's packages, built by this repository's package
   # set. The TUI check's multiplexer comes from here.
   pyterm = import inputs.pyterm { pkgs = final; };
+
+  # The pyjj tree, the same way: its `default.nix` takes `pkgs`, so this
+  # package set builds it and no second nixpkgs is instantiated.
+  #
+  # `system` is passed rather than left to its default, which is
+  # `builtins.currentSystem` -- a builtin a pure flake evaluation cannot read,
+  # and ../flake.nix does state nixosConfigurations. Nothing forces it today,
+  # so this keeps a trap out rather than fixing a break.
+  #
+  # Take named attributes from this, never the whole set. It also carries `jj`,
+  # which reaches into jj-vcs's own flake and instantiates a nixpkgs of its own
+  # on whatever release that flake pins. Laziness is the only thing keeping
+  # that unevaluated.
+  pyjj = import inputs.pyjj {
+    pkgs = final;
+    inherit (final.stdenv.hostPlatform) system;
+  };
 in
 {
   # The kernel module. `patches = [ ]` drops the Alpine kernel-6.18 patch
@@ -381,4 +398,9 @@ in
   # binary, and ../home/agents.nix links the SKILL.md it ships at
   # share/skills/pyedit/pyedit.
   pyedit = (import "${inputs.pyedit}" { pkgs = final; }).pyedit;
+
+  # `pyjj`, the CLI, and `pyjjui`, the TUI. Both rest on pyjj-bindings, which
+  # compiles jj-lib and the crate tree under it from source -- so the first
+  # build of either is a long Rust build, and the second is free.
+  inherit (pyjj) pyjj-cli pyjjui;
 }

@@ -155,6 +155,21 @@
       url = "github:Lillecarl/pyedit";
       flake = false;
     };
+
+    # Python bindings for Jujutsu, with a CLI and a TUI built on them.
+    #
+    # A source tree, and not a flake, for the same reason as nanopynix above,
+    # and here the tree agrees: its own flake declares no outputs at all. That
+    # flake exists to produce the lock its `nix/compat.nix` reads, which is how
+    # `nix-build -A pyjjui` works there without a flake store-copy.
+    #
+    # So this input carries a second lock, and evaluating the tree fetches the
+    # nodes that lock names -- flake-compatish and pyproject-nix. Cheap, and
+    # unavoidable without vendoring the packaging.
+    pyjj = {
+      url = "github:Lillecarl/pyjj";
+      flake = false;
+    };
   };
   outputs =
     inputs:

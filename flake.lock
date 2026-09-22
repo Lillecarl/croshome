@@ -380,6 +380,22 @@
         "type": "github"
       }
     },
+    "pyjj": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790074864,
+        "narHash": "sha256-mNvqCVMzdbB0TBVtsJReWILQmqPG4hd0Q/aNE3C+UsM=",
+        "owner": "Lillecarl",
+        "repo": "pyjj",
+        "rev": "f24355189a2f1ba852fe7cf055791d03d859ae5c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "repo": "pyjj",
+        "type": "github"
+      }
+    },
     "pyproject-nix": {
       "inputs": {
         "nixpkgs": [
@@ -457,6 +473,7 @@
         "nixpkgs-stable": "nixpkgs-stable",
         "phabfive": "phabfive",
         "pyedit": "pyedit",
+        "pyjj": "pyjj",
         "pyproject-nix": "pyproject-nix_2",
         "pyterm": "pyterm"
       }
