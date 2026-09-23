@@ -383,11 +383,11 @@
     "pyjj": {
       "flake": false,
       "locked": {
-        "lastModified": 1790074864,
-        "narHash": "sha256-mNvqCVMzdbB0TBVtsJReWILQmqPG4hd0Q/aNE3C+UsM=",
+        "lastModified": 1790081810,
+        "narHash": "sha256-4lPXTTxL7pu47CXWXWEs3bSL/WgwRBqS898M/6/TiPI=",
         "owner": "Lillecarl",
         "repo": "pyjj",
-        "rev": "f24355189a2f1ba852fe7cf055791d03d859ae5c",
+        "rev": "040fb79894325e7d7753a2a9bb0e238f080c783f",
         "type": "github"
       },
       "original": {
@@ -440,11 +440,11 @@
     "pyterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1789642183,
-        "narHash": "sha256-moMs8poq8stmGtByMu0MKJHKKWH0EShWEKKaTxHw9Ig=",
+        "lastModified": 1789984407,
+        "narHash": "sha256-md2a5Wvza+IccJHCnZSjVTRUD3LqL0mRKR3uXnQ2zjo=",
         "ref": "refs/heads/main",
-        "rev": "e397da18baf9e82843ef60ad9a0d308e72b7fe51",
-        "revCount": 541,
+        "rev": "ea503bdf3e4430801894ee0a8fbeab509178a08f",
+        "revCount": 554,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Lillecarl/pyterm"
