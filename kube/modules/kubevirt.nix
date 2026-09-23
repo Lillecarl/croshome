@@ -15,7 +15,7 @@
 # them fights the operator for ownership.
 #
 # `--prune` does not touch them for the same reason it does not touch kubeadm's
-# objects: they carry no `ekn.dev/discriminator` label, so they are outside the
+# objects: they carry no `ekn.dev/environment` label, so they are outside the
 # scope kluctl lists back.
 #
 # What a UEFI guest needs here, which is not the obvious thing

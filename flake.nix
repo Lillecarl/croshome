@@ -104,30 +104,28 @@
     # Kubernetes manifests for dynhetz's cluster.
     #
     # The umbrella and not easykubenix itself. easykubenix reads its siblings
-    # -- nanopynix, adios -- through the umbrella's own `nix/wire.nix`, and it
-    # only skips fetching one of its own when it can already see one next to
-    # it. Pinning the umbrella and importing the project inside it is what
-    # makes that true, so nothing is fetched at evaluation time beyond this
-    # entry.
+    # -- nanopynix, adios -- from the umbrella's `nix/sources.lock`, and it
+    # only skips fetching an umbrella of its own when it is handed that record.
+    # Pinning the umbrella here and passing its `sources` on is what makes one
+    # pin decide all of them; ../kube/default.nix does the passing.
     #
-    # `git+https` and `submodules=1`, not `github:`. Each project in the
-    # umbrella is a submodule, and a GitHub tarball carries none of them: the
-    # `easykubenix` directory arrives empty and every path into it fails. A git
-    # fetch carries them. easykubenix's own default.nix reaches for the same
-    # URL for the same reason.
+    # A plain `github:` tarball. The umbrella had submodules once and this
+    # entry carried `submodules=1` for them; it holds none now, and every
+    # project resolves from the lock instead. A tarball therefore carries the
+    # whole of it.
     #
     # `flake = false` for the same reason as nanopynix above: it is a source
     # tree, and the entry points here import what they want from it.
     nixidae = {
-      url = "git+https://github.com/nixidae/nixidae?submodules=1";
+      url = "github:nixidae/nixidae";
       flake = false;
     };
 
     # pymux and the libraries it is built on. home/pymux.nix imports the
     # home-manager module out of this tree.
     #
-    # `git+https` and `submodules=1`, for the same reason as nixidae above.
-    # Each library is a submodule, and a GitHub tarball carries none of them.
+    # `git+https` and `submodules=1`. Each library is a submodule, and a
+    # GitHub tarball carries none of them.
     # The home-manager module builds its default package with `import ../.`
     # relative to itself, so an empty `pymux` directory fails that build.
     #

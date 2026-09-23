@@ -19,10 +19,15 @@
 {
   # The prune scope, named rather than left to the default.
   #
-  # `--prune` deletes every object carrying this label that the current apply
-  # did not produce, so it is not a cosmetic name: it is the list of things one
-  # apply is allowed to delete. Twenty objects carry it here, including all
-  # four operators below.
+  # `ekn` stamps this as `ekn.dev/environment` at apply time, and `--prune`
+  # deletes every object carrying it that the current apply did not produce.
+  # So it is not a cosmetic name: it is the list of things one apply is allowed
+  # to delete. Twenty objects carry it here, including all four operators
+  # below.
+  #
+  # A whole-instance prune takes the objects with this label and no
+  # `ekn.dev/deployment-unit` label; `--target <name>` takes this label and
+  # that unit. Both come from one name, so there is no per-unit scope to set.
   #
   # The default is the string "easykubenix", which is what any other
   # easykubenix configuration also gets by default. Two of them against this
@@ -30,7 +35,7 @@
   # them -- and the deletions land on operators, not on something recoverable
   # by re-applying. A name of this repository's own means a second instance has
   # to collide deliberately rather than by sharing a default.
-  ekn.discriminator = "croshome";
+  ekn.environment = "croshome";
 
   imports = [
     ./namespaces.nix

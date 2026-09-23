@@ -36,16 +36,32 @@
 # and a `kubectl apply -f` of the result. Nothing here is stored only inside a
 # tool's own database.
 #
-# easykubenix comes from inside the pinned umbrella rather than from a fetch of
-# its own. Its default.nix looks for `../nix/wire.nix` first and only fetches an
-# umbrella when it cannot see one, so importing it here -- where the umbrella is
-# the checkout above it -- resolves nanopynix and adios from the same pin. See
-# ../flake.nix for why that input is a git fetch with submodules.
+# easykubenix comes out of the pinned umbrella's own source record, never from
+# a fetch of its own. nixidae holds seven repositories and no submodules: each
+# one resolves from its `nix/sources.lock`, and `sources` below is that record,
+# read as a set of directories.
+#
+# Passing `sources` on is the part that matters. easykubenix defaults it to a
+# lookup that fetches the *published* umbrella when it cannot see one beside
+# it, and from a store path it never can -- so nanopynix and adios would come
+# from a pin nothing here chose, beside the ones this configuration already
+# builds.
+#
+# `system` is passed for a different reason: both files default it to
+# `builtins.currentSystem`, which a pure evaluation cannot read.
 {
   pkgs,
   inputs,
 }:
-import "${inputs.nixidae}/easykubenix" {
+let
+  umbrella = import inputs.nixidae {
+    inherit pkgs;
+    inherit (pkgs.stdenv.hostPlatform) system;
+  };
+in
+import umbrella.sources.easykubenix {
   inherit pkgs;
+  inherit (umbrella) sources;
+  inherit (pkgs.stdenv.hostPlatform) system;
   modules = [ ./modules ];
 }
