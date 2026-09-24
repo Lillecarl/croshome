@@ -134,6 +134,45 @@ inventing a third spelling of the same value in a second file.
 Tests repeat literals freely; that is what they are for. Promote a constant
 out of test code only when the same literal keeps coming back in many places.
 
+## Prefer pure functions when feasible
+
+A function that takes what it needs and returns a value, touching no state
+outside itself, is the default. Reach for a method on a stateful object, a
+mutation of an argument, or a read of a module global only when the work is
+genuinely about that state.
+
+Why, in the order the payoff arrives:
+
+- It is testable without a fixture. No object to build, no mock, no ordering.
+- It is readable from the signature. Everything that can affect the answer is
+  named in it.
+- It is reusable. A caller with different state can still call it.
+- It is safe to run twice, and safe to run concurrently.
+
+The shape this usually takes: keep the decision pure, and let the caller do
+the effect.
+
+```python
+# the decision — pure, and the only part with rules in it
+def skipped_by(failed: str, phases: list[Phase]) -> set[str]: ...
+
+# the effect — thin, and nothing to test
+for name in skipped_by(failed, self.phases):
+    self.state[name] = PhaseState.SKIPPED
+```
+
+"When feasible" is doing real work here. IO, process control and protocol
+handling are effects, and wrapping them in a pretend-pure signature is worse
+than an honest one. The rule is to put the *logic* where it can be called
+without ceremony, not to pretend nothing has effects.
+
+Two habits that follow:
+
+- A method that reads no `self` beyond its arguments wants to be a function.
+- Return a new value rather than mutating an argument in place. A function
+  that takes a list and returns nothing is a function whose contract you have
+  to read the body to learn.
+
 ## A few more that keep coming up
 
 - **All imports at the top**, or inside `if TYPE_CHECKING:`. An import inside a
