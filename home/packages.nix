@@ -123,20 +123,14 @@
     nixfmt
     statix
 
-    # `import`, and not a flake output: nanopynix is a `flake = false` input,
-    # so this reads its `default.nix` and no flake of it is evaluated. That
-    # file takes the package set that builds it, and this one carries the
-    # overlays of this configuration, so there is no second nixpkgs.
-    #
-    # macOS needs a nanopynix newer than the lock. Until Lillecarl/nanopynix#148
-    # reaches develop, this machine gets it from ../overrides.nix -- so a macOS
-    # clone without that file stops here, on nanopynix-store-exec being
-    # lib.platforms.linux. Linux builds from the lock and needs nothing.
-    #
-    # Disabled 2026-08-23 while python3.15 work happened upstream in nanopynix;
-    # its env failed to build (tornado tests) and took every rebuild down with
-    # it. Back once the base moved to stable 3.14.
-    (import "${inputs.nanopynix}" { inherit pkgs; }).pynix
+    # From the nixidae umbrella, so `nix flake update nixidae` moves pynix
+    # together with the easykubenix that ../kube builds. The umbrella hands
+    # nanopynix its own `sources`, and this package set with the overlays of
+    # this configuration, so there is no second nixpkgs.
+    (import inputs.nixidae {
+      inherit pkgs;
+      inherit (pkgs.stdenv.hostPlatform) system;
+    }).nanopynix.pynix
 
     # Scripted multi-file edits with dry-run diffs -- the tool agents reach for
     # before bash. In ../pkgs, because ../home/agents.nix links its skill.
