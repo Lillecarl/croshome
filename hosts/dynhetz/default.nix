@@ -217,9 +217,13 @@
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
           "lillecarl.cachix.org-1:NN/LLMg7mbyvZCu32Qlo8LpSHqNw7Rr3VBCEYQvRpT0="
+          "nixkube.cachix.org-1:H8UE0jlI9pxHexK/NhDmEoLDarJXp1WTymQrsajlh7M="
         ];
+        # nixkube: pynixd refuses an unsigned path from the untrusted push
+        # user, so a nixkube built here fails solid-kubernetes' kubeapply.
         substituters = [
           "https://lillecarl.cachix.org"
+          "https://nixkube.cachix.org"
         ];
         sandbox = "relaxed";
       };
