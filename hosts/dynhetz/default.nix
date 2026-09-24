@@ -198,6 +198,21 @@
           "ca-derivations"
           "dynamic-derivations"
           "recursive-nix"
+          "auto-allocate-uids"
+          "cgroups"
+        ];
+        # `uid-range`: a build gets 65536 ids and a cgroup of its own, which
+        # systemd as PID 1 in a container needs. user-mode-nixos' sandboxed
+        # container guests and nixpkgs' nspawn tests ask for it.
+        auto-allocate-uids = true;
+        use-cgroups = true;
+        # Replaces the default list, so it names the defaults too.
+        system-features = [
+          "nixos-test"
+          "benchmark"
+          "big-parallel"
+          "kvm"
+          "uid-range"
         ];
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
