@@ -247,6 +247,26 @@
     services.openssh = {
       enable = true;
       openFirewall = true;
+      settings = {
+        # What pymux asks of this sshd when a client attaches over
+        # `ssh://`. All three are openssh's own defaults, so this
+        # changes nothing today. They are written down because a later
+        # hardening pass that turns one off breaks pymux quietly:
+        # forwarding stops and the only symptom is a dead port.
+        #
+        # `AllowStreamLocalForwarding` is the one to keep. The client
+        # reaches the pymux server's unix socket over
+        # `direct-streamlocal@openssh.com`, so turning it off does not
+        # cost a feature -- it stops a remote attach working at all.
+        AllowTcpForwarding = true;
+        AllowStreamLocalForwarding = true;
+        # A remote forward binds loopback here, whatever the client
+        # asked for. That suits what `-R` is for: reaching a service on
+        # the laptop, such as Chrome's CDP port, from a pane on this
+        # machine. `clientspecified` is what would let a client publish
+        # a port on this machine's network, and it is not wanted.
+        GatewayPorts = "no";
+      };
     };
     system.stateVersion = "25.11";
   };
