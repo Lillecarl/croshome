@@ -230,6 +230,16 @@
     smartmontools # the disk knows it is dying before the filesystem does
     tcpdump # the packets themselves, when every layer above them disagrees
 
+    # Desktop integration for a terminal. `xdg-open` reads the mime
+    # associations and, finding no desktop opener, hands the URL to
+    # `$BROWSER`; ./pymux.nix points that at pymux, so a headless host still
+    # reaches the terminal in front of it. foot (./linux/foot.nix) opens URLs
+    # through it, and so do CLI tools that want a browser.
+    #
+    # Both platforms: the darwin branch of the script ends in macOS `open`,
+    # so it is not Linux-only.
+    xdg-utils
+
     # The rest
     asciinema # record a terminal session to a .cast file, replay or share it
     fish-lsp

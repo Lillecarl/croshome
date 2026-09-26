@@ -78,6 +78,13 @@
     '';
   };
 
+  # xdg-open (from ./packages.nix) runs `$BROWSER` with the URL appended. It
+  # splits that value on `:`, so a colon would read as several candidates;
+  # one entry with a space is the command and its subcommand. `open-url`
+  # sends the URL to an attached pymux client, which is how a headless host
+  # reaches the terminal in front of it.
+  home.sessionVariables.BROWSER = "pymux open-url";
+
   xdg.configFile."pymux/linked.conf".source =
     config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/pymux-linked.conf";
 }
