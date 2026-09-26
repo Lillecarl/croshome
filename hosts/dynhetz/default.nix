@@ -47,6 +47,7 @@
     ./btrfs.nix
     ./nix-gc.nix
     ./terminfo.nix
+    ./pipewire.nix
     ./mdmonitor-mail.nix
     ./openvpn.nix
     ./dynusers.nix
