@@ -10,6 +10,12 @@
   services.pipewire = {
     enable = true;
     systemWide = true;
+
+    # Pulse, and not ALSA or JACK. Pulse is the one client protocol this
+    # host serves; the other two are separate protocol modules a client does
+    # not need to reach the graph. This is also what raises
+    # services.pipewire.audio.enable, so WirePlumber handles audio.
+    pulse.enable = true;
   };
 
   # Membership is what grants a connection to the socket above, so the login
