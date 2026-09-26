@@ -82,6 +82,7 @@ in
         settings.permission.external_directory = {
           "/nix/store/**" = "allow";
           "/etc/nixpkgs/**" = "allow";
+          "/etc/home-manager/**" = "allow";
           "~/Code/**" = "allow";
           "~/.config/opencode/**" = "allow";
         };
