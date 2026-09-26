@@ -268,6 +268,20 @@
         # machine. `clientspecified` is what would let a client publish
         # a port on this machine's network, and it is not wanted.
         GatewayPorts = "no";
+        # Notice a client that stopped answering, after about 45
+        # seconds. sshd never asks by default, so a laptop that sleeps
+        # leaves its session here for as long as the kernel keeps the
+        # dead TCP connection -- and pymux drops a client only when its
+        # socket closes, so the sleeping laptop stays attached to the
+        # session and its stale terminal size keeps constraining the
+        # window. Lillecarl/pymux#446.
+        #
+        # **It applies to every session on this machine, not only
+        # pymux's.** Any response resets the count, so a link that is
+        # merely slow survives; a link with 45 seconds of complete
+        # silence is dropped.
+        ClientAliveInterval = 15;
+        ClientAliveCountMax = 3;
       };
     };
     system.stateVersion = "25.11";
