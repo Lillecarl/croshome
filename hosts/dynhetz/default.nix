@@ -182,6 +182,7 @@
       "2a01:4ff:ff00::add:2"
     ];
     environment.etc.nixpkgs.source = inputs.nixpkgs.outPath;
+    environment.etc.home-manager.source = inputs.home-manager.outPath;
     programs.bash.shellInit = lib.mkBefore ''
       if [ -n "$CLAUDECODE" ]; then
         eval "$(DIRENV_LOG_FORMAT= ${lib.getExe pkgs.direnv} hook bash)"
@@ -229,6 +230,7 @@
       };
       nixPath = [
         "nixpkgs=/etc/nixpkgs"
+        "home-manager=/etc/home-manager"
       ];
       registry = {
         nixpkgs.flake = inputs.nixpkgs;
