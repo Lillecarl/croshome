@@ -220,12 +220,15 @@
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
           "lillecarl.cachix.org-1:NN/LLMg7mbyvZCu32Qlo8LpSHqNw7Rr3VBCEYQvRpT0="
           "nixkube.cachix.org-1:H8UE0jlI9pxHexK/NhDmEoLDarJXp1WTymQrsajlh7M="
+          "ctrl-os:baPzGxj33zp/P+GAIJXsr8ss9Law+qEEFViX1+flbv8="
         ];
         # nixkube: pynixd refuses an unsigned path from the untrusted push
         # user, so a nixkube built here fails solid-kubernetes' kubeapply.
+        # cyberus-linux: solid-kubernetes' nixlab3 nodes run Cyberus Linux.
         substituters = [
           "https://lillecarl.cachix.org"
           "https://nixkube.cachix.org"
+          "https://cache.cyberus-linux.com"
         ];
         sandbox = "relaxed";
       };
