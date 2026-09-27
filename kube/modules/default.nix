@@ -43,5 +43,7 @@
     ./kubevirt.nix
     ./topolvm.nix
     ./cdi.nix
+    ./cert-manager.nix
+    ./cluster-api.nix
   ];
 }
