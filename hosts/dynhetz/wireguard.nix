@@ -57,17 +57,13 @@
 #                                    names its own address and is written
 #                                    before the node exists. Other machines
 #                                    get one from DHCPv6 out of ::1:0/112.
-#   2a01:4f9:3071:11d7:00d0::/80  -- pods of the first guest cluster on those
-#                                    machines (nixlab2). One /80 per guest
-#                                    cluster, with its node mask set to /84 so
-#                                    each of its nodes gets a real sub-prefix
-#                                    and 16 of them fit. The next guest
-#                                    cluster takes the /80 after this one.
-#   2a01:4f9:3071:11d7:00d1::/80  -- pods of the second guest cluster
-#                                    (nixlab3, solid-kubernetes). One kubeadm
-#                                    node with a bridge CNI that masquerades
-#                                    egress to the node address, so nothing
-#                                    routes this prefix yet.
+#   2a01:4f9:3071:11d7:00d0::/80  -- free. It held the pods of the guest
+#                                    cluster nixlab2, which is gone. Reuse it
+#                                    before taking a new one.
+#   2a01:4f9:3071:11d7:00d1::/80  -- pods of the guest cluster nixlab3
+#                                    (solid-kubernetes). Its nodes announce
+#                                    their /96 sub-prefixes over BGP:
+#                                    ./kubernetes/guest-routing.nix.
 #   2a01:4f9:3071:11d7:00e0::/80  -- OpenVPN clients on udp/1194, in use:
 #                                    ../openvpn.nix. IPv6-only pool, and
 #                                    the pushed route for the whole /64 that
@@ -75,7 +71,7 @@
 #   2a01:4f9:3071:11d7:00e1::/80  -- OpenVPN clients on tcp/443, in use: same
 #                                    file. Its own pool because the two server
 #                                    instances cannot share one.
-#   2a01:4f9:3071:11d7:00e2::/80  -- LoadBalancer services for the nixlab2
+#   2a01:4f9:3071:11d7:00e2::/80  -- LoadBalancer services for the nixlab3
 #                                    guest cluster. Only the first /112 out of
 #                                    it is committed:
 #                                    2a01:4f9:3071:11d7:e2::/112. The rest of

@@ -77,13 +77,13 @@ let
   # machine matching two peer-groups.
   guests = [
     {
-      name = "nixlab2";
-      asn = 64513;
-      podSubnet = "2a01:4f9:3071:11d7:d0::/80";
+      name = "nixlab3";
+      asn = 64514;
+      podSubnet = "2a01:4f9:3071:11d7:d1::/80";
       # LoadBalancer VIPs, first /112 out of the 00e2::/80 the allocation
       # table in ../wireguard.nix reserves for them.
       lbSubnet = "2a01:4f9:3071:11d7:e2::/112";
-      # The whole bridge, because nixlab2 is the only cluster on it. Not the
+      # The whole bridge, because nixlab3 is the only cluster on it. Not the
       # site /64: that also holds the pod prefix, the VIP pool and eth0.
       nodeSubnet = network.vmSubnet;
     }

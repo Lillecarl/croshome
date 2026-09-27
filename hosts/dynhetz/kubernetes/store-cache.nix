@@ -1,9 +1,11 @@
-# This machine's Nix store as a binary cache for the cluster on it.
-# nixkube's node pods substitute from it (../../../kube/modules/nixkube.nix),
-# so a pod can run a store path built here without a push to anywhere.
+# This machine's Nix store as a binary cache for the clusters on it.
+# nixkube's node pods substitute from it, on the host cluster
+# (../../../kube/modules/nixkube.nix) and in the guest cluster nixlab3
+# (solid-kubernetes), so a pod can run a store path built here without a
+# push to anywhere.
 #
-# nix-serve-ng listens on every address, and the firewall opens port 5000
-# on no interface. cni0 is trusted (./default.nix), so only pods reach it.
+# nix-serve-ng listens on every address. cni0 is trusted (./default.nix),
+# and the firewall opens port 5000 on the VM bridge for the guest nodes.
 #
 # The signing key is made on this machine the first time and stays here.
 # Its public half is a literal in the nixkube module:
@@ -12,8 +14,11 @@
 { config, pkgs, ... }:
 let
   keyDir = "/var/lib/nix-serve-key";
+  network = import ./network.nix;
 in
 {
+  networking.firewall.interfaces.${network.vmBridge}.allowedTCPPorts = [ 5000 ];
+
   services.nix-serve = {
     enable = true;
     package = pkgs.nix-serve-ng;
