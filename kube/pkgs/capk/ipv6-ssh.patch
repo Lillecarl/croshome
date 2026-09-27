@@ -1,0 +1,13 @@
+diff --git a/pkg/ssh/ssh_command_executor.go b/pkg/ssh/ssh_command_executor.go
+index ec680b51b0..a149238289 100644
+--- a/pkg/ssh/ssh_command_executor.go
++++ b/pkg/ssh/ssh_command_executor.go
+@@ -61,7 +61,7 @@
+ 		},
+ 	}
+ 
+-	hostAddress := strings.Join([]string{e.IPAddress, "22"}, ":")
++	hostAddress := net.JoinHostPort(e.IPAddress, "22")
+ 
+ 	connection, err := ssh.Dial("tcp", hostAddress, sshConfig)
+ 	if err != nil {
