@@ -135,7 +135,9 @@ let
   # Extra devices of one account, each a peer of its own: its own key, its
   # own address from the hash of `name`, so it can be connected at the
   # same time as the account's own profiles. Its files land in the
-  # owner's home as wg-dynhetz-<device>-*.conf.
+  # owner's home as wg-<device>-*.conf: the Android app names a tunnel
+  # after the file and refuses a name longer than 15 characters, and
+  # wg-dynhetz-phone-dual is 21.
   wgDevices = [
     {
       name = "lillecarl-phone";
@@ -154,7 +156,7 @@ let
     }) wgUsers
     ++ map (d: {
       inherit (d) name owner;
-      prefix = "wg-dynhetz-${d.device}";
+      prefix = "wg-${d.device}";
     }) wgDevices;
 
   # WireGuard has no address assignment. A peer's address is written into its
