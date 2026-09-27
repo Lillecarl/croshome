@@ -37,6 +37,9 @@ rec {
   vmSubnet = "2a01:4f9:3071:11d7:c0::/80";
   vmGateway = "2a01:4f9:3071:11d7:c0::1";
   vmBridge = "talos0";
+  # What DHCPv6 hands out on the bridge. Clear of the low addresses a
+  # machine's declaration picks itself: nixlab2's nodes use ::10 to ::14.
+  vmDhcpPool = "2a01:4f9:3071:11d7:c0::1:0 - 2a01:4f9:3071:11d7:c0::1:ffff";
 
   # The pod network, written from Nix rather than after the fact.
   #

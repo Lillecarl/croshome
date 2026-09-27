@@ -29,11 +29,11 @@
 # "default" matters as much as "all" for an interface created after boot. That
 # applies here too, and this file deliberately does not set it again: a sysctl
 # is a unique option, and two plain definitions of the same value conflict.
-{ lib, ... }:
+{ config, lib, ... }:
 let
   network = import ./network.nix;
 
-  inherit (network) vmBridge vmGateway;
+  inherit (network) vmBridge vmGateway vmSubnet;
 
   prefixLength = lib.last (lib.splitString "/" network.vmSubnet);
 in
@@ -98,14 +98,27 @@ in
         # prefix only exist once a machine is running, which is exactly when
         # they are too late to be useful.
         ConfigureWithoutCarrier = true;
-        # Nothing here advertises anything, and nothing here listens to an
-        # advertisement. A machine on this bridge is given its address by the
-        # object that declares it, never by discovery -- see ./network.nix's
-        # `vmSubnet` for why. A router advertisement would offer a second,
-        # different answer to a question already settled.
         IPv6AcceptRA = false;
-        IPv6SendRA = false;
+        # Advertise this host as the default router, with the Managed flag:
+        # a machine takes its address from DHCPv6 below, because a /80
+        # cannot do SLAAC. A machine that states its own address, such as a
+        # Talos node whose certificate names it, still does.
+        IPv6SendRA = true;
       };
+      ipv6SendRAConfig = {
+        Managed = true;
+        OtherInformation = true;
+        EmitDNS = true;
+        DNS = [ config.dynhetz.kubernetes.nodeIP ];
+      };
+      # On-link, not for autoconfiguration.
+      ipv6Prefixes = [
+        {
+          Prefix = vmSubnet;
+          OnLink = true;
+          AddressAutoconfiguration = false;
+        }
+      ];
       # `routable`, and it is reached: the dummy port above gives the bridge
       # carrier, and the address below is static, so nothing here waits on a
       # lease or a peer. Stated rather than left to the default so that a
@@ -127,7 +140,37 @@ in
     # quietly in a different way.
     networking.firewall.interfaces.${vmBridge} = {
       allowedTCPPorts = [ 53 ];
-      allowedUDPPorts = [ 53 ];
+      allowedUDPPorts = [
+        53
+        # DHCPv6
+        547
+      ];
+    };
+
+    # Addresses for machines that are declared without one, such as a
+    # Cluster API machine: every machine in a KubeadmConfigTemplate gets the
+    # same user-data, so none can carry its own address. A lease follows
+    # the machine's DUID, which NixOS derives from its machine-id, so a
+    # machine keeps its address across reboots.
+    services.kea.dhcp6 = {
+      enable = true;
+      settings = {
+        interfaces-config.interfaces = [ vmBridge ];
+        subnet6 = [
+          {
+            id = 1;
+            subnet = vmSubnet;
+            interface = vmBridge;
+            pools = [ { pool = network.vmDhcpPool; } ];
+            option-data = [
+              {
+                name = "dns-servers";
+                data = config.dynhetz.kubernetes.nodeIP;
+              }
+            ];
+          }
+        ];
+      };
     };
   };
 }

@@ -52,11 +52,11 @@
 #   2a01:4f9:3071:11d7:00c0::/80  -- virtual machines run by KubeVirt in that
 #                                    cluster, on the talos0 bridge. In use:
 #                                    ../dynhetz/kubernetes/vm-network.nix. A
-#                                    machine's address is chosen by whoever
-#                                    declares it, not handed out, because a
-#                                    Talos node's API certificate names its
-#                                    own address and is written before the
-#                                    node exists.
+#                                    Talos node's address is chosen by whoever
+#                                    declares it, because its API certificate
+#                                    names its own address and is written
+#                                    before the node exists. Other machines
+#                                    get one from DHCPv6 out of ::1:0/112.
 #   2a01:4f9:3071:11d7:00d0::/80  -- pods of the first guest cluster on those
 #                                    machines (nixlab2). One /80 per guest
 #                                    cluster, with its node mask set to /84 so
