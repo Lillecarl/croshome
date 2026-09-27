@@ -33,6 +33,11 @@ in
         plugins."io.containerd.grpc.v1.cri" = lib.mkForce { };
         plugins."io.containerd.cri.v1.runtime" = {
           containerd.runtimes.runc.options.SystemdCgroup = true;
+          # A Block-mode volume's device node takes the pod's runAsUser.
+          # Without it CDI's non-root importer fails on a blank Block
+          # DataVolume: `blockdev: cannot open /dev/cdi-block-volume:
+          # Permission denied` (nixlab3's OSD disks, 2026-09-27).
+          device_ownership_from_security_context = true;
           # No copy into /opt/cni/bin. Nothing writes to these binaries and the
           # store path is already on the node, so a store path is both the
           # binary and the version pin.
