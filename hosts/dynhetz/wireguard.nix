@@ -132,6 +132,31 @@ let
     lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./dynusers)
   ) ++ [ "lillecarl" ];
 
+  # Extra devices of one account, each a peer of its own: its own key, its
+  # own address from the hash of `name`, so it can be connected at the
+  # same time as the account's own profiles. Its files land in the
+  # owner's home as wg-dynhetz-<device>-*.conf.
+  wgDevices = [
+    {
+      name = "lillecarl-phone";
+      owner = "lillecarl";
+      device = "phone";
+    }
+  ];
+
+  # Every peer: name (hashed into its addresses), owner (whose home gets
+  # the files) and the file prefix.
+  wgPeers =
+    map (user: {
+      name = user;
+      owner = user;
+      prefix = "wg-dynhetz";
+    }) wgUsers
+    ++ map (d: {
+      inherit (d) name owner;
+      prefix = "wg-dynhetz-${d.device}";
+    }) wgDevices;
+
   # WireGuard has no address assignment. A peer's address is written into its
   # own config and repeated in the server's allowed-ips, and the two must
   # agree forever -- so the address has to be a pure function of something
@@ -166,7 +191,7 @@ let
   noCollision =
     family: f:
     let
-      addrs = map f wgUsers;
+      addrs = map (p: f p.name) wgPeers;
       dupes = lib.subtractLists (lib.unique addrs) addrs;
     in
     lib.assertMsg (dupes == [ ]) (
@@ -174,9 +199,9 @@ let
       + "Change the salt in `hashOf`."
     );
 
-  peerLines = lib.concatMapStrings (user: ''
-    wg_user_peer ${user} ${userV4 user} ${userV6 user}
-  '') wgUsers;
+  peerLines = lib.concatMapStrings (p: ''
+    wg_user_peer ${p.name} ${userV4 p.name} ${userV6 p.name} ${p.owner} ${p.prefix}
+  '') wgPeers;
 in
 assert noCollision "IPv4" userV4;
 assert noCollision "IPv6" userV6;
@@ -252,7 +277,7 @@ assert noCollision "IPv6" userV6;
       install -d -m 0700 users
 
       wg_user_peer() {
-        local user="$1" v4="$2" v6="$3"
+        local user="$1" v4="$2" v6="$3" owner="$4" prefix="$5"
 
         if [ ! -f "users/$user.key" ]; then
           wg genkey > "users/$user.key"
@@ -450,19 +475,19 @@ assert noCollision "IPv6" userV6;
         # or no home. Neither is worth failing the unit for -- an unconfigured
         # peer is harmless, a wg-dynhetz that never comes up is not, and this
         # runs before the MikroTik peer would be restored on a later boot.
-        if id -u "$user" >/dev/null 2>&1 && [ -d "/home/$user" ]; then
-          install -o "$user" -g users -m 0600 \
-            "users/$user-lab.conf" "/home/$user/wg-dynhetz-lab.conf" || true
-          install -o "$user" -g users -m 0600 \
-            "users/$user-v6.conf" "/home/$user/wg-dynhetz-v6.conf" || true
-          install -o "$user" -g users -m 0600 \
-            "users/$user-dual.conf" "/home/$user/wg-dynhetz-dual.conf" || true
+        if id -u "$owner" >/dev/null 2>&1 && [ -d "/home/$owner" ]; then
+          install -o "$owner" -g users -m 0600 \
+            "users/$user-lab.conf" "/home/$owner/$prefix-lab.conf" || true
+          install -o "$owner" -g users -m 0600 \
+            "users/$user-v6.conf" "/home/$owner/$prefix-v6.conf" || true
+          install -o "$owner" -g users -m 0600 \
+            "users/$user-dual.conf" "/home/$owner/$prefix-dual.conf" || true
 
           # The previous names, removed rather than left to rot. wg-dynhetz.conf
           # was lab-only and wg-dynhetz-full.conf blackholed IPv4; leaving
           # either in a home means somebody imports it next month and hits a
           # fault we already fixed.
-          rm -f "/home/$user/wg-dynhetz.conf" "/home/$user/wg-dynhetz-full.conf"
+          rm -f "/home/$owner/wg-dynhetz.conf" "/home/$owner/wg-dynhetz-full.conf"
         fi
       }
 
