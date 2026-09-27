@@ -2,36 +2,36 @@
 # nixkube's node pods substitute from it (../../../kube/modules/nixkube.nix),
 # so a pod can run a store path built here without a push to anywhere.
 #
-# harmonia listens on every address, and the firewall opens port 5000 on
-# no interface. cni0 is trusted (./default.nix), so only pods reach it.
+# nix-serve-ng listens on every address, and the firewall opens port 5000
+# on no interface. cni0 is trusted (./default.nix), so only pods reach it.
 #
 # The signing key is made on this machine the first time and stays here.
 # Its public half is a literal in the nixkube module:
 #
-#   cat /var/lib/harmonia-key/key.pub
-{ config, ... }:
+#   cat /var/lib/nix-serve-key/key.pub
+{ config, pkgs, ... }:
 let
-  keyDir = "/var/lib/harmonia-key";
+  keyDir = "/var/lib/nix-serve-key";
 in
 {
-  services.harmonia.cache = {
+  services.nix-serve = {
     enable = true;
-    signKeyPaths = [ "${keyDir}/key" ];
+    package = pkgs.nix-serve-ng;
+    # The default is IPv4 only, and pods here are IPv6 only. warp's name
+    # for any IPv6 address: nix-serve-ng's --listen parser rejects an IPv6
+    # literal, bracketed or not.
+    bindAddress = "*6";
+    secretKeyFile = "${keyDir}/key";
   };
 
-  systemd.services.harmonia-keygen = {
-    description = "Make harmonia's signing key and its public half";
-    # multi-user.target too, so a switch runs a changed script while
-    # harmonia is already up.
-    wantedBy = [
-      "harmonia.service"
-      "multi-user.target"
-    ];
-    before = [ "harmonia.service" ];
+  systemd.services.nix-serve-keygen = {
+    description = "Make nix-serve's signing key and its public half";
+    wantedBy = [ "nix-serve.service" ];
+    before = [ "nix-serve.service" ];
     path = [ config.nix.package ];
     serviceConfig = {
       Type = "oneshot";
-      StateDirectory = "harmonia-key";
+      StateDirectory = "nix-serve-key";
       # The directory is readable so the public key is. The secret key is
       # 0600 by the umask.
       StateDirectoryMode = "0755";
@@ -39,7 +39,7 @@ in
     };
     script = ''
       if [ ! -e ${keyDir}/key ]; then
-        nix key generate-secret --key-name ${config.networking.hostName}-harmonia-1 > ${keyDir}/key.tmp
+        nix key generate-secret --key-name ${config.networking.hostName}-nix-serve-1 > ${keyDir}/key.tmp
         mv ${keyDir}/key.tmp ${keyDir}/key
       fi
       nix key convert-secret-to-public < ${keyDir}/key > ${keyDir}/key.pub
