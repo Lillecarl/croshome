@@ -63,5 +63,10 @@ import umbrella.sources.easykubenix {
   inherit pkgs;
   inherit (umbrella) sources;
   inherit (pkgs.stdenv.hostPlatform) system;
-  modules = [ ./modules ];
+  modules = [
+    ./modules
+    # nixkube's module tree, from the same umbrella. See ./modules/nixkube.nix.
+    (umbrella.sources.nixkube + "/kubenix")
+    { _module.args.sources = import (umbrella.sources.nixkube + "/nix/sources.nix"); }
+  ];
 }

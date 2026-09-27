@@ -45,5 +45,6 @@
     ./cdi.nix
     ./cert-manager.nix
     ./cluster-api.nix
+    ./nixkube.nix
   ];
 }
