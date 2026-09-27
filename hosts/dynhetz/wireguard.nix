@@ -500,7 +500,9 @@ assert noCollision "IPv6" userV6;
       for keyfile in users/*.key; do
         [ -e "$keyfile" ] || continue
         stale="$(basename "$keyfile" .key)"
-        case " ${lib.concatStringsSep " " wgUsers} " in
+        # Every peer, devices included: a list of accounts alone deletes a
+        # device's key on the activation that created it.
+        case " ${lib.concatStringsSep " " (map (p: p.name) wgPeers)} " in
           *" $stale "*) continue ;;
         esac
         wg set wg-dynhetz peer "$(cat "users/$stale.pub")" remove || true
