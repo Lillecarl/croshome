@@ -63,6 +63,11 @@
 #                                    each of its nodes gets a real sub-prefix
 #                                    and 16 of them fit. The next guest
 #                                    cluster takes the /80 after this one.
+#   2a01:4f9:3071:11d7:00d1::/80  -- pods of the second guest cluster
+#                                    (nixlab3, solid-kubernetes). One kubeadm
+#                                    node with a bridge CNI that masquerades
+#                                    egress to the node address, so nothing
+#                                    routes this prefix yet.
 #   2a01:4f9:3071:11d7:00e0::/80  -- OpenVPN clients on udp/1194, in use:
 #                                    ../openvpn.nix. IPv6-only pool, and
 #                                    the pushed route for the whole /64 that
