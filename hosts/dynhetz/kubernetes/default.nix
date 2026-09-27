@@ -24,6 +24,7 @@
 #                       once, able to recover from its own failure.
 #   ./node.nix          kubelet, and the resolver it hands every pod.
 #   ./kube-nuke.nix     how to throw the cluster away and start again.
+#   ./store-cache.nix   this machine's Nix store, served to the cluster's pods.
 #
 # The values below are options rather than a `let` block because they are read
 # across those files, and by ../nat64.nix, which needs the pod subnet and the
@@ -114,6 +115,7 @@ in
     ./provision.nix
     ./node.nix
     ./kube-nuke.nix
+    ./store-cache.nix
   ];
 
   options.dynhetz.kubernetes = {
