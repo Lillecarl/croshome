@@ -20,6 +20,8 @@
   services.aid = {
     enable = true;
     package = pkgs.aid;
+    # aid's claude-tty sessions run in a pymux server aid starts with this.
+    pymuxPackage = (import inputs.pyterm { inherit pkgs; }).pymux;
     extraPackages = [ pkgs.claude-agent-acp ];
     environment.WRAPTY_DISABLE = "1";
   };
