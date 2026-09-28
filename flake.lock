@@ -38,6 +38,22 @@
         "type": "github"
       }
     },
+    "aid": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790608867,
+        "narHash": "sha256-BPGeQnTziZ25GScR1+TDT2qj6v1zO1jJaOuwH7Jmy0s=",
+        "owner": "Lillecarl",
+        "repo": "aid",
+        "rev": "b0063fd8aaddecc6bfab0f4b3e4b9cc47c4d4ac9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "repo": "aid",
+        "type": "github"
+      }
+    },
     "bun2nix": {
       "inputs": {
         "flake-parts": "flake-parts",
@@ -457,6 +473,7 @@
       "inputs": {
         "acpcli": "acpcli",
         "agenix": "agenix",
+        "aid": "aid",
         "bun2nix": "bun2nix",
         "catppuccin": "catppuccin",
         "crane": "crane",

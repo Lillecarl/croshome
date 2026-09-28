@@ -399,6 +399,8 @@ in
   # share/skills/pyedit/pyedit.
   pyedit = (import "${inputs.pyedit}" { pkgs = final; }).pyedit;
 
+  aid = (import "${inputs.aid}" { pkgs = final; }).aid;
+
   # `pyjj`, the CLI, and `pyjjui`, the TUI. Both rest on pyjj-bindings, which
   # compiles jj-lib and the crate tree under it from source -- so the first
   # build of either is a long Rust build, and the second is free.

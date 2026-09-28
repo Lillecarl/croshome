@@ -1,11 +1,28 @@
-{ lib, osConfig, pkgs, ... }:
+{
+  inputs,
+  lib,
+  osConfig,
+  pkgs,
+  ...
+}:
 {
   imports = [
     ../../home
     # The message hub's MCP server and CLI. The daemon runs as the user
     # service below; ../../home/claude/skills/ocahub documents the tools.
     ../../home/ocahub-mcp.nix
+    "${inputs.aid}/nix/home-manager.nix"
   ];
+
+  # The AI daemon, as a user service. Its agents would otherwise inherit
+  # WAPTY_ID from whichever wrapped session a restart runs under; see
+  # ../../home/wrapty.nix.
+  services.aid = {
+    enable = true;
+    package = pkgs.aid;
+    extraPackages = [ pkgs.claude-agent-acp ];
+    environment.WRAPTY_DISABLE = "1";
+  };
 
   # The cross-agent message hub: a ZeroMQ broker every agent session
   # registers with. Idle it is one epoll-waiting process; Restart=always

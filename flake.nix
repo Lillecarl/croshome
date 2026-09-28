@@ -154,6 +154,14 @@
       flake = false;
     };
 
+    # The AI daemon: persistent ACP and pydantic-ai agents. A source tree like
+    # pyedit; its default.nix also exports the home-manager module that
+    # ./hosts/dynhetz/home.nix imports.
+    aid = {
+      url = "github:Lillecarl/aid";
+      flake = false;
+    };
+
     # Python bindings for Jujutsu, with a CLI and a TUI built on them.
     #
     # A source tree, and not a flake, for the same reason as nanopynix above,
