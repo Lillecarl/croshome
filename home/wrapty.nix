@@ -30,6 +30,12 @@
 # changing wrapty does. Confirmed by an MCP call against a stale session
 # rejecting an argument the new wrapty had just gained.
 #
+# WRAPTY_DISABLE=1 turns wrapty off for a process tree: the hooks, the MCP
+# server and the statusline act as if WAPTY_ID were unset, and `wrapty CMD`
+# execs CMD unwrapped. The plugin stays installed, because it loads for every
+# Claude Code session. Set it for agents a daemon runs (aid, for one), since
+# they inherit WAPTY_ID from the session that started the daemon.
+#
 # ~/.claude/settings.json as a whole is deliberately NOT nix-managed: Claude
 # Code itself writes to that file at runtime (plugin toggles, model
 # selection, trust state), so a nix-generated copy would either get silently

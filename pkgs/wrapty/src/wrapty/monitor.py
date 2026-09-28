@@ -36,7 +36,7 @@ import os
 import socket
 import sys
 
-from wrapty.client import call, runtime_dir
+from wrapty.client import call, runtime_dir, session_id
 
 
 def _inbox_dir() -> str:
@@ -48,9 +48,9 @@ def _socket_path(session_id: str) -> str:
 
 
 def _session_id() -> str:
-    wapty_id = os.environ.get("WAPTY_ID")
+    wapty_id = session_id()
     if not wapty_id:
-        sys.exit("not running under wrapty (WAPTY_ID is not set)")
+        sys.exit("not running under wrapty (WAPTY_ID is not set, or WRAPTY_DISABLE=1)")
     return wapty_id
 
 
@@ -141,8 +141,8 @@ def _listen(args):
 
 
 def _post(args):
-    session_id = args.to or os.environ.get("WAPTY_ID")
-    if not session_id:
+    target = args.to or session_id()
+    if not target:
         sys.exit(
             "no session to post to: pass --to ID, or set WAPTY_ID. "
             "`wrapty-monitor list` shows the sessions that are listening."
@@ -153,7 +153,7 @@ def _post(args):
     if not text:
         sys.exit("refusing to post an empty message")
 
-    path = _socket_path(session_id)
+    path = _socket_path(target)
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     try:
         sock.settimeout(5)
@@ -163,9 +163,9 @@ def _post(args):
         # waits for a close that only comes when this process exits.
         sock.shutdown(socket.SHUT_WR)
     except FileNotFoundError:
-        sys.exit(f"nothing is listening for session {session_id}")
+        sys.exit(f"nothing is listening for session {target}")
     except ConnectionRefusedError:
-        sys.exit(f"session {session_id} left a stale socket behind; it is not listening")
+        sys.exit(f"session {target} left a stale socket behind; it is not listening")
     finally:
         sock.close()
     print("posted")
@@ -184,10 +184,10 @@ def _list(_args):
     if not live:
         print("no sessions are listening")
         return
-    here = os.environ.get("WAPTY_ID")
-    for session_id in live:
-        mine = "  (this session)" if session_id == here else ""
-        print(f"{session_id}{mine}")
+    here = session_id()
+    for live_id in live:
+        mine = "  (this session)" if live_id == here else ""
+        print(f"{live_id}{mine}")
 
 
 def main():

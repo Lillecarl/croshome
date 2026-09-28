@@ -27,6 +27,7 @@ from jsonrpc.exceptions import (
 from jsonrpc.jsonrpc2 import JSONRPC20Request, JSONRPC20Response
 
 from wrapty import journal, transcript
+from wrapty.client import disabled
 
 # Apps that distinguish typed input from a paste (Claude Code's own input box
 # included) treat a burst of text ending in Enter, delivered in one go, as a
@@ -1065,6 +1066,8 @@ def main():
     if not argv:
         print("usage: wrapty CMD [ARGS...]", file=sys.stderr)
         sys.exit(1)
+    if disabled():
+        os.execvp(argv[0], argv)
     sys.exit(asyncio.run(_run(argv)))
 
 

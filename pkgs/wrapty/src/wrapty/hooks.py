@@ -2,7 +2,8 @@
 
 Both hooks read the hook JSON from stdin and call into the wrapping wrapty
 session's control socket via WAPTY_ID. If there's no WAPTY_ID (not running
-under wrapty) or the socket call fails, they print nothing and exit clean.
+under wrapty), WRAPTY_DISABLE=1 is set, or the socket call fails, they print
+nothing and exit clean.
 The Stop hook, when it does nudge, genuinely blocks the stop (decision:
 block) so the agent is forced to keep working rather than just seeing an
 advisory message on its next turn. The PostToolUse hook only ever emits an
@@ -21,7 +22,7 @@ import sys
 
 import jinja2
 
-from wrapty.client import call
+from wrapty.client import call, session_id
 
 # Below LOW_WATERMARK_PCT, the PostToolUse hook never nudges. Between
 # LOW_WATERMARK_PCT and MAX_CONTEXT_PCT, it nudges with linearly increasing
@@ -116,7 +117,7 @@ def _last_assistant_stop_reason(transcript_path):
 
 def main_stop():
     hook_input = json.load(sys.stdin)
-    wapty_id = os.environ.get("WAPTY_ID")
+    wapty_id = session_id()
     if not wapty_id:
         return
 
@@ -169,7 +170,7 @@ def main_stop():
 
 def main_posttooluse():
     json.load(sys.stdin)
-    wapty_id = os.environ.get("WAPTY_ID")
+    wapty_id = session_id()
     if not wapty_id:
         return
 

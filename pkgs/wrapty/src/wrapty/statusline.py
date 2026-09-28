@@ -5,10 +5,9 @@ status line."""
 import asyncio
 import json
 import sys
-import os
 import time
 
-from wrapty.client import call
+from wrapty.client import call, session_id
 
 # Above this, a window is close enough to full that the time to its reset
 # changes what you do next. Below it the reset is noise, so the line omits it.
@@ -84,7 +83,7 @@ def _render(payload, now=None):
 
 
 async def _report(payload):
-    wapty_id = os.environ.get("WAPTY_ID")
+    wapty_id = session_id()
     if not wapty_id:
         return
     try:

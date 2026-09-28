@@ -6,6 +6,26 @@ import os
 from jsonrpc.jsonrpc2 import JSONRPC20Request, JSONRPC20Response
 
 
+DISABLE_ENV = "WRAPTY_DISABLE"
+
+
+def disabled() -> bool:
+    return os.environ.get(DISABLE_ENV) == "1"
+
+
+def session_id() -> str | None:
+    """The wrapty session this process belongs to, or None.
+
+    None outside wrapty, and under WRAPTY_DISABLE=1. WAPTY_ID is inherited by
+    everything a wrapped session spawns, so a daemon started from one passes
+    it on to every agent it runs, and their hooks reach this session's control
+    socket. WRAPTY_DISABLE=1 cuts that link for a whole process tree.
+    """
+    if disabled():
+        return None
+    return os.environ.get("WAPTY_ID") or None
+
+
 def runtime_dir() -> str:
     return os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "wrapty")
 

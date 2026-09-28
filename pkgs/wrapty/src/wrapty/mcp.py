@@ -6,19 +6,17 @@ Runs as a subprocess of the Claude Code session wrapty wrapped, so it
 inherits WAPTY_ID from the environment automatically -- there is exactly one
 session it could mean, so tools don't take a session id."""
 
-import os
-
 from mcp.server.fastmcp import FastMCP
 
-from wrapty.client import call
+from wrapty.client import call, session_id
 
 mcp = FastMCP("wrapty")
 
 
 def _session_id() -> str:
-    wapty_id = os.environ.get("WAPTY_ID")
+    wapty_id = session_id()
     if not wapty_id:
-        raise RuntimeError("Not running under wrapty (WAPTY_ID is not set).")
+        raise RuntimeError("Not running under wrapty (WAPTY_ID is not set, or WRAPTY_DISABLE=1).")
     return wapty_id
 
 
