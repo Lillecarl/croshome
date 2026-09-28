@@ -222,6 +222,20 @@ in
     armor = true;
   };
 
+  # aid's environment: API keys for the model providers its pydantic-ai agents
+  # use, one KEY=value per line (DEEPSEEK_API_KEY so far). ../hosts/dynhetz/home.nix
+  # decrypts it with home agenix and hands it to aid.service as its
+  # EnvironmentFile, so every agent inherits it. Same recipients as
+  # migadu-pass, for the same reasons: read by a user service, so the user
+  # key and no host key.
+  "aid-env.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl-ssh
+    ];
+    armor = true;
+  };
+
   # Adding another: name it here and in `age.secrets` in ./default.nix. Naming
   # it in only one of the two places is the usual mistake -- this file decides
   # who *can* decrypt, that file decides what actually gets decrypted and where

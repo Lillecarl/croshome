@@ -25,6 +25,15 @@
     pymuxPackage = (import inputs.pyterm { inherit pkgs; }).pymux;
     extraPackages = [ pkgs.claude-agent-acp ];
     environment.WRAPTY_DISABLE = "1";
+    # Model provider API keys (../../secrets/secrets.nix, aid-env.age). `%t`
+    # and not the secret's `path`: that holds a literal ${XDG_RUNTIME_DIR},
+    # which EnvironmentFile does not expand.
+    environmentFile = "%t/agenix/aid-env";
+  };
+  age.secrets.aid-env.file = ../../secrets/aid-env.age;
+  systemd.user.services.aid.Unit = {
+    Requires = [ "agenix.service" ];
+    After = [ "agenix.service" ];
   };
 
   # The cross-agent message hub: a ZeroMQ broker every agent session
