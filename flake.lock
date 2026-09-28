@@ -41,11 +41,11 @@
     "aid": {
       "flake": false,
       "locked": {
-        "lastModified": 1790635129,
-        "narHash": "sha256-Knxqw4NxAEQoOfHZwuGOu2LkRenEXiRk+BpfHeWZLQw=",
+        "lastModified": 1790635855,
+        "narHash": "sha256-xOrPL69x6sCSOQwGtvJ8FMkGvYVWo45Qb15FREzv87U=",
         "owner": "Lillecarl",
         "repo": "aid",
-        "rev": "2230a5ffbf21582ea6a445aa13f3891d0e10d38b",
+        "rev": "2b6c3a9f75302c2c586cd8bef36962dbc9149393",
         "type": "github"
       },
       "original": {
