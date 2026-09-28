@@ -12,6 +12,7 @@
     # service below; ../../home/claude/skills/ocahub documents the tools.
     ../../home/ocahub-mcp.nix
     "${inputs.aid}/nix/home-manager.nix"
+    ./aid-web.nix
   ];
 
   # The AI daemon, as a user service. Its agents would otherwise inherit
