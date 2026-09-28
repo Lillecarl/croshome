@@ -1,4 +1,5 @@
 {
+  config,
   inputs,
   lib,
   osConfig,
@@ -29,6 +30,13 @@
     # and not the secret's `path`: that holds a literal ${XDG_RUNTIME_DIR},
     # which EnvironmentFile does not expand.
     environmentFile = "%t/agenix/aid-env";
+    # Where aid finds pydantic-ai agents: modules defining aid.PydanticAgent
+    # subclasses. Your own go in the first; the second is aid's examples, at the
+    # pinned revision. Edits need no restart, only a new listing.
+    agentsPath = [
+      "${config.xdg.configHome}/aid/agents"
+      "${inputs.aid}/examples"
+    ];
   };
   age.secrets.aid-env.file = ../../secrets/aid-env.age;
   systemd.user.services.aid.Unit = {
