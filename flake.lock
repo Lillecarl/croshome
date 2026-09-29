@@ -41,11 +41,11 @@
     "aid": {
       "flake": false,
       "locked": {
-        "lastModified": 1790645992,
-        "narHash": "sha256-kzUin/5DeLOt9msjwDhqZJurOvqIK5Tw5A8GwRo5PnM=",
+        "lastModified": 1790652814,
+        "narHash": "sha256-pySmW7sEfROrPqV4NvLi6QYVT5qX9FAmCaiKv6Zd5uY=",
         "owner": "Lillecarl",
         "repo": "aid",
-        "rev": "71531907c560e617b7acd14c23171098e9ea39ac",
+        "rev": "2e5515419dba0c6a82d71385e7d44f95a60a616a",
         "type": "github"
       },
       "original": {
@@ -454,11 +454,11 @@
     "pyterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1790645800,
-        "narHash": "sha256-PwQMyimClQjf9nox6Ql7/9CeH/WQCEmicGTWBtEKNr4=",
+        "lastModified": 1790652580,
+        "narHash": "sha256-nMED4Ap5sY2L1Q+YgNv3sSO+a5nTvUP0ORipO56/46g=",
         "ref": "refs/heads/main",
-        "rev": "e6d6781db9ed0e3aa9fe6ea46e810c005009f0d3",
-        "revCount": 576,
+        "rev": "23a3fff1c14004f01e237825d6a6d80e09ddf3a1",
+        "revCount": 582,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Lillecarl/pyterm"
