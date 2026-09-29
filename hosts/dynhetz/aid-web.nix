@@ -79,6 +79,8 @@ in
     allowEmails = [ email ];
     environmentFile = envFile;
     speechModel = config.services.aid.package.speechModel;
+    # The same colours as the terminal: pymux's theme spelling.
+    theme = config.programs.pymux.clientSettings.theme;
   };
 
   systemd.user.services = {
