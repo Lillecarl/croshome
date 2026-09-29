@@ -16,6 +16,7 @@ import pty
 import select
 import subprocess
 import sys
+import tempfile
 import time
 
 import pytest
@@ -26,18 +27,21 @@ DEADLINE = 30.0
 
 
 def _short_dir(tmp_path):
-    """The shortest writable directory available, for the control socket.
+    """A fresh directory with a short path, for the control socket.
 
     AF_UNIX paths cannot exceed 104 bytes on darwin, and a build sandbox puts
     pytest's tmp_path well past that -- the same reason test_control_socket.py
     picks its own directory.
+
+    Not /tmp: the darwin sandbox shares the host's /tmp, so a /tmp/wrapty left
+    by one nixbld user makes bind fail with EACCES for every other one.
     """
     best = str(tmp_path)
-    for candidate in (os.getcwd(), os.environ.get("TMPDIR", ""), "/tmp"):
+    for candidate in (os.getcwd(), os.environ.get("TMPDIR", "")):
         if candidate and os.path.isdir(candidate) and os.access(candidate, os.W_OK):
             if len(candidate) < len(best):
                 best = candidate
-    return best
+    return tempfile.mkdtemp(dir=best)
 
 
 class Session:
@@ -68,14 +72,15 @@ class Session:
 
 
 @pytest.fixture
-def start_wrapty(tmp_path):
+def start_wrapty(tmp_path, monkeypatch):
     """Start a wrapped session. Keyword arguments become environment
     variables, which is how the knobs in wrapper.py are set for a test."""
     sessions = []
+    # Set in this process too: wrapty.client reads it to find the socket.
+    monkeypatch.setenv("XDG_RUNTIME_DIR", _short_dir(tmp_path))
 
     def start(**env_overrides):
         env = dict(os.environ)
-        env["XDG_RUNTIME_DIR"] = _short_dir(tmp_path)
         env.update(env_overrides)
 
         master_fd, slave_fd = pty.openpty()

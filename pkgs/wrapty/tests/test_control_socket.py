@@ -24,9 +24,10 @@ from wrapty import wrapper as wrapty
 def _sock_dir():
     """AF_UNIX paths cannot exceed 104 bytes on macOS, and a sandboxed build
     host puts pytest's tmp_path well past that. Pick the shortest writable
-    directory available for the socket file instead."""
+    directory available for the socket file instead. Not /tmp, which the
+    darwin sandbox shares with the host and with other builds."""
     best = None
-    for d in (os.getcwd(), os.environ.get("TMPDIR", ""), "/tmp"):
+    for d in (os.getcwd(), os.environ.get("TMPDIR", "")):
         if d and os.path.isdir(d) and os.access(d, os.W_OK):
             p = os.path.join(d, "control.sock")
             if best is None or len(p) < len(best):
