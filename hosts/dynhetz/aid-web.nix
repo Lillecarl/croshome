@@ -78,6 +78,7 @@ in
     inherit issuer;
     allowEmails = [ email ];
     environmentFile = envFile;
+    speechModel = config.services.aid.package.speechModel;
   };
 
   systemd.user.services = {
