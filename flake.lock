@@ -322,11 +322,11 @@
     "nixidae": {
       "flake": false,
       "locked": {
-        "lastModified": 1790408718,
-        "narHash": "sha256-KZB8fHLyahbrZjf4n7OrXPc52oyGH9sqePwUQvhBMsk=",
+        "lastModified": 1790807750,
+        "narHash": "sha256-h90dU0aGCEumzS6Nlb5mjQ0qZJ3NybFftwkdreYe0pk=",
         "owner": "nixidae",
         "repo": "nixidae",
-        "rev": "ef00d58fe94df283a3c2f9a83185bc5dd7be50df",
+        "rev": "a642fa341825b439f62456d81f613acfaf584680",
         "type": "github"
       },
       "original": {
@@ -454,11 +454,11 @@
     "pyterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1790653736,
-        "narHash": "sha256-nyTfy4DQyg7wMGW0M6DNwKc0PmwZV6LB/Vh/KeBPKmk=",
+        "lastModified": 1790809048,
+        "narHash": "sha256-xeUMaqvNTndG4ZCmr+GsKCF4CUqcxzf/I4qeQzjMUuM=",
         "ref": "refs/heads/main",
-        "rev": "096294d637c8781c65c17cbdbbba84a71e3685d2",
-        "revCount": 583,
+        "rev": "7aacb2e3f12ca4af6974795519b8f7c083ae0ea7",
+        "revCount": 609,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Lillecarl/pyterm"
