@@ -150,6 +150,21 @@ Both share one trap: an image built by copying host-store files inherits the
 host's mangling. De-mangling needs a NAR round trip, which
 `nixos/lib/make-squashfs.nix` does not do.
 
+### The upstream vzvm builder, in parallel
+
+`hosts/macbook/vz-builder-upstream/` runs upstream's builder
+(`pkgs.darwin.linux-builder-vz`, driven by `vzvm`) beside ours, to compare
+them. It keeps its own store on an erofs image plus a data disk, so it does not
+need a case-sensitive `/nix`.
+
+Upstream runs it always-on. This module starts it on demand. `vzvm` owns the
+client port, so launchd cannot also own it: launchd listens on 31023, and a
+handler starts the VM and splices to `vzvm` on 31024. It stops after 60s idle,
+and `vzvm` powers the guest off cleanly rather than pulling it.
+
+Its ssh alias is `linux-builder-vz`, and its images, key share and console log
+live in `/var/lib/vzvm-builder/`.
+
 ### The persistent Linux VM
 
 `hosts/macbook/linux-vm` is a second guest on the same Virtualization.framework
