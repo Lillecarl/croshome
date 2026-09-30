@@ -286,7 +286,7 @@ let
       pkgs.coreutils
     ];
     text = ''
-      /bin/launchctl kickstart system/org.nixos.vz-builder-vm 2>/dev/null || true
+      /bin/launchctl kickstart system/org.nixos.${cfg.daemonName} 2>/dev/null || true
 
       # First connection pays the boot; later ones find it already up. Polled
       # four times a second rather than once: a whole-second granularity adds

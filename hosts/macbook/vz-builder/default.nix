@@ -246,6 +246,16 @@ in
       '';
     };
 
+    daemonName = lib.mkOption {
+      type = lib.types.str;
+      default = "vz-builder-vm";
+      description = ''
+        Name of the launchd daemon that runs the VM. It becomes the label
+        `org.nixos.<name>`, which is the single place the connect handler asks
+        launchd to start.
+      '';
+    };
+
     port = lib.mkOption {
       type = lib.types.port;
       default = 31122;
@@ -366,7 +376,7 @@ in
 
     # Started by ./vm.nix's connect handler, never at load. RunAtLoad and
     # KeepAlive would defeat the entire point.
-    launchd.daemons.vz-builder-vm = {
+    launchd.daemons.${cfg.daemonName} = {
       script = "exec ${lib.getExe vm.runVm}";
       serviceConfig = {
         RunAtLoad = false;
