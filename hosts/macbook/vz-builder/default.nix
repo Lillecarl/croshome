@@ -364,7 +364,7 @@ in
   config = lib.mkIf cfg.enable {
     environment.systemPackages = [ vm.vzrun ];
 
-    # Started by ./default.nix's connect handler, never at load. RunAtLoad and
+    # Started by ./vm.nix's connect handler, never at load. RunAtLoad and
     # KeepAlive would defeat the entire point.
     launchd.daemons.vz-builder-vm = {
       script = "exec ${lib.getExe vm.runVm}";

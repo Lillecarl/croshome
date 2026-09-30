@@ -132,7 +132,7 @@ in
       boot.kernelModules = [
         "virtiofs"
         "overlay"
-        # /dev/kvm, now that ../default.nix's vfkit invocation passes
+        # /dev/kvm, now that ./vm.nix's vfkit invocation passes
         # `--nested`: this Apple Silicon host and macOS version support
         # nested virtualization, so a Linux kernel inside this guest can run
         # its own hardware-accelerated qemu instead of falling back to
@@ -277,7 +277,6 @@ in
         # is 18 channels at the same instant. sshd refused the last eight with
         # "Session request failed", and pynixd read that as a store that
         # failed to start: 18 consecutive failures and a 300s cooldown.
-        # Reported as Lillecarl/nanopynix#167.
         #
         # 128 rather than 20, because the same limit applies to a build. This
         # is a single-tenant machine that exists only while a build runs, so
@@ -396,7 +395,7 @@ in
 
       nix.settings = {
         trusted-users = [ "builder" ];
-        # No experimental-features here. ../default.nix hands the host's list
+        # No experimental-features here. ./default.nix hands the host's list
         # over, and that list is the authority for both machines. This block
         # used to name `nix-command` and `flakes`, which made the guest quietly
         # disagree with the host about anything else -- `dynamic-derivations`,

@@ -252,7 +252,7 @@ let
             # this VM, not a bug in vfkit. Virtualization.framework's
             # requestStop is an ACPI power-button event, and ACPI tables are
             # an EFI-boot thing; this guest boots straight from a kernel and
-            # initrd (the --bootloader "linux,..." line in runVm below, with
+            # initrd (the --bootloader "linux,..." line above, with
             # no ACPI in guest.nix's kernel modules to match), so there is
             # nothing on the guest side to receive the request. `stopped`
             # comes back false, the 5s wait always elapses, and every idle
@@ -263,11 +263,10 @@ let
             # targets and avahi never sends an mDNS goodbye for
             # ${guestHost}.local, which is what let a stale registration
             # squat that name across a restart and hang every `vzrun` dialing
-            # it -- ../default.nix's `connect` timeout exists to bound
+            # it; `connect` above exists to bound
             # exactly that failure rather than assume it cannot recur. Fixing
             # it at the source would mean booting this guest through EFI, a
-            # bigger change than this comment. Reported as Lillecarl/
-            # nanopynix's pynixd session hitting a `vzrun` hang, 2026-08-17.
+            # bigger change than this comment.
             kill $vm 2>/dev/null || true
             break
           fi
@@ -299,7 +298,7 @@ let
       # that will never resolve blocks inside getaddrinfo before socat's own
       # alarm gets a chance to matter, and connect-timeout does not cover it.
       # Measured directly: with a stale mDNS registration squatting
-      # ${guestHost} (see ../default.nix's runVm for why that happens), a
+      # ${guestHost} (see runVm above for why that happens), a
       # single probe hung for minutes, not the 1s the option promised.
       # `timeout` kills the whole process by wall clock regardless of which
       # syscall it is stuck in, which is the only bound that held.
@@ -325,8 +324,7 @@ let
       # this check existed: a name that never resolves left `vzrun` blocked
       # indefinitely, and every such call leaked one stuck process here,
       # which in turn kept the idle watchdog in runVm from ever seeing this
-      # VM as idle. Reported as Lillecarl/nanopynix's pynixd session hitting
-      # a `vzrun` hang, 2026-08-17.
+      # VM as idle.
       if [ "$ready" -ne 1 ]; then
         echo "vz-builder-connect: ${guestHost}:22 did not answer within ${toString cfg.bootTimeout}s" >&2
         exit 1
