@@ -11,6 +11,7 @@
     ./ai-rebuild.nix
     ./linux-builder.nix
     ./vz-builder
+    ./vz-builder-upstream
     ./linux-vm
     ./aerospace.nix
     ./borders.nix
@@ -108,6 +109,18 @@
   # and the QEMU one is also what builds this one's guest image, which is why
   # removing it is a later step and not this one.
   nix.linux-vz-builder.enable = true;
+
+  # Upstream's vzvm-based builder, socket-activated by the module so it starts
+  # on the first connection like the one above. Enabled in parallel to compare
+  # against the host-store one: it runs the upstream guest off its own erofs
+  # store image, which works without a case-sensitive /nix. See
+  # ./vz-builder-upstream.
+  nix.linux-builder-vz = {
+    enable = true;
+    cores = 8;
+    memorySize = 8192;
+    maxJobs = 15;
+  };
 
   # A persistent Linux VM for kernel-required workloads (Kubernetes and
   # friends): started and stopped by hand with `linux-vm`, never used as a
