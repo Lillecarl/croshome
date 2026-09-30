@@ -670,6 +670,38 @@ in
       };
     };
 
+    # Refuse to activate, before any other activation step has run, when /nix
+    # cannot support the configured store-sharing mode. preActivation is
+    # nix-darwin's earliest hook (see modules/system/activation-scripts.nix),
+    # so the switch stops before it mutates anything.
+    #
+    # Only `overlay` shares the host store's paths directly into the guest, and
+    # it needs a case-sensitive /nix to do so: on a case-insensitive store Nix
+    # mangles colliding names (`use-case-hack`) and the guest reads the mangled
+    # names rather than the real ones. `substituter` and `off` copy paths into
+    # the guest instead, so the mangling never crosses the boundary and they
+    # have no such requirement.
+    #
+    # A filesystem property, not a configuration one, so it is probed here
+    # rather than asserted during evaluation.
+    system.activationScripts.preActivation.text = lib.optionalString (cfg.hostStore == "overlay") ''
+      caseprobe=$(mktemp -d /nix/.vz-case-check-XXXXXX)
+      touch "$caseprobe/a"
+      if [ -e "$caseprobe/A" ]; then
+        rm -rf "$caseprobe"
+        echo "nix.linux-vz-builder: /nix is on a case-INSENSITIVE filesystem." >&2
+        echo "  hostStore = \"overlay\" cannot work there: Nix mangles colliding" >&2
+        echo "  store names and the guest reads the mangled ones." >&2
+        echo "" >&2
+        echo "  Do one of:" >&2
+        echo "    1. put /nix on a case-sensitive APFS volume, or" >&2
+        echo "    2. set nix.linux-vz-builder.hostStore = \"substituter\", which" >&2
+        echo "       copies inputs from this Mac instead of referencing them." >&2
+        exit 1
+      fi
+      rm -rf "$caseprobe"
+    '';
+
     # Stop a VM that is running an older guest than the one just activated.
     #
     # Without this the change is not live until the VM next idles out, and it
@@ -681,25 +713,6 @@ in
     # This does interrupt a build in flight, on purpose. The alternative is
     # serving results from a guest the configuration no longer describes.
     system.activationScripts.postActivation.text = ''
-      ${lib.optionalString (cfg.hostStore == "overlay") ''
-        # /nix has to be case-sensitive for the overlay store to mean anything.
-        # On a case-insensitive store Nix mangles colliding names
-        # (`use-case-hack`), and a guest reading those paths through the
-        # overlay sees the mangled names rather than the real ones. Checked
-        # here rather than asserted during evaluation, because it is a property
-        # of the filesystem and not of the configuration.
-        caseprobe=$(mktemp -d /nix/.vz-case-check-XXXXXX)
-        touch "$caseprobe/a"
-        if [ -e "$caseprobe/A" ]; then
-          rm -rf "$caseprobe"
-          echo "nix.linux-vz-builder: /nix is on a case-INSENSITIVE filesystem." >&2
-          echo "  hostStore = \"overlay\" cannot work there: Nix mangles colliding" >&2
-          echo "  store names and the guest reads the mangled ones. Put /nix on a" >&2
-          echo "  case-sensitive volume, or set hostStore to \"substituter\"." >&2
-          exit 1
-        fi
-        rm -rf "$caseprobe"
-      ''}
       running=${lib.escapeShellArg runningFile}
       if [ -e "$running" ]; then
         gen=$(head -1 "$running")
