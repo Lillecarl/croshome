@@ -197,6 +197,13 @@ in
       # bridge waits for `claude remote-control` or the /config toggle.
       remoteControlAtStartup = true;
 
+      # The alt-screen renderer. A mature install otherwise resolves the
+      # renderer to `default`, which draws inline: no alternate screen, no
+      # mouse reporting, and a wheel over the pane opens pymux copy mode
+      # instead of scrolling Claude Code. `fullscreen` is the flicker-free
+      # one, and it is what the wheel and Claude Code's own scroll expect.
+      tui = "fullscreen";
+
       # Replaces the Co-Authored-By and Claude-Session lines Claude Code
       # injects by default, which ./agents/shared/commits.md then has to
       # argue with every session.
