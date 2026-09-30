@@ -111,6 +111,20 @@ in
       '';
     };
 
+    vfkit = lib.mkOption {
+      type = lib.types.package;
+      default = pkgs.vfkit;
+      defaultText = lib.literalExpression "pkgs.vfkit";
+      description = ''
+        The vfkit that runs the VM.
+
+        The default is this repo's overlay patch (../../../pkgs/vfkit-balloon.nix),
+        which exposes the memory balloon over vfkit's REST API. Upstream vfkit
+        lacks that endpoint, so the balloon is simply inert with a stock vfkit
+        and nothing else changes.
+      '';
+    };
+
     extraModules = lib.mkOption {
       type = lib.types.listOf lib.types.deferredModule;
       default = [ ];
@@ -160,6 +174,28 @@ in
         measured, a guest that released 3 GiB and dropped its caches returned
         244 MiB to macOS. The VM exiting is what returns the rest, which is why
         `idleTimeout` is short.
+      '';
+    };
+
+    stateDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/var/lib/vz-builder";
+      description = ''
+        Directory for the builder's host-side state: the SSH key share, the
+        running-VM marker and the REST socket. Created at VM start.
+      '';
+    };
+
+    imageDir = lib.mkOption {
+      type = lib.types.str;
+      default = "/nix/var";
+      description = ''
+        Directory for the ephemeral store and swap images.
+
+        Only a directory of image files, so it need not itself be
+        case-sensitive -- the ext4 inside each image is. It defaults under /nix
+        because that volume is already known writable and large, not for any
+        property of the filesystem.
       '';
     };
 
@@ -240,6 +276,20 @@ in
         `vzrun --root`, and it is deliberate: the guest is disposable, it is
         reachable only from this Mac, and `builder` is a trusted Nix user
         already -- it can run arbitrary code here by submitting a derivation.
+      '';
+    };
+
+    builderKey = lib.mkOption {
+      type = lib.types.str;
+      default = "/etc/nix/builder_ed25519";
+      description = ''
+        Private key the host uses to log into the guest; its public half is
+        `${cfg.builderKey}.pub`.
+
+        Defaults to the path nix-darwin's own builders use, so a machine that
+        already runs one shares this key rather than keeping a second. It is
+        created on activation when either half is missing, so the module does
+        not depend on another builder having run first.
       '';
     };
 
@@ -342,6 +392,22 @@ in
       };
     };
 
+    # Create the builder keypair when either half is missing, rather than
+    # assume another builder created it. Same path and group (nixbld) that
+    # nix-darwin's own builder installer uses, so a machine running both shares
+    # one key instead of each fighting for the path. First, because runVm, the
+    # machines file and ssh all expect the pair to exist.
+    system.activationScripts.preActivation.text = ''
+      builderKey=${lib.escapeShellArg cfg.builderKey}
+      if [ ! -e "$builderKey" ] || [ ! -e "$builderKey.pub" ]; then
+        rm -f "$builderKey" "$builderKey.pub"
+        install -d -m 0755 "$(dirname "$builderKey")"
+        ${lib.getExe' pkgs.openssh "ssh-keygen"} -q -t ed25519 -N "" -C builder@vz-builder -f "$builderKey"
+        chgrp nixbld "$builderKey" "$builderKey.pub"
+        chmod 0600 "$builderKey"
+        chmod 0644 "$builderKey.pub"
+      fi
+    ''
     # Refuse to activate, before any other activation step has run, when /nix
     # cannot support the configured store-sharing mode. preActivation is
     # nix-darwin's earliest hook (see modules/system/activation-scripts.nix),
@@ -356,7 +422,7 @@ in
     #
     # A filesystem property, not a configuration one, so it is probed here
     # rather than asserted during evaluation.
-    system.activationScripts.preActivation.text = lib.optionalString (cfg.hostStore == "overlay") ''
+    + lib.optionalString (cfg.hostStore == "overlay") ''
       caseprobe=$(mktemp -d /nix/.vz-case-check-XXXXXX)
       touch "$caseprobe/a"
       if [ -e "$caseprobe/A" ]; then
@@ -403,7 +469,7 @@ in
         Hostname 127.0.0.1
         Port ${toString cfg.port}
         HostKeyAlias vz-builder
-        IdentityFile /etc/nix/builder_ed25519
+        IdentityFile ${cfg.builderKey}
     '';
 
     nix.distributedBuilds = true;
@@ -412,7 +478,7 @@ in
       {
         hostName = "vz-builder";
         sshUser = "builder";
-        sshKey = "/etc/nix/builder_ed25519";
+        sshKey = cfg.builderKey;
         protocol = "ssh-ng";
         # The fixed key nixpkgs ships for its builder VM, which ./guest.nix
         # installs as the host key. nix-darwin hardcodes the same value for

@@ -17,11 +17,11 @@ let
   # Where the public half of the builder key is staged for the guest. Only the
   # public half: /etc/nix holds the private key too, and the guest has no
   # business seeing that directory.
-  keyDir = "/var/lib/vz-builder/keys";
+  keyDir = "${cfg.stateDir}/keys";
 
   # What the running VM was started from, so activation can tell a stale one
   # from a current one. Holds the guest's toplevel and the vfkit pid.
-  runningFile = "/var/lib/vz-builder/running";
+  runningFile = "${cfg.stateDir}/running";
 
   # Build outputs, scratch and swap, on real disks rather than in RAM.
   #
@@ -46,15 +46,15 @@ let
   # same sense. That costs nothing: `truncate` writes no data, the guest's
   # mkfs.ext4 leaves the image sparse, and it is the same /nix volume the
   # activation check already proves is case-sensitive.
-  storeDisk = "/nix/var/vz-store.img";
-  swapDisk = "/nix/var/vz-swap.img";
+  storeDisk = "${cfg.imageDir}/vz-store.img";
+  swapDisk = "${cfg.imageDir}/vz-swap.img";
 
   # vfkit's REST endpoint, which ../../../pkgs/vfkit-balloon.nix extends with
   # /vm/memory-balloon. A unix socket rather than a loopback port: the balloon
   # can shrink a running guest and /vm/state can stop it, and a socket is
   # reachable only by something that can open this path. 30 bytes, comfortably
   # inside the 104-byte limit macOS puts on a unix socket path.
-  restSocket = "/var/lib/vz-builder/rest.sock";
+  restSocket = "${cfg.stateDir}/rest.sock";
 
   # The guest publishes this over mDNS and mDNSResponder answers it natively,
   # so nothing here has to discover an IP.
@@ -84,16 +84,20 @@ let
   # the VM up and closing it starts the clock.
   vzrun = pkgs.writeShellApplication {
     name = "vzrun";
-    runtimeInputs = [
-      pkgs.openssh
-      pkgs.coreutils # `id`, for the multiplexing socket path
-    ];
+    runtimeInputs = [ pkgs.openssh ];
     text = ''
       user=builder
       if [ "''${1-}" = "--root" ]; then
         user=root
         shift
       fi
+
+      # The multiplexing socket lives under ~/.ssh, which is already private to
+      # the user; /tmp would let another local account on this Mac connect to a
+      # master that is already authenticated. The path must stay under 104
+      # bytes, macOS's unix socket limit, and %C alone is 64 of them -- which
+      # rules out $TMPDIR. Create the directory, since ssh will not.
+      /bin/mkdir -p "$HOME/.ssh"
 
       opts=(
         -p ${toString cfg.port}
@@ -105,10 +109,9 @@ let
         # answers a fresh handshake in about 150ms and a reused one in about
         # 20ms. ControlPersist stays well under idleTimeout
         # (${toString cfg.idleTimeout}s) so a forgotten master cannot pin the VM
-        # up. The socket goes in /tmp because a macOS unix socket path cannot
-        # exceed 104 bytes and %C alone is 64 of them.
+        # up. Socket path and directory are set up above; see there.
         -o ControlMaster=auto
-        -o "ControlPath=/tmp/vzrun-$(id -u)-%C"
+        -o "ControlPath=$HOME/.ssh/vzrun-%C"
         -o ControlPersist=30
       )
 
@@ -143,7 +146,7 @@ let
   runVm = pkgs.writeShellApplication {
     name = "vz-builder-vm";
     runtimeInputs = [
-      pkgs.vfkit
+      cfg.vfkit
       pkgs.coreutils
       pkgs.procps
     ];
@@ -170,7 +173,7 @@ let
       ''}
 
       install -d -m 0755 ${lib.escapeShellArg keyDir}
-      install -m 0444 /etc/nix/builder_ed25519.pub ${lib.escapeShellArg keyDir}/builder_ed25519.pub
+      install -m 0444 ${lib.escapeShellArg "${cfg.builderKey}.pub"} ${lib.escapeShellArg keyDir}/builder_ed25519.pub
       install -m 0444 ${authorizedKeysFile} ${lib.escapeShellArg keyDir}/authorized_keys
 
       # Rosetta has to be present on the host; `softwareupdate --install-rosetta`
