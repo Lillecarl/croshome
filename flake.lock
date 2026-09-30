@@ -451,6 +451,22 @@
         "type": "github"
       }
     },
+    "pystemctl": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1790811562,
+        "narHash": "sha256-eRUGZ4DufV1zOPaA3eQ1uGDlbjQfy1QeW2vR+aEu6dE=",
+        "owner": "Lillecarl",
+        "repo": "pystemctl",
+        "rev": "fdd31303bdd86f5b9b7aca2114d60f650d614a38",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "repo": "pystemctl",
+        "type": "github"
+      }
+    },
     "pyterm": {
       "flake": false,
       "locked": {
@@ -490,6 +506,7 @@
         "pyedit": "pyedit",
         "pyjj": "pyjj",
         "pyproject-nix": "pyproject-nix_2",
+        "pystemctl": "pystemctl",
         "pyterm": "pyterm"
       }
     },

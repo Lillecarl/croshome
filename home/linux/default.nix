@@ -1,5 +1,6 @@
 {
   pkgs,
+  inputs,
   ...
 }:
 {
@@ -34,6 +35,12 @@
     psmisc # fuser, killall, pstree
     sysstat # iostat, mpstat, pidstat, sar -- the numbers over time, not now
     usbutils # lsusb
+
+    # systemctl and journalctl reimplemented in Python, from the input of the
+    # same name. It speaks to systemd over D-Bus and reads the journal, so
+    # macOS has nothing for it to talk to -- which is why it is here and not
+    # in ../packages.nix.
+    (import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl
 
     # net-tools, minus the programs that would shadow something better.
     #

@@ -154,6 +154,15 @@
       flake = false;
     };
 
+    # The systemctl/journalctl reimplementation, from a source tree like
+    # pyedit. Linux only in practice: it reads the journal and speaks D-Bus
+    # directly, so ../home/linux/default.nix is the only place that installs
+    # it.
+    pystemctl = {
+      url = "github:Lillecarl/pystemctl";
+      flake = false;
+    };
+
     # The AI daemon: persistent ACP and pydantic-ai agents. A source tree like
     # pyedit; its default.nix also exports the home-manager module that
     # ./hosts/dynhetz/home.nix imports.
