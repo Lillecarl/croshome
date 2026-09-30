@@ -26,8 +26,10 @@ one needs a Linux builder: that is the deadlock, and it is not hypothetical.
 See the commit that added the activation check.
 
 Using the VZ builder: build anything. Connecting to 127.0.0.1:31122 starts it.
-`hosts/macbook/vz-builder/guest.nix` is a whole NixOS system, so changing it
-means an aarch64-linux rebuild.
+
+`hosts/macbook/vz-builder/` holds three files. `default.nix` is the nix-darwin
+module, `vm.nix` is the vfkit runner, and `guest.nix` is a whole NixOS system.
+`guest.nix` is aarch64-linux, so changing it means a Linux rebuild.
 
 ### Running Linux commands: `vzrun`
 
@@ -114,6 +116,39 @@ Measured rather than read, and easy to get wrong:
 - A guest change takes effect only once the VM has **restarted onto it**.
   Measuring a still-resident VM after a rebuild reads as confirmation and is
   not. Activation now stops a stale VM for this reason.
+
+### Sharing the host store needs a case-sensitive /nix
+
+`hostStore = "overlay"` exposes the host `/nix/store` to the guest through
+virtiofs, and the guest reads it in place. That works only while `/nix` is
+case-sensitive. On a case-insensitive store Nix mangles colliding names
+(`use-case-hack`), and the guest reads the mangled names.
+
+Activation probes `/nix` in `preActivation`, nix-darwin's first step, and
+aborts with a message when the probe fails. `"substituter"` and `"off"` copy
+paths into the guest instead, so they need no case-sensitive store.
+
+### Deferred: a store that runs on a disk image
+
+A Mac with a case-insensitive `/nix` should still run the builder. The plan is
+a base image plus a differential overlay, so the guest's store is its own and
+does not depend on the host's.
+
+Virtualization.framework cannot do that yet. It attaches raw disk images only;
+qcow2 and backing files are unsupported. Apple's macOS 27 `DiskImageKit` adds
+the missing piece -- stacked images with a read-only base, a cache layer and
+copy-on-write overlay layers -- but it is beta.
+
+Two substitutes work today:
+
+- a read-only base image attached as a read-only virtio-blk disk, overlaid in
+  the guest by the existing writable disk; or
+- an APFS clone (`cp -c`) of a base image per start, a differential overlay at
+  the filesystem level that needs no guest change.
+
+Both share one trap: an image built by copying host-store files inherits the
+host's mangling. De-mangling needs a NAR round trip, which
+`nixos/lib/make-squashfs.nix` does not do.
 
 ### The persistent Linux VM
 
