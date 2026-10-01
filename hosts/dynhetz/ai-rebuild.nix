@@ -57,14 +57,26 @@ let
       # switch from a transient systemd unit rather than from its own process;
       # the flags are its SWITCH_TO_CONFIGURATION_CMD_PREFIX, copied so this
       # detaches the same way.
+
       # nix 2.35's nix-env, which the systemd-boot builder runs on every
       # switch, opens the local store and asks the big-lock to upgrade to
       # exclusive, so it queues behind anything holding it shared -- a build,
       # a daemon connection -- and the switch hangs at the bootloader step.
-      # Point root's Nix at the running daemon instead: the lock stays inside
-      # the daemon, and nix-env never opens the local store.
+      # Point root's Nix at a daemon socket instead: the lock then stays
+      # inside the daemon and nix-env never opens the local store.
+      #
+      # The upstream socket on a replace host, because the default socket is
+      # pynixd's and pynixd may be down or restarting mid-switch. Before the
+      # first replace switch that socket does not exist yet, and the default
+      # one is the daemon.
+      if [ -S /nix/var/nix/daemon-socket/upstream ]; then
+        NIX_REMOTE=unix:///nix/var/nix/daemon-socket/upstream
+      else
+        NIX_REMOTE=daemon
+      fi
+
       export NIXOS_INSTALL_BOOTLOADER=0
-      export NIX_REMOTE=daemon
+      export NIX_REMOTE
       exec ${lib.getExe' pkgs.systemd "systemd-run"} \
         -E LOCALE_ARCHIVE \
         -E NIXOS_INSTALL_BOOTLOADER \

@@ -36,6 +36,24 @@ in
     settings = {
       log_level = "DEBUG";
       plugins = [ "/etc/pynixd/filter.py" ];
+      # A store gets a build scheduled to it only when it has a feature
+      # matrix. With none, pynixd probes the daemon with test builds at
+      # startup and, until that finishes, refuses every build with "no
+      # feature_matrix (not probed)". On a busy store the probe also overruns
+      # systemd's start timeout, so pynixd never reaches READY at all.
+      # Declaring the matrix gives the local store one outright: scheduled,
+      # and no probe. Features mirror nix.settings.system-features on this
+      # host (./default.nix).
+      stores.local = {
+        systems = [ "x86_64-linux" ];
+        system_features = [
+          "nixos-test"
+          "benchmark"
+          "big-parallel"
+          "kvm"
+          "uid-range"
+        ];
+      };
     };
   };
 }
