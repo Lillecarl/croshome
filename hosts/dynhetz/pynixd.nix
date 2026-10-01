@@ -34,7 +34,7 @@ in
     mode = "replace";
     package = nixidae.pynixd.package;
     settings = {
-      log_level = "DEBUG";
+      log_level = "INFO";
       plugins = [ "/etc/pynixd/filter.py" ];
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
