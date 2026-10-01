@@ -40,11 +40,11 @@ in
       can be logged into for profiling:
 
         ssh -i "$(nix eval --raw -f . inputs.nixpkgs)/nixos/modules/profiles/keys/ssh_host_ed25519_key" \
-            builder@vzbuilder.local systemd-analyze blame
+            -p 31122 builder@127.0.0.1 systemd-analyze blame
 
       Both halves of that key are world-readable in the store, so this
-      authorises an already-public key: anyone who can reach this VM on the
-      NAT can then log in as a trusted user. Off by default. Turn it on for a
+      authorises an already-public key: anything that can open the loopback
+      port can then log in as a trusted user. Off by default. Turn it on for a
       session and turn it back off, rather than leaving it.
     '';
   };
@@ -85,7 +85,7 @@ in
       system.stateVersion = "26.11";
 
       boot.kernelParams = [
-        "console=hvc0" # vfkit's virtio-serial
+        "console=hvc0" # vzvm's virtio console
         "systemd.log_level=warning"
       ];
 
@@ -107,9 +107,10 @@ in
       users.users.root.openssh.authorizedKeys.keyFiles =
         lib.optional cfg.debugAccess "${modulesPath}/profiles/keys/ssh_host_ed25519_key.pub";
 
-      # This VM has four device classes and no disk: virtio-net, virtiofs (the
-      # key share, the host store, the host database and Rosetta), virtio-rng
-      # and virtio-serial. NixOS's default initrd module set is sized for real
+      # This VM has no disk, and a handful of device classes: virtio-net,
+      # virtiofs (the key share, the host store, the host database and
+      # Rosetta), virtio-rng, the virtio console at hvc0, and vsock for the
+      # forwarded sshd. NixOS's default initrd module set is sized for real
       # hardware -- SATA, NVMe, USB, SD, the lot -- and every one of those is a
       # module to load and a bus for udev to walk before the mounts can
       # proceed. Two waits of ~0.8s each sat in front of Mounting /sysroot and
@@ -129,13 +130,17 @@ in
         "virtio_blk" # the store disk, and the swap disk beside it
         "overlay"
       ];
+      # vsock, loaded in the initrd so systemd-ssh-generator finds /dev/vsock
+      # and sets up sshd-vsock.socket before the network is up. That socket is
+      # what vzvm's host-to-guest forward reaches; see ./vm.nix.
+      boot.initrd.kernelModules = [ "vmw_vsock_virtio_transport" ];
       boot.kernelModules = [
         "virtiofs"
         "overlay"
-        # /dev/kvm, now that ./vm.nix's vfkit invocation passes
-        # `--nested`: this Apple Silicon host and macOS version support
-        # nested virtualization, so a Linux kernel inside this guest can run
-        # its own hardware-accelerated qemu instead of falling back to
+        # /dev/kvm, now that ./vm.nix's vzvm config asks for
+        # `nestedVirtualization`: this Apple Silicon host and macOS version
+        # support nested virtualization, so a Linux kernel inside this guest
+        # can run its own hardware-accelerated qemu instead of falling back to
         # software TCG. NixOS's own nix.nix computes the local
         # `system-features` default from `pathExists "/dev/kvm"`, so loading
         # this is what makes the guest's own nix-daemon start advertising
@@ -260,14 +265,21 @@ in
         "L /scratch - - - - /nix/.rw-store/scratch"
       ];
 
-      # Socket activation, on TCP. systemd accepts any SOCK_STREAM so vsock
-      # would work identically, but vsock needs a ProxyCommand in root's ssh
-      # config and the nix-daemon is what dials out. Over the NAT interface no
-      # privileged host configuration is required at all.
+      # sshd is socket-activated, and inbound traffic arrives over vsock:
+      # systemd-ssh-generator serves SSH on vsock:22, and vzvm forwards the
+      # host's loopback port to it. Going via vsock is what removes the guest
+      # IP and mDNS from the path, so a build needs no name to resolve and
+      # cannot hang on a stale one. See ./vm.nix for the host half.
       services.openssh = {
         enable = true;
         startWhenNeeded = true;
         settings.PasswordAuthentication = false;
+
+        # vsock delivers no RST, so a session whose peer vanished never dies
+        # without keepalives. ssh-ng build traffic opens and abandons
+        # connections, so this is what reaps them.
+        settings.ClientAliveInterval = 60;
+        settings.ClientAliveCountMax = 3;
 
         # sshd allows 10 channels on one connection by default, and that is
         # too few for a client that opens many at once over a single link.
@@ -314,6 +326,26 @@ in
         );
       };
 
+      # systemd generates sshd-vsock.socket when it finds /dev/vsock; it is the
+      # socket vzvm's forward reaches. Retune it for ssh-ng build traffic.
+      systemd.sockets.sshd-vsock = {
+        overrideStrategy = "asDropin";
+        socketConfig = {
+          # Past the default 64 concurrent connections, systemd stops accepting
+          # and ssh hangs silently.
+          MaxConnections = 512;
+          # Do not stop the socket outright when connections arrive in bursts.
+          TriggerLimitIntervalSec = 0;
+        };
+      };
+      systemd.services."sshd-vsock@" = {
+        overrideStrategy = "asDropin";
+        # Do not race host key generation on first boot.
+        wants = [ "sshd-keygen.service" ];
+        after = [ "sshd-keygen.service" ];
+        serviceConfig.TimeoutStopSec = 10;
+      };
+
       # The fixed keypair nixpkgs ships for its own builder VM. nix-darwin
       # hardcodes the matching public half as `publicHostKey`, so reusing it
       # means the host verifies this VM with a value it already trusts.
@@ -353,10 +385,8 @@ in
       # rather than needing a second connection as another user.
       security.sudo.wheelNeedsPassword = false;
 
-      # How the host finds this machine. macOS bootpd records the DHCP hostname
-      # in /var/db/dhcpd_leases but serves no DNS, so DHCP alone resolves
-      # nothing. mDNS does: mDNSResponder answers <hostName>.local natively,
-      # with nothing configured on the host side.
+      # Inbound traffic arrives over vsock, so the name is only for the guest's
+      # own logs. Outbound substitution still needs the address below.
       networking.hostName = "vzbuilder";
 
       # systemd-networkd rather than dhcpcd. dhcpcd spent 4.587s on the
@@ -369,29 +399,22 @@ in
       # whole of it. `networking.useDHCP` is the legacy global switch: under
       # networkd it generates no .network unit, so networkd starts, matches
       # nothing, and the guest comes up with no address at all -- no lease, no
-      # ARP entry, no mDNS name. Nothing logs an error; the host simply cannot
-      # resolve vzbuilder.local, and a build sits on an open socket waiting for
-      # a builder that will never answer.
+      # ARP entry. Nothing logs an error; substitution then hangs on a route
+      # that does not exist. Inbound traffic is on vsock and unaffected, which
+      # is exactly why this fails quietly.
       networking.useDHCP = false;
       systemd.network.networks."10-uplink" = {
         matchConfig.Name = "en*";
         networkConfig.DHCP = "ipv4";
-        # Nothing waits on network-online.target here: the builder is reached
-        # by name over mDNS, and sshd is socket-activated.
+        # Nothing waits on network-online.target: inbound traffic arrives over
+        # vsock and sshd is socket-activated, so the address only matters for
+        # outbound substitution.
         linkConfig.RequiredForOnline = "no";
       };
 
       # No firewall on a builder that exists for a minute, on a host-only NAT,
       # reachable from one Mac. It cost 596ms of the boot it is not protecting.
       networking.firewall.enable = false;
-      services.avahi = {
-        enable = true;
-        publish = {
-          enable = true;
-          addresses = true;
-          workstation = true;
-        };
-      };
 
       nix.settings = {
         trusted-users = [ "builder" ];

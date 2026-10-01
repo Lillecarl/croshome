@@ -111,17 +111,20 @@ in
       '';
     };
 
-    vfkit = lib.mkOption {
+    vzvm = lib.mkOption {
       type = lib.types.package;
-      default = pkgs.vfkit;
-      defaultText = lib.literalExpression "pkgs.vfkit";
-      description = ''
-        The vfkit that runs the VM.
+      default = pkgs.vzvm;
+      defaultText = lib.literalExpression "pkgs.vzvm";
+      description = "The vzvm that runs the VM.";
+    };
 
-        The default is this repo's overlay patch (../../../pkgs/vfkit-balloon.nix),
-        which exposes the memory balloon over vfkit's REST API. Upstream vfkit
-        lacks that endpoint, so the balloon is simply inert with a stock vfkit
-        and nothing else changes.
+    nestedVirtualization = lib.mkOption {
+      type = lib.types.bool;
+      default = true;
+      description = ''
+        Boot the guest at EL2 so it gets a working /dev/kvm, which the guest's
+        Nix daemon then advertises as the `kvm` build feature. Needs macOS 15+
+        and an M3 or newer chip; vzvm refuses to start otherwise.
       '';
     };
 
@@ -182,7 +185,8 @@ in
       default = "/var/lib/vz-builder";
       description = ''
         Directory for the builder's host-side state: the SSH key share, the
-        running-VM marker and the REST socket. Created at VM start.
+        running-VM marker, the generated vzvm config and the guest console log.
+        Created at VM start.
       '';
     };
 
@@ -262,6 +266,15 @@ in
       description = ''
         Loopback port launchd listens on. Connecting to it starts the VM.
         31022 belongs to `nix.linux-builder`, so this is deliberately not that.
+      '';
+    };
+
+    internalPort = lib.mkOption {
+      type = lib.types.port;
+      default = 31123;
+      description = ''
+        Loopback port vzvm binds and forwards into the guest's vsock. The
+        launchd listener on `port` fronts it, exactly as it does for a build.
       '';
     };
 
@@ -367,7 +380,7 @@ in
     bootTimeout = lib.mkOption {
       type = lib.types.int;
       default = 90;
-      description = "Seconds to wait for a cold guest to answer on port 22.";
+      description = "Seconds to wait for a cold guest to answer on the forwarded port.";
     };
   };
 
@@ -501,16 +514,16 @@ in
         ];
         maxJobs = cfg.maxJobs;
         speedFactor = 2; # native aarch64 under Apple's hypervisor
-        # kvm: the vfkit invocation above passes `--nested`, and ./guest.nix
-        # loads the kvm module, so a build that asks for it gets real
-        # hardware-accelerated nested virtualization instead of the
+        # kvm: the vzvm config above asks for nestedVirtualization, and
+        # ./guest.nix loads the kvm module, so a build that asks for it gets
+        # real hardware-accelerated nested virtualization instead of the
         # scheduler refusing to send it here at all.
         supportedFeatures = [
           "big-parallel"
           "benchmark"
-          "kvm"
-          "nixos-test"
-        ];
+        ]
+        ++ lib.optional cfg.nestedVirtualization "kvm"
+        ++ [ "nixos-test" ];
       }
     ];
 
