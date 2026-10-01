@@ -8,7 +8,7 @@ Every number here was measured, not read.
 
 | | `nix.linux-vz-builder` | `nix.linux-builder` |
 | --- | --- | --- |
-| Hypervisor | Virtualization.framework (vfkit) | QEMU + HVF |
+| Hypervisor | Virtualization.framework (vzvm) | QEMU + HVF |
 | Systems | aarch64-linux, **x86_64-linux** | aarch64-linux |
 | Lifetime | socket-activated, exits after 60s idle | always on |
 | Disk | ephemeral raw images, recreated per start | qcow2 image |
@@ -28,7 +28,7 @@ See the commit that added the activation check.
 Using the VZ builder: build anything. Connecting to 127.0.0.1:31122 starts it.
 
 `hosts/macbook/vz-builder/` holds three files. `default.nix` is the nix-darwin
-module, `vm.nix` is the vfkit runner, and `guest.nix` is a whole NixOS system.
+module, `vm.nix` is the vzvm runner, and `guest.nix` is a whole NixOS system.
 `guest.nix` is aarch64-linux, so changing it means a Linux rebuild.
 
 ### Running Linux commands: `vzrun`
@@ -99,9 +99,11 @@ ssh -i "$key" -p 31122 root@127.0.0.1 systemctl poweroff   # beats waiting out t
 
 Measured rather than read, and easy to get wrong:
 
-- macOS **bootpd serves no DNS**. The DHCP hostname lands in
-  `/var/db/dhcpd_leases` and resolves nowhere. mDNS works, so the guest runs
-  avahi and answers at `vzbuilder.local`.
+- Inbound ssh goes over **vsock, not the network**: `vzvm` forwards a loopback
+  TCP port into the guest's `vsock:22`, where `systemd-ssh-generator` serves
+  `sshd-vsock.socket`. So the guest needs no resolvable name and no inbound IP —
+  macOS bootpd serves no DNS in any case — and no mDNS registration exists to go
+  stale across a restart. That is the failure the old avahi setup papered over.
 - A macOS **unix socket path cannot exceed 104 bytes**, which the scratchpad
   directory alone can exceed.
 - `unix://` **cannot retrieve build results** from a daemon in a VM: it asks
@@ -154,8 +156,9 @@ host's mangling. De-mangling needs a NAR round trip, which
 
 `hosts/macbook/vz-builder-upstream/` runs upstream's builder
 (`pkgs.darwin.linux-builder-vz`, driven by `vzvm`) beside ours, to compare
-them. It keeps its own store on an erofs image plus a data disk, so it does not
-need a case-sensitive `/nix`.
+them. Both now run on `vzvm`; the difference is the store. This one keeps its
+own store on an erofs image plus a data disk, so it does not need a
+case-sensitive `/nix`.
 
 Upstream runs it always-on. This module starts it on demand. `vzvm` owns the
 client port, so launchd cannot also own it: launchd listens on 31023, and a
