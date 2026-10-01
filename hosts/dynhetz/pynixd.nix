@@ -11,7 +11,8 @@ in
 {
   # The filter comes from the pynixd source tree, and not from
   # `services.pynixd.package.src`: the package is an `mkApp` result and
-  # carries no `src`.
+  # carries no `src`. It drops noisy info events that would otherwise be
+  # written on every store operation.
   environment.etc."pynixd/filter.py".source =
     nixidae.sources.pynixd + "/pynixd/filters/scheduler_focus.py";
 
