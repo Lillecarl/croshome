@@ -86,11 +86,11 @@ let
     '';
   };
 
-  # The same switch, built through pynixd's socket. In `beside` mode pynixd
-  # owns /run/pynixd/pynixd.sock and nix-daemon keeps the daemon socket, so
-  # only the build store is redirected and evaluation stays on nix-daemon.
-  # This is the command that proves pynixd before `replace` makes it the
-  # daemon every client reaches.
+  # The same switch, built through pynixd's socket. In `beside` mode only the
+  # build store is redirected, because nix-daemon still owns the daemon
+  # socket; in `replace` mode that socket is pynixd too, so both eval and
+  # build are its. It is also the command that reaches pynixd explicitly if
+  # the daemon socket is ever in doubt.
   ai-rebuild-pynixd = pkgs.writeShellApplication {
     name = "ai-rebuild-pynixd";
     runtimeInputs = [

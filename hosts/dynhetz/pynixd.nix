@@ -17,12 +17,19 @@ in
 
   services.pynixd = {
     enable = true;
-    # `beside` while this is proven: pynixd listens on its own socket and only
-    # a client that names it is affected. `replace` makes it the daemon every
-    # client reaches, with nix-daemon moving to daemon-socket/upstream behind
-    # it -- flip to that only once ai-rebuild-pynixd has built the system
-    # through pynixd's socket.
-    mode = "beside";
+    # `replace`: pynixd takes /nix/var/nix/daemon-socket/socket and nix-daemon
+    # moves to daemon-socket/upstream behind it, so every client reaches
+    # pynixd. Proven in `beside` first -- ai-rebuild-pynixd built the system
+    # through its socket. If pynixd misbehaves, the real daemon is still on
+    # that upstream socket:
+    #   nix --store unix:///nix/var/nix/daemon-socket/upstream ...
+    #
+    # Entering this mode is a hand step after the switch: switch-to-configuration
+    # does not restart socket units, so nix-daemon.socket keeps its old
+    # ListenStream until it is restarted, and nix-daemon.service has to stop
+    # first or it starts as a plain service and grabs the default socket that
+    # pynixd wants. A reboot does both in the right order.
+    mode = "replace";
     package = nixidae.pynixd.package;
     settings = {
       log_level = "DEBUG";
