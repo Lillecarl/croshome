@@ -57,11 +57,19 @@ let
       # switch from a transient systemd unit rather than from its own process;
       # the flags are its SWITCH_TO_CONFIGURATION_CMD_PREFIX, copied so this
       # detaches the same way.
+      # nix 2.35's nix-env, which the systemd-boot builder runs on every
+      # switch, opens the local store and asks the big-lock to upgrade to
+      # exclusive, so it queues behind anything holding it shared -- a build,
+      # a daemon connection -- and the switch hangs at the bootloader step.
+      # Point root's Nix at the running daemon instead: the lock stays inside
+      # the daemon, and nix-env never opens the local store.
       export NIXOS_INSTALL_BOOTLOADER=0
+      export NIX_REMOTE=daemon
       exec ${lib.getExe' pkgs.systemd "systemd-run"} \
         -E LOCALE_ARCHIVE \
         -E NIXOS_INSTALL_BOOTLOADER \
         -E NIXOS_NO_CHECK \
+        -E NIX_REMOTE \
         --collect --no-ask-password --pipe --quiet --service-type=exec \
         --unit=nixos-rebuild-switch-to-configuration \
         "$toplevel/bin/switch-to-configuration" switch
