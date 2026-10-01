@@ -85,10 +85,32 @@ let
       exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
     '';
   };
+
+  # The same switch, built through pynixd's socket. In `beside` mode pynixd
+  # owns /run/pynixd/pynixd.sock and nix-daemon keeps the daemon socket, so
+  # only the build store is redirected and evaluation stays on nix-daemon.
+  # This is the command that proves pynixd before `replace` makes it the
+  # daemon every client reaches.
+  ai-rebuild-pynixd = pkgs.writeShellApplication {
+    name = "ai-rebuild-pynixd";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.nixos-rebuild
+    ];
+    text = ''
+      toplevel=$(nixos-rebuild build \
+        --option eval-store unix:///nix/var/nix/daemon-socket/socket \
+        --option store unix:///run/pynixd/pynixd.sock \
+        --file ${lib.escapeShellArg selfStr} --attr dynhetz)
+
+      exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
+    '';
+  };
 in
 {
   environment.systemPackages = [
     ai-rebuild
+    ai-rebuild-pynixd
     ai-rebuild-activate
   ];
 

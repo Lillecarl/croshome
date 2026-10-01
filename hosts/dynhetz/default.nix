@@ -38,10 +38,12 @@
     ./scan-access.nix
     ./ollama.nix
     ./ttyd.nix
-    # pynixd moved into the nanopynix monorepo, so its NixOS module comes from
-    # that input rather than a checkout of its own. nanopynix is `flake = false`,
-    # so this is the source tree and no second flake is evaluated.
-    "${inputs.nanopynix}/pynixd/nix/nixos"
+    # pynixd is its own repository, resolved through the nixidae umbrella --
+    # nix/sources.lock there names the revision. The umbrella is
+    # `flake = false`, so this is a source tree and no second flake is
+    # evaluated. `.sources` reads the lock and needs no package set, which is
+    # what keeps it safe to name here in `imports`.
+    ((import inputs.nixidae { }).sources.pynixd + "/nix/nixos")
     ./pynixd.nix
     ./ai-rebuild.nix
     ./btrfs.nix
