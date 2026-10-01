@@ -38,6 +38,13 @@
     ./scan-access.nix
     ./ollama.nix
     ./ttyd.nix
+    # pynixd is its own repository, resolved through the nixidae umbrella --
+    # nix/sources.lock there names the revision. The umbrella is
+    # `flake = false`, so this is a source tree and no second flake is
+    # evaluated. `.sources` reads the lock and needs no package set, which is
+    # what keeps it safe to name here in `imports`.
+    ((import inputs.nixidae { }).sources.pynixd + "/nix/nixos")
+    ./pynixd.nix
     ./ai-rebuild.nix
     ./btrfs.nix
     ./nix-gc.nix
