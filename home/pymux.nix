@@ -46,6 +46,15 @@
       # inside pymux -- even from a program in a pane, over ssh -- reach
       # the real clipboard through the terminal's OSC52 handling.
       set-clipboard = "on";
+      # Put the opener of this session on the PATH of a new pane, as
+      # `xdg-open`, and name it in `$BROWSER`. The variable below only
+      # reaches a program that reads it; the shim catches every other
+      # one. New panes only: a pane that runs already keeps its PATH.
+      open-url-shim = true;
+      # Draw the theme's own background behind every cell of a pane, so
+      # the terminal's background is never seen and the theme is the
+      # colour of the whole screen.
+      paint-screen = true;
       # ./tmux-linked.conf sets it too: renumber after a window closes, so
       # numbers stay low.
       renumber-windows = true;
