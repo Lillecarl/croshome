@@ -11,6 +11,13 @@ in
       shellInit = # fish
         ''
           # fish_config theme choose "${themeName}" --color-theme=dark
+
+          # Homebrew's installer only teaches sh-compatible shells, and
+          # fish never reads .zprofile, so set its environment here.
+          # Guarded by path: only macOS carries /opt/homebrew.
+          if test -x /opt/homebrew/bin/brew
+            eval (/opt/homebrew/bin/brew shellenv)
+          end
         '';
     };
     xdg.configFile."fish/functions".source =
