@@ -15,6 +15,7 @@
     ./linux-vm
     ./aerospace.nix
     ./borders.nix
+    ./brew.nix
     ./ready.nix
     ./fuse.nix
     ./eurkey.nix
@@ -347,34 +348,6 @@
   # this Mac's built-in keyboard driver resolves that key by hardware
   # position, not by the HID usage hidutil can relabel. ./eurkey.nix fixes it
   # below that instead, in the keyboard layout itself.
-
-  # GUI apps go here: nix-darwin rsyncs their .app bundles into
-  # /Applications/Nix Apps, which Spotlight and Launchpad index.
-  # Their user-level config lives in ../../home.
-  environment.systemPackages = [
-    pkgs.nextcloud-client
-  ];
-
-  # Beaten path for GUI apps: vendor-signed casks through Homebrew. macOS
-  # grants privacy entitlements per signing identity, so a repackaged
-  # bundle reads as a different app -- the unsigned nix firefox-bin could
-  # not initialize any profile under macOS 27. Activation runs
-  # `brew bundle` with no auto-update and no upgrade (both default off),
-  # so switches stay idempotent; `brew upgrade` moves casks by hand.
-  homebrew = {
-    enable = true;
-    casks = [
-      "chatgpt"
-      "claude"
-      "firefox"
-      "fuse-t"
-      "kitty"
-      "paseo"
-      "slack"
-      "stremio"
-      "winbox"
-    ];
-  };
 
   # Symlinked into /Library/Fonts/Nix Fonts, so every user and every
   # application sees the font, and it is there before home-manager activates.
