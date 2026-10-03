@@ -1,12 +1,11 @@
 { lib, ... }:
 let
-  # Empty means ad-hoc, which is a proven brick: binding the real
-  # Info.plist puts the bundle under an AMFI launch constraint that
-  # only an Apple-issued signature satisfies, so the app no longer
-  # starts at all. Set this to an "Apple Development: Name (TEAMID)"
-  # identity once Xcode has issued one; `security find-identity -v -p
-  # codesigning` prints the exact string.
-  signingIdentity = "";
+  # Empty disables signing: ad-hoc is a proven brick (see below), so no
+  # signature beats a bad one. With a real identity, activation re-seals
+  # as root, which also reaches the System keychain identity
+  # non-interactively. `security find-identity -v -p codesigning
+  # /Library/Keychains/System.keychain` lists candidates.
+  signingIdentity = "Apple Development: icloud@lillecarl.com (L2KR4ZGFH3)";
 in
 {
   # nix-darwin rsyncs kitty.app into /Applications/Nix Apps with only the
