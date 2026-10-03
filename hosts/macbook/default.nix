@@ -356,7 +356,6 @@
     # which macOS will not register for desktop notifications. terminfo
     # stays on the source build, which has the output for it.
     pkgs.kitty-bin
-    pkgs.firefox-bin # pkgs.firefox is a source build on darwin and is not cached
     pkgs.nextcloud-client
   ];
 
