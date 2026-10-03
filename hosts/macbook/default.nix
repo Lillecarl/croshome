@@ -364,8 +364,15 @@
   homebrew = {
     enable = true;
     casks = [
+      "chatgpt"
+      "claude"
       "firefox"
+      "fuse-t"
       "kitty"
+      "paseo"
+      "slack"
+      "stremio"
+      "winbox"
     ];
   };
 
