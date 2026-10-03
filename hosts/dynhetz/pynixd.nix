@@ -37,6 +37,10 @@ in
     settings = {
       log_level = "INFO";
       plugins = [ "/etc/pynixd/filter.py" ];
+      # Dry-run phase for age-based GC: the hourly EXECUTE loop stays off,
+      # and collection runs only by hand (`pynixd gc`, `--execute` to delete).
+      # Flip back on once the dry-run plans look right.
+      gc_enabled = false;
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
       # startup and, until that finishes, refuses every build with "no
@@ -54,6 +58,11 @@ in
           "kvm"
           "uid-range"
         ];
+        # Dead and unreferenced for 7 days may be collected. The tracker
+        # only learned references when pynixd started writing access rows,
+        # so a young tracker plans little: that is the safe direction, and
+        # the dry-run says how little.
+        gc_max_age = 604800;
       };
     };
   };
