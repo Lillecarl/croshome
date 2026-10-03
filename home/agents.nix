@@ -156,6 +156,13 @@ let
   pyeditSkillLink = agentDir: {
     "${agentDir}/skills/pyedit".source = "${pkgs.pyedit}/share/skills/pyedit/pyedit";
   };
+
+  # The skill pyjj-cli ships with itself, same convention: the package's
+  # own SKILL.md, linked rather than copied, so agents always read what
+  # the installed CLI teaches.
+  pyjjSkillLink = agentDir: {
+    "${agentDir}/skills/pyjj".source = "${pkgs.pyjj-cli}/share/skills/pyjj-cli/pyjj";
+  };
 in
 {
   # One store path per skill. Both agents read the same set: a skill is
@@ -185,7 +192,9 @@ in
     repoSkillLinks ".claude"
     // repoSkillLinks ".gemini"
     // pyeditSkillLink ".claude"
-    // pyeditSkillLink ".gemini";
+    // pyeditSkillLink ".gemini"
+    // pyjjSkillLink ".claude"
+    // pyjjSkillLink ".gemini";
 
   # Single keys merged into ~/.claude/settings.json. Every other key stays as
   # Claude Code wrote it; ./wrapty.nix explains why the file is not generated
