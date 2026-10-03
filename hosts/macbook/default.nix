@@ -19,7 +19,6 @@
     ./fuse.nix
     ./eurkey.nix
     ./power.nix
-    ./kitty-signing.nix
     # The darwin counterpart of the import in hosts/hetztop/default.nix. Same
     # input, same reason: nanopynix is `flake = false`, so this is the source
     # tree and no second flake is evaluated.
@@ -353,7 +352,10 @@
   # /Applications/Nix Apps, which Spotlight and Launchpad index.
   # Their user-level config lives in ../../home.
   environment.systemPackages = [
-    pkgs.kitty
+    # Upstream's prebuilt signed bundle: the source build signs ad-hoc,
+    # which macOS will not register for desktop notifications. terminfo
+    # stays on the source build, which has the output for it.
+    pkgs.kitty-bin
     pkgs.firefox-bin # pkgs.firefox is a source build on darwin and is not cached
     pkgs.nextcloud-client
   ];
