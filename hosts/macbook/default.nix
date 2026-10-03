@@ -352,12 +352,22 @@
   # /Applications/Nix Apps, which Spotlight and Launchpad index.
   # Their user-level config lives in ../../home.
   environment.systemPackages = [
-    # Upstream's prebuilt signed bundle: the source build signs ad-hoc,
-    # which macOS will not register for desktop notifications. terminfo
-    # stays on the source build, which has the output for it.
-    pkgs.kitty-bin
     pkgs.nextcloud-client
   ];
+
+  # Beaten path for GUI apps: vendor-signed casks through Homebrew. macOS
+  # grants privacy entitlements per signing identity, so a repackaged
+  # bundle reads as a different app -- the unsigned nix firefox-bin could
+  # not initialize any profile under macOS 27. Activation runs
+  # `brew bundle` with no auto-update and no upgrade (both default off),
+  # so switches stay idempotent; `brew upgrade` moves casks by hand.
+  homebrew = {
+    enable = true;
+    casks = [
+      "firefox"
+      "kitty"
+    ];
+  };
 
   # Symlinked into /Library/Fonts/Nix Fonts, so every user and every
   # application sees the font, and it is there before home-manager activates.

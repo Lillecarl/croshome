@@ -1,9 +1,9 @@
 { ... }:
 {
-  # The kitty.app bundle is installed system-wide in
-  # ../../hosts/macbook/default.nix, because nix-darwin has to rsync it into
-  # /Applications/Nix Apps for Spotlight and Launchpad to find it. So this
-  # manages ~/.config/kitty only.
+  # The kitty.app bundle comes from the Homebrew cask in
+  # ../../hosts/macbook/default.nix: the vendor-signed website build, which
+  # is the identity macOS privacy grants attach to. So this manages
+  # ~/.config/kitty only.
   #
   # Linux uses foot instead, which is a Wayland terminal and has no macOS
   # build; the two are configured separately rather than through one option
