@@ -135,6 +135,11 @@
     # Scripted multi-file edits with dry-run diffs -- the tool agents reach for
     # before bash. In ../pkgs, because ../home/agents.nix links its skill.
     pyedit
+
+    # Privileged command queue: agents enqueue with `aisudo CMD...`, the
+    # user drains with `aisudo run` (sudo for root). Same ../pkgs shape as
+    # pyedit, so `nix build --file . pkgs.aisudo` reaches it without a host.
+    aisudo
     # Nix diagnostics, for machines that rebuild this much. ../../rebuild uses
     # both: nvd lists the packages a switch would move, nix-diff says why a
     # derivation differs when no version moved at all.

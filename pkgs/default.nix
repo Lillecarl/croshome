@@ -402,6 +402,12 @@ in
   # Re-add the argument when pyedit grows the parameter.
   pyedit = (import "${inputs.pyedit}" { pkgs = final; }).pyedit;
 
+  # The privileged command queue: an agent enqueues with `aisudo CMD...`,
+  # a human drains with `aisudo run` (plain in an entitled terminal, sudo
+  # for root). Elevation needs a password and entitlements no agent session
+  # has, so that half stays human-side by construction.
+  aisudo = final.callPackage ./aisudo.nix { };
+
   # Built on this configuration's pyterm, so its libpymux and the pymux in
   # `pyterm` above come from one revision: their wire protocol still moves.
   aid = (import "${inputs.aid}" { pkgs = final; inherit (inputs) pyterm; }).aid;
