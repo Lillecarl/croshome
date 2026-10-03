@@ -19,6 +19,7 @@
     ./fuse.nix
     ./eurkey.nix
     ./power.nix
+    ./kitty-signing.nix
     # The darwin counterpart of the import in hosts/hetztop/default.nix. Same
     # input, same reason: nanopynix is `flake = false`, so this is the source
     # tree and no second flake is evaluated.
