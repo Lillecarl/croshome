@@ -1,11 +1,12 @@
 { lib, ... }:
 let
-  # Empty disables signing: ad-hoc is a proven brick (see below), so no
-  # signature beats a bad one. With a real identity, activation re-seals
-  # as root, which also reaches the System keychain identity
-  # non-interactively. `security find-identity -v -p codesigning
-  # /Library/Keychains/System.keychain` lists candidates.
-  signingIdentity = "Apple Development: icloud@lillecarl.com (L2KR4ZGFH3)";
+  # Empty disables signing. Both ad-hoc and Apple Development seals brick
+  # the app: binding the real Info.plist puts the bundle under an AMFI
+  # launch constraint that neither satisfies, so the app no longer
+  # starts at all. Only an officially signed bundle (or a paid
+  # Developer ID seal, untested) can carry this bundle ID. Kept for
+  # that day; until then this file is documentation, not automation.
+  signingIdentity = "";
 in
 {
   # nix-darwin rsyncs kitty.app into /Applications/Nix Apps with only the
