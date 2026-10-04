@@ -59,11 +59,12 @@ in
           "kvm"
           "uid-range"
         ];
-        # Dead and unreferenced for 7 days may be collected. The tracker
-        # only learned references when pynixd started writing access rows,
-        # so a young tracker plans little: that is the safe direction, and
-        # the dry-run says how little.
-        gc_max_age = 604800;
+        # Dead and unreferenced for a day may be collected. A week planned
+        # nothing on a three-day-old tracker, which is the safe direction
+        # but also the useless one; a day matches what the access table
+        # actually remembers. Liveness still beats age: rooted paths stay
+        # whatever their timestamp says.
+        gc_max_age = 86400;
       };
     };
   };
