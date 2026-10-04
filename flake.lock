@@ -397,11 +397,11 @@
     "pyjj": {
       "flake": false,
       "locked": {
-        "lastModified": 1791120890,
-        "narHash": "sha256-We46nXGFxQ/TJqt+FLgCfNGGL7BQMhvY47nh5HH0N/M=",
+        "lastModified": 1791136233,
+        "narHash": "sha256-PZGp+3SURfcaSFxzQ1eRdi14RxRuRLdsN6JHmasSfCs=",
         "owner": "Lillecarl",
         "repo": "pyjj",
-        "rev": "dc54e40dcb19559ce516090854555775ee65ade2",
+        "rev": "2cf003f4b89bd49d4bd81f04efa71e1c78d13749",
         "type": "github"
       },
       "original": {
