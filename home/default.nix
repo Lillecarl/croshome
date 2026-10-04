@@ -34,6 +34,7 @@
     ./merged-file.nix
     ./opencode.nix
     ./packages.nix
+    ./pyedit-mcp.nix
     ./pymux.nix
     ./sieve.nix
     ./tmux.nix

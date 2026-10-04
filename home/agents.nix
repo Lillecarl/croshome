@@ -191,7 +191,8 @@ in
   home.file =
     repoSkillLinks ".claude"
     // repoSkillLinks ".gemini"
-    // pyeditSkillLink ".claude"
+    # No .claude link here: ./pyedit-mcp.nix owns ~/.claude/skills/pyedit,
+    # wrapping the same store skill with the Claude plugin manifests.
     // pyeditSkillLink ".gemini"
     // pyjjSkillLink ".claude"
     // pyjjSkillLink ".gemini";
