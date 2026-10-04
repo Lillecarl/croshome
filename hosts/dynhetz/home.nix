@@ -37,9 +37,6 @@
       "${config.xdg.configHome}/aid/agents"
       "${inputs.aid}/examples"
     ];
-    # Sessions may name their own worker command; a command runs as the daemon
-    # with the session's worker credentials. Needs an aid input with the flag.
-    allowWorkerCommand = true;
   };
   age.secrets.aid-env.file = ../../secrets/aid-env.age;
   systemd.user.services.aid.Unit = {
