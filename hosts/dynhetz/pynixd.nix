@@ -38,10 +38,18 @@ in
     settings = {
       log_level = "INFO";
       plugins = [ "/etc/pynixd/filter.py" ];
-      # Dry-run phase for age-based GC: the hourly EXECUTE loop stays off,
-      # and collection runs only by hand (`pynixd gc`, `--execute` to delete).
-      # Flip back on once the dry-run plans look right.
-      gc_enabled = false;
+      # Evidence phase for age-based GC: the hourly loop runs, but deletes
+      # are refused (`GCNotPermittedError`) until the liveness mirror shows
+      # sustained zero-divergence. The refused passes log as
+      # `gc_execute_not_permitted`, which is the interlock proving itself,
+      # and the differential logs beside them as `gc_liveness_agreement`
+      # or `gc_liveness_divergence`.
+      gc_enabled = true;
+      # Seconds between liveness differential checks. Each check traces the
+      # roots under the garbage collector lock like a dry-run (minutes on
+      # this store), so hourly buys 24 agreement points a day at the cost
+      # the old hourly pass used to pay.
+      gc_liveness_interval = 3600;
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
       # startup and, until that finishes, refuses every build with "no
@@ -65,6 +73,12 @@ in
         # actually remembers. Liveness still beats age: rooted paths stay
         # whatever their timestamp says.
         gc_max_age = 86400;
+        # Explicitly off: planning stays free, deleting stays refused. This
+        # flips only after sustained zero-divergence, and flipping it is the
+        # cutover decision. No automatic collection is possible while it is
+        # off: both EXECUTE routes (the loop, op 101) raise before any store
+        # traffic.
+        gc_allow_execute = false;
       };
     };
   };
