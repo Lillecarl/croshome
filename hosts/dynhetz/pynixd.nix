@@ -45,10 +45,13 @@ in
       # and the differential logs beside them as `gc_liveness_agreement`
       # or `gc_liveness_divergence`.
       gc_enabled = true;
-      # Seconds between liveness differential checks. Each check traces the
-      # roots under the garbage collector lock like a dry-run (minutes on
-      # this store), so hourly buys 24 agreement points a day at the cost
-      # the old hourly pass used to pay.
+      # Seconds between liveness differential checks. Each wake refreshes
+      # the mirror -- cheap, no locks -- and at most one trace per interval
+      # asks Nix what is alive, which traces the roots under the garbage
+      # collector lock like a dry-run. A flapping link refreshes without
+      # tracing, so generation churn cannot hold the lock continuously.
+      # The traces buy agreement points for the cutover; the mirror they
+      # compare against is what OP101 plans from.
       gc_liveness_interval = 3600;
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
