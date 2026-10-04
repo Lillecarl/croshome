@@ -397,9 +397,10 @@ in
   # each use because two places want it: ../home/packages.nix installs the
   # binary, and ../home/agents.nix links the SKILL.md it ships at
   # share/skills/pyedit/pyedit.
-  # pyjj in pyedit's closure enables `pyedit -r`; leaving it out is
-  # the only off switch, and this is where it is left in.
-  pyedit = (import "${inputs.pyedit}" { pkgs = final; pyjj = pyjj.pyjj; }).pyedit;
+  # pyjj in pyedit's closure would enable `pyedit -r`, but the pinned
+  # pyedit takes only `pkgs` today; passing `pyjj` breaks evaluation.
+  # Re-add the argument when pyedit grows the parameter.
+  pyedit = (import "${inputs.pyedit}" { pkgs = final; }).pyedit;
 
   # Built on this configuration's pyterm, so its libpymux and the pymux in
   # `pyterm` above come from one revision: their wire protocol still moves.
