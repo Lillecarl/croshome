@@ -1,4 +1,5 @@
 {
+  config,
   pkgs,
   inputs,
   ...
@@ -66,4 +67,14 @@ in
       };
     };
   };
+
+  # The daemon reads its JSON once at startup, so a settings change that
+  # leaves the unit file untouched never reaches the running process: the
+  # switch activates the file and the old daemon keeps serving. Naming the
+  # rendered config as a restart trigger changes the unit with it, and the
+  # switch restarts the daemon. ai-rebuild then activates end to end, with
+  # no hand step after it.
+  systemd.services.pynixd.restartTriggers = [
+    config.environment.etc."pynixd/pynixd.json".source
+  ];
 }
