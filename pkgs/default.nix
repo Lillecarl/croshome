@@ -393,6 +393,12 @@ in
   # Re-add the argument when pyedit grows the parameter.
   pyedit = (import "${inputs.pyedit}" { pkgs = final; }).pyedit;
 
+  # Phabricator and Phorge from the shell. Here rather than imported at each
+  # use because two places want it: ../home/packages.nix installs the binary,
+  # and ../home/agents.nix links the SKILL.md it ships at
+  # share/skills/phabfive/phabfive.
+  phabfive = (import "${inputs.phabfive}" { pkgs = final; }).phabfive;
+
   # The privileged command queue: an agent enqueues with `aisudo CMD...`,
   # a human drains with `aisudo run` (plain in an entitled terminal, sudo
   # for root). Elevation needs a password and entitlements no agent session

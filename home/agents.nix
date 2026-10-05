@@ -163,6 +163,13 @@ let
   pyjjSkillLink = agentDir: {
     "${agentDir}/skills/pyjj".source = "${pkgs.pyjj-cli}/share/skills/pyjj-cli/pyjj";
   };
+
+  # The skill phabfive ships with itself, same convention again: the package's
+  # own SKILL.md, linked rather than copied, so agents always read what the
+  # installed CLI teaches.
+  phabfiveSkillLink = agentDir: {
+    "${agentDir}/skills/phabfive".source = "${pkgs.phabfive}/share/skills/phabfive/phabfive";
+  };
 in
 {
   # One store path per skill. Both agents read the same set: a skill is
@@ -195,7 +202,9 @@ in
     # wrapping the same store skill with the Claude plugin manifests.
     // pyeditSkillLink ".gemini"
     // pyjjSkillLink ".claude"
-    // pyjjSkillLink ".gemini";
+    // pyjjSkillLink ".gemini"
+    // phabfiveSkillLink ".claude"
+    // phabfiveSkillLink ".gemini";
 
   # Single keys merged into ~/.claude/settings.json. Every other key stays as
   # Claude Code wrote it; ./wrapty.nix explains why the file is not generated

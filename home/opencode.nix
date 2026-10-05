@@ -107,6 +107,12 @@ in
     home.file.".config/opencode/skills/pystemctl".source =
       "${(import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl}/share/skills/pystemctl/pystemctl";
 
+    # phabfive ships its own skill too. ./agents.nix links the same store path
+    # into ~/.claude and ~/.gemini; opencode needs its own link because it
+    # reads ~/.config/opencode/skills and not the other two.
+    home.file.".config/opencode/skills/phabfive".source =
+      "${pkgs.phabfive}/share/skills/phabfive/phabfive";
+
     home.mergedFile.".config/opencode/tui.json" = {
       format = "json";
       settings.plugin = [ "${selfStr}/home/agents/opencode/plugins/tool-toggles.ts" ];
