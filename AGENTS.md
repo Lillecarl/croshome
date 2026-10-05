@@ -118,6 +118,23 @@ hetztop and dynhetz — see each `hosts/*/ai-rebuild.nix`, and read the grant as
 full root, not narrow root. `ai-rebuild-pynixd` (hetztop only) is the same
 switch routed through the pynixd store.
 
+## Dogfood pystemctl for long runs
+
+`pystemctl` runs on the Linux hosts. Start a rebuild as an ephemeral unit
+instead of `nohup` plus sleep-polling:
+
+```sh
+pystemctl run --tag ai-rebuild --description "rebuild after <change>" -- ai-rebuild
+pystemctl wait --tag ai-rebuild --timeout 300
+pystemctl jobs --tag ai-rebuild
+pystemctl logs <unit> -n 100
+```
+
+A tagged job stays after it exits, so its result stays readable. `wait`
+without `--grep` returns when the unit stops or the timeout hits; repeat it
+until the unit stops, then read the logs. Never `pgrep -f` a run started
+this way — `jobs` answers whether it is alive.
+
 ## Version Control
 
 This repo uses **jj (Jujutsu)**. Never use `git` directly.
