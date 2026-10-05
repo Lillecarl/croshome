@@ -20,10 +20,11 @@
     ./fuse.nix
     ./eurkey.nix
     ./power.nix
-    # The darwin counterpart of the import in hosts/hetztop/default.nix. Same
-    # input, same reason: nanopynix is `flake = false`, so this is the source
-    # tree and no second flake is evaluated.
-    "${inputs.nanopynix}/pynixd/nix/darwin"
+    # The darwin counterpart of the pynixd import in
+    # hosts/hetztop/default.nix: the pinned umbrella, same reason. The
+    # umbrella is `flake = false`, so this is the source tree and no second
+    # flake is evaluated.
+    ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/darwin")
     ./pynixd.nix
     ../../secrets
   ];

@@ -34,24 +34,6 @@ let
         # directly. A fresh clone with no ./overrides.nix still gets that.
         overrides = {
           self = ./.;
-
-          # These two were here until the move to ./overrides.nix, and they
-          # only ever resolved on hetztop. Left as a record of what that
-          # machine was building against, so whoever is next on it can decide
-          # rather than guess.
-          #
-          # To restore them, write them to ./overrides.nix on hetztop -- that
-          # file is gitignored, so they stay on the machine they describe.
-          # Uncommenting them here puts a path that exists on one machine into
-          # a repository shared by three, which is what the move undid.
-          #
-          #   acpcli = /home/lillecarl/Code/acpcli;
-          #   nanopynix = /home/lillecarl/Code/nanopynix;
-          #
-          # Check before restoring nanopynix: it was pinned to a local checkout
-          # because the locked input had no pynixd/nix/nixos for hosts/hetztop
-          # to import. The input has since moved to a revision that has it, so
-          # the override may now be doing nothing but hiding upstream.
         };
       }
     ).inputs;

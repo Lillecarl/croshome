@@ -1,8 +1,8 @@
 { inputs, pkgs, ... }:
 {
   # agenix is `flake = false`, so this is the source tree and no second flake
-  # is evaluated -- the same treatment nanopynix gets in ../hosts/*/default.nix,
-  # and see ../flake.nix for why it matters more here.
+  # is evaluated -- the same treatment the umbrella gets in
+  # ../hosts/*/default.nix, and see ../flake.nix for why it matters more here.
   #
   # One file serves both machines. It decides which it is on at evaluation time
   # by asking whether `environment.darwinConfig` is a declared option, and

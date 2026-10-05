@@ -5,9 +5,10 @@
   ...
 }:
 let
-  # The umbrella resolves pynixd from its own nix/sources.lock, so the
-  # revision is the one nixidae pins and no separate pynixd input exists.
-  nixidae = import inputs.nixidae { inherit pkgs; };
+  # The pinned umbrella resolves pynixd from its own nix/sources.lock, so
+  # the revision is the one `nixidae-pynixd` pins and no separate pynixd
+  # input exists.
+  nixidaePynixd = import inputs.nixidae-pynixd { inherit pkgs; };
 in
 {
   # The filter comes from the pynixd source tree, and not from
@@ -15,7 +16,7 @@ in
   # carries no `src`. It drops noisy info events that would otherwise be
   # written on every store operation.
   environment.etc."pynixd/filter.py".source =
-    nixidae.sources.pynixd + "/pynixd/filters/scheduler_focus.py";
+    nixidaePynixd.sources.pynixd + "/pynixd/filters/scheduler_focus.py";
 
   # Nix 2.35 names the socket-activated descriptor `nix-daemon.socket` in
   # LISTEN_FDNAMES, and the upstream socket unit pynixd listens behind relies
@@ -34,7 +35,7 @@ in
     # If pynixd misbehaves, the real daemon is still on the upstream socket:
     #   nix --store unix:///nix/var/nix/daemon-socket/upstream ...
     mode = "replace";
-    package = nixidae.pynixd.package;
+    package = nixidaePynixd.pynixd.package;
     settings = {
       log_level = "INFO";
       plugins = [ "/etc/pynixd/filter.py" ];

@@ -10,11 +10,11 @@ in
 {
   config = {
     # The module states no default for `package` -- only `darwinModules.pynixd`
-    # in nanopynix' own flake does, and this imports the module file directly.
+    # in pynixd's own flake does, and this imports the module file directly.
     # Same reasoning as hosts/hetztop/pynixd.nix.
     services.pynixd = {
       enable = true;
-      package = (import "${inputs.nanopynix}" { inherit pkgs; }).pynixd;
+      package = (import inputs.nixidae-pynixd { inherit pkgs; }).pynixd.package;
       settings = {
         log_level = "INFO";
 

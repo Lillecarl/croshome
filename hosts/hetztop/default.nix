@@ -16,10 +16,11 @@
     ./podman.nix
     ./ollama.nix
     ./ttyd.nix
-    # pynixd moved into the nanopynix monorepo, so its NixOS module comes from
-    # that input rather than a checkout of its own. nanopynix is `flake = false`,
-    # so this is the source tree and no second flake is evaluated.
-    "${inputs.nanopynix}/pynixd/nix/nixos"
+    # pynixd comes from the pinned umbrella rather than a monorepo input:
+    # `nixidae-pynixd` never names a path in ./overrides.nix, so a local
+    # checkout moves nothing here. The umbrella is `flake = false`, so this
+    # is a source tree and no second flake is evaluated.
+    ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/nixos")
     ./pynixd.nix
     ./ai-rebuild.nix
     ./btrfs.nix
