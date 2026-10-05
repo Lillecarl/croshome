@@ -77,12 +77,11 @@ in
         # actually remembers. Liveness still beats age: rooted paths stay
         # whatever their timestamp says.
         gc_max_age = 86400;
-        # Explicitly off: planning stays free, deleting stays refused. This
-        # flips only after sustained zero-divergence, and flipping it is the
-        # cutover decision. No automatic collection is possible while it is
-        # off: both EXECUTE routes (the loop, op 101) raise before any store
-        # traffic.
-        gc_allow_execute = false;
+        # Permitted by operator decision 2026-10-05 after dry-run plans
+        # showed zero overlap with the running system: planning stays free,
+        # and EXECUTE now deletes what the plan names, vetoed roots aside.
+        # Set back to false to refuse deletes again; nothing else changes.
+        gc_allow_execute = true;
       };
     };
   };
