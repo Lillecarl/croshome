@@ -19,7 +19,9 @@
 #   and belong in the config rather than in prose.
 {
   config,
+  inputs,
   lib,
+  pkgs,
   selfStr,
   ...
 }:
@@ -97,6 +99,13 @@ in
     # home.file: the rest of the file stays hand-editable.
     home.file.".config/opencode/plugins".source =
       config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/agents/opencode/plugins";
+
+    # pystemctl ships its own skill, and opencode reads
+    # ~/.config/opencode/skills natively. It stays opencode-only: Claude
+    # Code has background jobs built in, which is what this skill teaches
+    # under systemd.
+    home.file.".config/opencode/skills/pystemctl".source =
+      "${(import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl}/share/skills/pystemctl/pystemctl";
 
     home.mergedFile.".config/opencode/tui.json" = {
       format = "json";

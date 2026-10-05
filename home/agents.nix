@@ -163,15 +163,6 @@ let
   pyjjSkillLink = agentDir: {
     "${agentDir}/skills/pyjj".source = "${pkgs.pyjj-cli}/share/skills/pyjj-cli/pyjj";
   };
-
-  # pystemctl arrives as a flake input rather than through the overlay, so
-  # the derivation is built here and not in ../pkgs. Same skill convention
-  # as pyjj above: the package's own SKILL.md, linked rather than copied.
-  pystemctlPkg = (import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl;
-  pystemctlSkillLink = agentDir: {
-    "${agentDir}/skills/pystemctl".source =
-      "${pystemctlPkg}/share/skills/pystemctl/pystemctl";
-  };
 in
 {
   # One store path per skill. Both agents read the same set: a skill is
@@ -204,9 +195,7 @@ in
     # wrapping the same store skill with the Claude plugin manifests.
     // pyeditSkillLink ".gemini"
     // pyjjSkillLink ".claude"
-    // pyjjSkillLink ".gemini"
-    // pystemctlSkillLink ".claude"
-    // pystemctlSkillLink ".gemini";
+    // pyjjSkillLink ".gemini";
 
   # Single keys merged into ~/.claude/settings.json. Every other key stays as
   # Claude Code wrote it; ./wrapty.nix explains why the file is not generated
