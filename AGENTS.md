@@ -126,14 +126,16 @@ instead of `nohup` plus sleep-polling:
 ```sh
 pystemctl run --tag ai-rebuild --description "rebuild after <change>" -- ai-rebuild
 pystemctl wait --tag ai-rebuild --timeout 300
-pystemctl jobs --tag ai-rebuild
+pystemctl jobs --tag ai-rebuild --any-session
 pystemctl logs <unit> -n 100
 ```
 
 A tagged job stays after it exits, so its result stays readable. `wait`
 without `--grep` returns when the unit stops or the timeout hits; repeat it
-until the unit stops, then read the logs. Never `pgrep -f` a run started
-this way — `jobs` answers whether it is alive.
+until the unit stops, then read the logs. `jobs` filters by agent session id
+by default, and a shell outside the agent session has another one, so pass
+`--any-session` unless the same session runs both commands. Never `pgrep -f`
+a run started this way — `jobs` answers whether it is alive.
 
 ## Version Control
 
