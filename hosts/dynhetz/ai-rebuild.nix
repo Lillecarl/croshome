@@ -95,6 +95,15 @@ let
       pkgs.nixos-rebuild
     ];
     text = ''
+      # Read the umbrella's working copies live, the way ./overrides.nix
+      # reads this repository's own inputs live. resolve.nix answers a source
+      # with a checkout beside the umbrella as that directory when the
+      # variable names it, and `all` names every one that is on disk; a
+      # source with no checkout still comes from its lock. The pinned
+      # `nixidae-pynixd` umbrella is a store path with no checkouts beside
+      # it, so pynixd stays on its lock whatever this says.
+      export UMBRELLA_DEV=all
+
       # Build as this user. stdout carries nothing but the store path; every
       # other line goes to stderr.
       toplevel=$(nixos-rebuild build \
