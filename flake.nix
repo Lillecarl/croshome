@@ -2,19 +2,16 @@
   inputs = {
     flake-compatish.url = "github:lillecarl/flake-compatish";
     # `nixpkgs-unstable`, and not `nixos-unstable`. nanopynix and easykubenix
-    # both track that branch, and this configuration builds nanopynix from
-    # source with its own package set (the `nanopynix` input below, switched
-    # off in home/packages.nix while the Python 3.15 work happens upstream).
+    # both track that branch, and this configuration builds both from source
+    # through the `nixidae` umbrella below, with this same package set.
     #
     # The two channels never publish the same revision. So a `nixos-unstable`
     # pin here means a second Python closure, and nanopynix builds against
     # Python 3.15, which is a large one to build twice.
     #
-    # The lock holds the release the three repositories share:
-    # nixpkgs-26.11pre1058374.07e1d92cdc0e. `nix flake update` moves it to the
-    # head of the channel, so re-pin the other two after an update.
-    #
-    # nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    # The lock holds the release the repositories share. `nix flake update`
+    # moves it to the head of the channel, so re-check the umbrella after an
+    # update.
     nixpkgs.url = "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz";
     home-manager = {
       url = "github:nix-community/home-manager/master";
@@ -57,7 +54,7 @@
     # development of the tool together rather than a packaging branch frozen
     # against an older tree.
     #
-    # A source tree, and not a flake, for the same reason as nanopynix below.
+    # A source tree, and not a flake, for the same reason as agenix below.
     # Its `default.nix` takes `pkgs`, so this configuration's package set
     # builds it and no second nixpkgs is instantiated. Its own flake exists to
     # wrap that same file for people who want a flake.
@@ -69,7 +66,7 @@
       url = "github:Lillecarl/phabfive/develop";
       flake = false;
     };
-    # A source tree, and not a flake, for the same reason as nanopynix below --
+    # A source tree, and not a flake, for the same reason as agenix above --
     # and here the reason is sharper. agenix pins its own `nixpkgs` to
     # nixos-25.05 and does not follow ours, so evaluating its outputs would
     # instantiate a second package set on a different release.
@@ -91,14 +88,6 @@
       url = "github:pyproject-nix/pyproject.nix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    # A source tree, and not a flake. `default.nix` of nanopynix takes `pkgs`,
-    # so this package set builds it and no second nixpkgs is instantiated.
-    # `flake = false` is what keeps the outputs of nanopynix unevaluated:
-    # flake-compatish gives a node with `flake = false` its source only.
-    nanopynix = {
-      url = "github:Lillecarl/nanopynix";
-      flake = false;
-    };
 
     # The umbrella that owns easykubenix, which ./kube uses to turn Nix into
     # Kubernetes manifests for dynhetz's cluster.
@@ -114,9 +103,19 @@
     # project resolves from the lock instead. A tarball therefore carries the
     # whole of it.
     #
-    # `flake = false` for the same reason as nanopynix above: it is a source
-    # tree, and the entry points here import what they want from it.
+    # `flake = false` is what keeps a source tree unevaluated:
+    # flake-compatish gives such a node its source only, and the entry
+    # points here import what they want from it.
     nixidae = {
+      url = "github:nixidae/nixidae";
+      flake = false;
+    };
+
+    # The same umbrella, pinned a second time for pynixd alone. pynixd runs
+    # in `replace` mode in front of the system daemon, so its revision moves
+    # only on a deliberate `nix flake update nixidae-pynixd` -- never through
+    # ./overrides.nix, which names `nixidae` and leaves this one alone.
+    nixidae-pynixd = {
       url = "github:nixidae/nixidae";
       flake = false;
     };
@@ -129,10 +128,10 @@
     # The home-manager module builds its default package with `import ../.`
     # relative to itself, so an empty `pymux` directory fails that build.
     #
-    # `flake = false` for the same reason as nanopynix. `default.nix` of pyterm
-    # takes `pkgs`, so this configuration's package set builds it and no second
-    # nixpkgs is instantiated. Its own flake wraps that same file for people
-    # who want a flake.
+    # `flake = false` for the same reason as nixidae above. `default.nix` of
+    # pyterm takes `pkgs`, so this configuration's package set builds it and
+    # no second nixpkgs is instantiated. Its own flake wraps that same file
+    # for people who want a flake.
     #
     # This needed an SSH key until pyterm's `.gitmodules` moved to https.
     # It named every submodule as `git@github.com:...`, and nix follows those
@@ -145,7 +144,7 @@
       flake = false;
     };
 
-    # A source tree, and not a flake, for the same reason as nanopynix above:
+    # A source tree, and not a flake, for the same reason as nixidae above:
     # `default.nix` takes `pkgs`, so this configuration's package set builds it
     # and no second nixpkgs is instantiated. No submodules, so a plain
     # `github:` fetch carries the whole tree.
@@ -173,7 +172,7 @@
 
     # Python bindings for Jujutsu, with a CLI and a TUI built on them.
     #
-    # A source tree, and not a flake, for the same reason as nanopynix above,
+    # A source tree, and not a flake, for the same reason as nixidae above,
     # and here the tree agrees: its own flake declares no outputs at all. That
     # flake exists to produce the lock its `nix/compat.nix` reads, which is how
     # `nix-build -A pyjjui` works there without a flake store-copy.

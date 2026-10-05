@@ -283,22 +283,6 @@
         "type": "github"
       }
     },
-    "nanopynix": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1786872045,
-        "narHash": "sha256-/iWDOzlaNyjrrYsWNtmkbaFbCnZRLaikM3+yItyjzBQ=",
-        "owner": "Lillecarl",
-        "repo": "nanopynix",
-        "rev": "85e000f940956720ea9aefb8d9e8b4049d56a2e5",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Lillecarl",
-        "repo": "nanopynix",
-        "type": "github"
-      }
-    },
     "nix-darwin": {
       "inputs": {
         "nixpkgs": [
@@ -320,6 +304,22 @@
       }
     },
     "nixidae": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1791161859,
+        "narHash": "sha256-CczFF4F/7p+T7zJbNg+vaV/EbouKiiNue+vBl04kOGI=",
+        "owner": "nixidae",
+        "repo": "nixidae",
+        "rev": "f175005e480f74dfa2592a56082c67af76f5e702",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixidae",
+        "repo": "nixidae",
+        "type": "github"
+      }
+    },
+    "nixidae-pynixd": {
       "flake": false,
       "locked": {
         "lastModified": 1791161859,
@@ -497,9 +497,9 @@
         "flake-compatish": "flake-compatish_2",
         "home-manager": "home-manager",
         "llm-agents": "llm-agents",
-        "nanopynix": "nanopynix",
         "nix-darwin": "nix-darwin",
         "nixidae": "nixidae",
+        "nixidae-pynixd": "nixidae-pynixd",
         "nixpkgs": "nixpkgs",
         "nixpkgs-stable": "nixpkgs-stable",
         "phabfive": "phabfive",
