@@ -83,6 +83,7 @@ in
           "/nix/store/**" = "allow";
           "/etc/nixpkgs/**" = "allow";
           "/etc/home-manager/**" = "allow";
+          "/tmp/**" = "allow";
           "~/Code/**" = "allow";
           "~/.config/opencode/**" = "allow";
         };
