@@ -454,11 +454,11 @@
     "pystemctl": {
       "flake": false,
       "locked": {
-        "lastModified": 1791195585,
-        "narHash": "sha256-WL0JbqZ7qn4Gpjw7+j1K2+S/6Yji+sEuI2cLrLy6X2w=",
+        "lastModified": 1791200178,
+        "narHash": "sha256-kvi+qkxatghihsk81mOTs2g4FPSeRdeOHCRi958F3+g=",
         "owner": "Lillecarl",
         "repo": "pystemctl",
-        "rev": "f1f98c20f14f5fb372f4715e8b8f2e736e3723b0",
+        "rev": "dd2c446d6329aea3d88d6847abef82cacdbf69fb",
         "type": "github"
       },
       "original": {
