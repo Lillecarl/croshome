@@ -574,6 +574,15 @@ assert noCollision "IPv6" userV6;
     allowedTCPPorts = [ 53 ];
   };
 
+  # Port 2235 stays closed until Lillecarl/pynixd#75 lands: it is the
+  # reverse builder acceptor (./pynixd.nix), and the acceptor authenticates
+  # no builder today. When fixed, uncomment the line below; the list merges
+  # with the 53 above. Interface scope, not source-IP: the acceptor binds
+  # wg-dynhetz's own address, and the MikroTik reasoning above is why this
+  # interface never becomes trusted.
+  #
+  # networking.firewall.interfaces."wg-dynhetz".allowedTCPPorts = [ 2235 ];
+
   # Two things now rely on this, not one: the MikroTik exit node, and any
   # user on the -full profile above, whose IPv4 default also lands here. The
   # rules are interface-based rather than prefix-based, so the per-user
