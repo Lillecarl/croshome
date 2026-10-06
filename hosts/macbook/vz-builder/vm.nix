@@ -74,7 +74,7 @@ let
     memorySizeMiB = cfg.memory;
     kernel = "${kernel}/Image";
     initrd = "${netbootRamdisk}/initrd";
-    cmdline = "console=hvc0 init=${toplevel}/init";
+    cmdline = "init=${toplevel}/init ${toString guest.config.boot.kernelParams}";
     nestedVirtualization = cfg.nestedVirtualization;
 
     console = {

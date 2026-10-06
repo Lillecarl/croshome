@@ -123,8 +123,10 @@ in
         };
       };
 
+      # ./vm.nix hands vzvm exactly this list after `init=`.
       boot.kernelParams = [
         "console=hvc0" # vzvm's virtio console
+        "quiet"
         "systemd.log_level=warning"
       ];
 
