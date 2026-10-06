@@ -322,11 +322,11 @@
     "nixidae-pynixd": {
       "flake": false,
       "locked": {
-        "lastModified": 1791304746,
-        "narHash": "sha256-y0Rz+doSqvEU83iIq81Ejgm7loIGzXLKhpUgLU5l33g=",
+        "lastModified": 1791319316,
+        "narHash": "sha256-V4eyhDvbCkTY4TBwdCWYrYFarZza5CD2Ux4Jdm5Fzxc=",
         "owner": "nixidae",
         "repo": "nixidae",
-        "rev": "96b9b4e7fd2db9d0a7ab95db0a3b1a795f2775e8",
+        "rev": "7c336b1d387a1de647be41a17ac2377b9b519ab6",
         "type": "github"
       },
       "original": {
@@ -454,11 +454,11 @@
     "pystemctl": {
       "flake": false,
       "locked": {
-        "lastModified": 1791306274,
-        "narHash": "sha256-ieich/ClYdU60Q8iT9bkUGIfL54Ok91MjR2uq+laXoM=",
+        "lastModified": 1791318208,
+        "narHash": "sha256-3RWBnKe0AtRhWYBpOyfdOfICFeF6YWFvd2+7lnEb6vA=",
         "owner": "Lillecarl",
         "repo": "pystemctl",
-        "rev": "bc88aa8c3d67d140b49bf2572b768808271b35e6",
+        "rev": "1e0b25da02793667bfcb65985ce3ca8e7da185ab",
         "type": "github"
       },
       "original": {
