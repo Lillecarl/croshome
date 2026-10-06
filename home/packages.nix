@@ -204,6 +204,15 @@
     coreutils
     moreutils
 
+    # Plumbing macOS omits or freezes: socat for socket relay, xz and zstd
+    # for archives newer than gzip, rsync at 3.x while the system rsync is
+    # still 2.6.9, nmap for asking a port directly.
+    socat
+    xz
+    zstd
+    rsync
+    nmap
+
     # Software bill of materials for a closure. The dfdiskcache patch is a
     # dependency whose requirements pin pandas below 3, which nixpkgs has moved
     # past; the runtime check is what fails on it, not the code.
