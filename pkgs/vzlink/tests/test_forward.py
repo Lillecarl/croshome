@@ -77,6 +77,21 @@ async def test_roundtrip_counts_both_directions() -> None:
 
 
 @pytest.mark.anyio
+async def test_small_messages_are_not_held_for_a_full_read() -> None:
+    """The read size caps a read; it is not a fill target. The nix protocol
+    sends small frames and waits for answers, so a read that waited for a
+    full chunk would deadlock it. One-byte round trips must flow at once."""
+    async with _forwarding() as (client_a, client_b, _):
+        with anyio.fail_after(2.0):
+            for i in range(200):
+                byte = bytes([i])
+                await client_a.send(byte)
+                assert await client_b.receive() == byte
+                await client_b.send(byte)
+                assert await client_a.receive() == byte
+
+
+@pytest.mark.anyio
 async def test_activity_touched_by_traffic() -> None:
     activity = Activity()
     activity.last = 0.0
