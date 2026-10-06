@@ -525,6 +525,7 @@ in
         Port ${toString cfg.port}
         HostKeyAlias vz-builder
         IdentityFile ${cfg.builderKey}
+        Ciphers ${vm.sshCiphers}
     '';
 
     nix.distributedBuilds = true;

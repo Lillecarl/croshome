@@ -57,6 +57,10 @@ let
   # ./guest.nix installs, taken from the same nixpkgs the guest is built from.
   # So there is no first-use prompt, and no entry written into your own
   # known_hosts for a machine that is rebuilt every few minutes.
+  # What the guest's sshd accepts (see ./guest.nix), handed to every client
+  # here so a client never offers a cipher the server refuses.
+  sshCiphers = lib.concatStringsSep "," guest.config.services.openssh.settings.Ciphers;
+
   knownHosts = pkgs.writeText "vz-builder-known-hosts" ''
     vz-builder ${builtins.readFile "${cfg.nixpkgs}/nixos/modules/profiles/keys/ssh_host_ed25519_key.pub"}
   '';
@@ -136,6 +140,7 @@ let
         -o HostKeyAlias=vz-builder
         -o UserKnownHostsFile=${knownHosts}
         -o StrictHostKeyChecking=yes
+        -o "Ciphers=${sshCiphers}"
         # Multiplexing, because this is meant to be called in a loop: a warm VM
         # answers a fresh handshake in about 150ms and a reused one in about
         # 20ms. ControlPersist stays well under idleTimeout
@@ -295,6 +300,7 @@ in
     swapDisk
     authorizedKeysFile
     knownHosts
+    sshCiphers
     vzrun
     runVm
     connect

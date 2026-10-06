@@ -320,6 +320,12 @@ in
         settings.ClientAliveInterval = 60;
         settings.ClientAliveCountMax = 3;
 
+        # AES-GCM only: both ends are Apple Silicon and run it on the ARMv8
+        # crypto instructions, where OpenSSH's default ChaCha20-Poly1305 is
+        # software. Every client is ours and ./vm.nix reads this list for
+        # them, so no fallback is needed.
+        settings.Ciphers = [ "aes128-gcm@openssh.com" ];
+
         # sshd allows 10 channels on one connection by default, and that is
         # too few for a client that opens many at once over a single link.
         # pynixd probes this guest by asking it about one system feature per
