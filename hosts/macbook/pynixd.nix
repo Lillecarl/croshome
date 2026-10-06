@@ -55,6 +55,12 @@ in
           username = "builder";
           client_keys = [ "/etc/nix/builder_ed25519" ];
 
+          # No default: the configuration has to answer. `null` is
+          # asyncssh "accept any host key", sanctioned upstream for
+          # exactly this case -- a loopback connection to a local
+          # virtual machine has no exposure worth the ceremony.
+          known_hosts = null;
+
           # Probed, and not stated. `systems` and `system_features` are left
           # unset on purpose: pynixd asks the guest what it is, and the guest
           # answers from its own configuration. A list written here is a second
