@@ -20,7 +20,10 @@ from vzlink.protocol import STREAM_ERRORS
 if TYPE_CHECKING:
     from anyio.abc import ByteStream
 
-CHUNK: Final = 65536
+# Per-read overhead dominates, not the event loop: on loopback, 64 KiB reads
+# relayed 1.4 GiB/s, 1 MiB reads 4.1 GiB/s at half the CPU per GiB. uvloop
+# was no faster at 64 KiB and slower above it. `pkgs.vzlink.bench` measures.
+CHUNK: Final = 1024 * 1024
 
 
 class EndedBy(StrEnum):
@@ -50,10 +53,10 @@ class Activity:
         self.last = time.monotonic()
 
 
-async def _receive(stream: ByteStream) -> bytes:
+async def _receive(stream: ByteStream, chunk: int) -> bytes:
     """One chunk, or b"" at EOF. anyio raises EndOfStream there."""
     try:
-        return await stream.receive(CHUNK)
+        return await stream.receive(chunk)
     except anyio.EndOfStream:
         return b""
 
@@ -64,9 +67,10 @@ async def _copy(
     stats: ForwardStats,
     attr: str,
     activity: Activity,
+    chunk_size: int,
 ) -> None:
     """Move bytes one direction until EOF."""
-    while chunk := await _receive(src):
+    while chunk := await _receive(src, chunk_size):
         await dst.send(chunk)
         setattr(stats, attr, getattr(stats, attr) + len(chunk))
         activity.touch()
@@ -87,20 +91,24 @@ def _describe(exc: BaseException) -> str:
 
 
 async def forward(
-    a: ByteStream, b: ByteStream, *, activity: Activity | None = None
+    a: ByteStream,
+    b: ByteStream,
+    *,
+    activity: Activity | None = None,
+    chunk: int = CHUNK,
 ) -> ForwardStats:
     """Copy both directions until both reach EOF, then close both streams.
 
     `activity`, when given, is touched on every chunk so a monitor can tell a
-    stalled connection from a quiet one.
+    stalled connection from a quiet one. `chunk` caps one read.
     """
     seen = activity if activity is not None else Activity()
     seen.touch()
     stats = ForwardStats()
     try:
         async with anyio.create_task_group() as task_group:
-            task_group.start_soon(_copy, a, b, stats, "a_to_b", seen)
-            task_group.start_soon(_copy, b, a, stats, "b_to_a", seen)
+            task_group.start_soon(_copy, a, b, stats, "a_to_b", seen, chunk)
+            task_group.start_soon(_copy, b, a, stats, "b_to_a", seen, chunk)
     except* STREAM_ERRORS as group:
         stats.ended_by = EndedBy.ERROR
         stats.detail = "; ".join(_describe(exc) for exc in group.exceptions)
