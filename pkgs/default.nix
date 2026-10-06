@@ -141,6 +141,8 @@ in
 
   wrapty = final.python314.pkgs.callPackage ./wrapty { };
 
+  vzlink = final.python314.pkgs.callPackage ./vzlink { };
+
   # The xonsh bundle from Lillecarl/anyxonsh, vendored wholesale into
   # ./anyxonsh -- source tree and build machinery together, because the plan
   # is to iterate here rather than track upstream. Its nix/ directory bridges
