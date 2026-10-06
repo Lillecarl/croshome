@@ -166,6 +166,23 @@ async def test_unknown_op_names_itself(state_dir) -> None:
 
 
 @pytest.mark.anyio
+async def test_liveness_probe_is_silent(state_dir) -> None:
+    """The proxy waits for the supervisor by connecting and closing. That is
+    a probe, not a malformed message; only a half line is worth a warning."""
+    with anyio.fail_after(DEADLINE):
+        async with _fake_vm() as vm, _supervisor(state_dir, 9, 9, vm.proc.pid) as (sup, sock):
+            await (await anyio.connect_unix(sock)).aclose()
+            async with await anyio.connect_unix(sock) as stream:
+                await stream.send(b'{"op":')
+                await stream.send_eof()
+                with pytest.raises(anyio.EndOfStream):
+                    await stream.receive()
+            sup.proc.terminate()
+            await sup.wait()
+            assert sup.log.count("bad control message") == 1
+
+
+@pytest.mark.anyio
 async def test_register_then_idle_shutdown(state_dir) -> None:
     with anyio.fail_after(DEADLINE):
         async with _fake_vm() as vm:

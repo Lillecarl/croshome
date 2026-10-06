@@ -37,6 +37,11 @@ class ProtocolError(ValueError):
     """The peer sent bytes that are not one JSON object per line."""
 
 
+class PeerClosed(ProtocolError):
+    """The peer closed without sending a byte. The proxy's wait for the
+    supervisor does exactly this, so a server treats it as a probe."""
+
+
 class ControlError(RuntimeError):
     """The peer answered, with Status.ERROR."""
 
@@ -80,6 +85,8 @@ async def read_message(stream: anyio.abc.ByteStream) -> dict[str, Any]:
             chunk = await stream.receive(65536)
         except anyio.EndOfStream:
             chunk = b""
+        if not chunk and not buf:
+            raise PeerClosed("peer closed without sending")
         if not chunk:
             raise ProtocolError("peer closed before the newline delimiter")
         buf += chunk

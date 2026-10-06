@@ -32,6 +32,7 @@ import anyio.abc
 from vzlink.protocol import (
     STREAM_ERRORS,
     Op,
+    PeerClosed,
     ProtocolError,
     error,
     ok,
@@ -148,6 +149,8 @@ class Supervisor:
         async with stream:
             try:
                 await send_message(stream, await self.dispatch(await read_message(stream)))
+            except PeerClosed:
+                pass
             except (ProtocolError, *STREAM_ERRORS) as exc:
                 logger.warning("bad control message: %r", exc)
 
