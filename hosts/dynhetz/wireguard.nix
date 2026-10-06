@@ -574,12 +574,12 @@ assert noCollision "IPv6" userV6;
     allowedTCPPorts = [ 53 ];
   };
 
-  # Port 2235 stays closed until Lillecarl/pynixd#75 lands: it is the
-  # reverse builder acceptor (./pynixd.nix), and the acceptor authenticates
-  # no builder today. When fixed, uncomment the line below; the list merges
-  # with the 53 above. Interface scope, not source-IP: the acceptor binds
-  # wg-dynhetz's own address, and the MikroTik reasoning above is why this
-  # interface never becomes trusted.
+  # Port 2235 stays closed until the MacBook's builder key exists (see
+  # the staged acceptor in ./pynixd.nix): an acceptor with nothing pinned
+  # takes any builder. When the key lands, uncomment the line below; the
+  # list merges with the 53 above. Interface scope, not source-IP: the
+  # acceptor binds wg-dynhetz's own address, and the MikroTik reasoning
+  # above is why this interface never becomes trusted.
   #
   # networking.firewall.interfaces."wg-dynhetz".allowedTCPPorts = [ 2235 ];
 

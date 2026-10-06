@@ -95,22 +95,24 @@ in
       };
 
       # Reverse builder acceptor, for the MacBook as a roaming
-      # aarch64-darwin builder. DISABLED until Lillecarl/pynixd#75 lands:
-      # the acceptor authenticates no builder, so any host that reaches
-      # the port registers and receives build jobs. To enable, uncomment
-      # this and add 2235 to the wg-dynhetz allowedTCPPorts in
+      # aarch64-darwin builder. STAGED, not enabled: Lillecarl/pynixd#75
+      # gave the acceptor builder pinning, but no key material exists
+      # yet. To enable: take the MacBook's builder public key into
+      # /etc/pynixd/builders/macbook.pub (public keys commit like
+      # ../lillecarl.pub does), uncomment this and the firewall rule in
       # ./wireguard.nix, then rebuild. The MacBook side
       # (reverse_initiator) is that machine's own config: it dials this
       # port and registers itself when online.
       #
-      # No host_key_path on purpose: with no authentication a stable key
-      # buys nothing, and the daemon runs as root with no state directory
-      # to keep one in. Key pinning belongs with #75.
+      # authorized_builder_keys has no default on purpose: null pins
+      # nothing and is for loopback tests only, never for this port.
+      # A missing pin file fails the daemon at startup, never silently.
       #
       # reverse_acceptor = {
       #   enabled = true;
-      #   host = "10.100.0.1"; # wg-dynhetz only. 0.0.0.0 waits on #75.
+      #   host = "10.100.0.1"; # wg-dynhetz only. 0.0.0.0 stays undecided.
       #   port = 2235;
+      #   authorized_builder_keys = [ "/etc/pynixd/builders/macbook.pub" ];
       # };
     };
   };

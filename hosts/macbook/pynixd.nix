@@ -18,6 +18,24 @@ in
       settings = {
         log_level = "INFO";
 
+        # Reverse initiator: register this machine as a roaming builder
+        # with dynhetz. STAGED, not enabled: it needs a builder keypair
+        # first. Generate it here, on this machine, so the private key
+        # never travels: `ssh-keygen -t ed25519 -f /etc/nix/pynixd-reverse
+        # -N ""`, then hand the .pub to dynhetz's
+        # /etc/pynixd/builders/macbook.pub and uncomment. Reconnects with
+        # backoff whenever the tunnel is down, so nothing here depends on
+        # dynhetz being reachable at boot.
+        #
+        # reverse_initiator = {
+        #   enabled = true;
+        #   acceptor_host = "10.100.0.1"; # dynhetz over wg-dynhetz.
+        #   acceptor_port = 2235;
+        #   store_id = "macbook";
+        #   systems = [ "aarch64-darwin" ];
+        #   server_host_key_paths = [ "/etc/nix/pynixd-reverse" ];
+        # };
+
         stores.vz-builder = {
           # `ssh-subprocess` runs `nix-daemon --stdio` on the far side, which is
           # what `nix.buildMachines` already does with `protocol = "ssh-ng"`.
