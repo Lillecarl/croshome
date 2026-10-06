@@ -116,4 +116,4 @@ async def test_abrupt_close_reports_error() -> None:
 
     stats = slot["stats"]
     assert stats.ended_by is EndedBy.ERROR
-    assert stats.detail != ""
+    assert "ConnectionResetError" in stats.detail

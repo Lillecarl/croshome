@@ -77,6 +77,15 @@ async def _copy(
         pass
 
 
+def _describe(exc: BaseException) -> str:
+    """anyio raises BrokenResourceError bare, with the OS error as the cause.
+    The cause is the part worth logging: a reset reads differently from a
+    broken pipe."""
+    if exc.__cause__ is not None:
+        return f"{type(exc).__name__}: {exc.__cause__!r}"
+    return repr(exc)
+
+
 async def forward(
     a: ByteStream, b: ByteStream, *, activity: Activity | None = None
 ) -> ForwardStats:
@@ -94,7 +103,7 @@ async def forward(
             task_group.start_soon(_copy, b, a, stats, "b_to_a", seen)
     except* STREAM_ERRORS as group:
         stats.ended_by = EndedBy.ERROR
-        stats.detail = "; ".join(repr(exc) for exc in group.exceptions)
+        stats.detail = "; ".join(_describe(exc) for exc in group.exceptions)
     finally:
         with anyio.CancelScope(shield=True):
             await a.aclose()
