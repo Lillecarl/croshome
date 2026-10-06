@@ -195,6 +195,26 @@ let
       install -d -m 0755 ${lib.escapeShellArg keyDir}
       install -m 0444 ${lib.escapeShellArg "${cfg.builderKey}.pub"} ${lib.escapeShellArg keyDir}/builder_ed25519.pub
       install -m 0444 ${authorizedKeysFile} ${lib.escapeShellArg keyDir}/authorized_keys
+      ${lib.optionalString cfg.shareUserSshKeys ''
+        # The invoking user's key material, for outbound SSH from the guest.
+        # Staged per start so rotation needs no rebuild, beside the keys above
+        # rather than on a second share. Only regular files: agent and
+        # multiplex sockets cannot cross into the guest anyway, and the guest
+        # fixes ownership and modes on its side (see ./guest.nix).
+        user=$(/usr/bin/stat -f %Su /dev/console)
+        if [ -n "$user" ] && [ "$user" != root ]; then
+          user_home=$(eval echo "~$user")
+          if [ -d "$user_home/.ssh" ]; then
+            install -d -m 0755 ${lib.escapeShellArg keyDir}/user
+            for f in "$user_home"/.ssh/*; do
+              [ -f "$f" ] || continue
+              install -m 0600 "$f" ${lib.escapeShellArg keyDir}/user/
+            done
+          else
+            echo "vz-builder: no .ssh for $user, guest gets no user keys" >&2
+          fi
+        fi
+      ''}
 
       # Rosetta has to be present on the host; `softwareupdate --install-rosetta`
       # puts it there. vzvm refuses to start when it is asked for and missing,

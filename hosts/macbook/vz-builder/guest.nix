@@ -80,6 +80,17 @@ in
     '';
   };
 
+  options.virtualisation.linux-vz-builder.shareUserSshKeys = lib.mkOption {
+    type = lib.types.bool;
+    default = false;
+    description = ''
+      Install the invoking user's SSH keys for `root` and `builder`, for
+      outbound SSH from inside the guest. The host stages `~/.ssh` into the
+      keys share at VM start (see ./vm.nix); this copies it into `/root/.ssh`
+      and the builder's `.ssh` with the ownership the SSH client demands.
+    '';
+  };
+
   config = lib.mkMerge [
     {
       system.stateVersion = "26.11";
@@ -653,6 +664,34 @@ in
           workdir = "/nix/.rw-store/work";
         };
         neededForBoot = true;
+      };
+    })
+
+    # Outbound SSH as the invoking user. A copy rather than a symlink:
+    # virtiofs does not pass macOS ownership through, and the SSH client
+    # refuses keys it cannot attribute to the invoking user or root. Only
+    # regular files were staged, so sockets and dangling links never arrive.
+    (lib.mkIf cfg.shareUserSshKeys {
+      systemd.services.vz-builder-user-ssh = {
+        description = "Install the invoking user's SSH keys for root and builder";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "var-keys.mount" ];
+        before = [ "nix-daemon.service" ];
+        serviceConfig = {
+          Type = "oneshot";
+          RemainAfterExit = true;
+        };
+        script = ''
+          install_keys() {
+            install -d -m 0700 -o "$1" -g "$2" "$3"
+            for f in /var/keys/user/*; do
+              [ -f "$f" ] || continue
+              install -m 0600 -o "$1" -g "$2" "$f" "$3/"
+            done
+          }
+          install_keys root root /root/.ssh
+          install_keys builder builder ${config.users.users.builder.home}/.ssh
+        '';
       };
     })
   ];

@@ -150,6 +150,9 @@
   nix.linux-vz-builder.authorizedKeys = [
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4AwtWUz3usygb2J6owsUJs4X2yTchIGZyI+VDE76tF"
   ];
+  # Outbound SSH from inside the guest as this user (private keys enter the
+  # ephemeral VM; see the option). For git-over-SSH where HTTPS is throttled.
+  nix.linux-vz-builder.shareUserSshKeys = true;
   # Taste, not a builder concern, so it goes here rather than into the module.
   #
   # A module argument and not a bare attribute set: `pkgs` inside a deferred

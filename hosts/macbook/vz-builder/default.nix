@@ -82,6 +82,7 @@ let
 
         virtualisation.linux-vz-builder = {
           inherit (cfg) hostStore debugAccess;
+          inherit (cfg) shareUserSshKeys;
           swap = cfg.swapSize > 0;
         };
       }
@@ -299,6 +300,28 @@ in
         `vzrun --root`, and it is deliberate: the guest is disposable, it is
         reachable only from this Mac, and `builder` is a trusted Nix user
         already -- it can run arbitrary code here by submitting a derivation.
+      '';
+    };
+
+    shareUserSshKeys = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = ''
+        Stage the console user's `~/.ssh` key material into the keys share at
+        VM start, for outbound SSH from inside the guest (e.g. `git clone`
+        over SSH, which answers to different rate limits than HTTPS fetches).
+        The guest copies it into `/root/.ssh` and the `builder` user's
+        `.ssh`, with ownership and modes SSH accepts.
+
+        Off by default: this puts private key material inside the VM. The VM
+        is ephemeral and host-only, the share is read-only, and the disk image
+        holding the copies is recreated on every start -- but it is still a
+        copy of your keys outside your home directory, so it stays opt-in.
+
+        Staged at start-up rather than baked into the guest, like
+        `authorizedKeys` beside it, so rotating keys does not rebuild anything.
+        "Console user" is whoever owns /dev/console when the VM starts, which
+        on this single-user Mac is the invoking user.
       '';
     };
 
