@@ -1,6 +1,7 @@
 {
   config,
   pkgs,
+  lib,
   inputs,
   ...
 }:
@@ -129,4 +130,18 @@ in
   systemd.services.pynixd.restartTriggers = [
     config.environment.etc."pynixd/pynixd.json".source
   ];
+
+  # Home-manager activation shells out to nix, which talks to the daemon
+  # socket this module replaces. Its unit orders itself after
+  # nix-daemon.socket, which is masked here, so nothing holds its restart
+  # behind this socket coming back up: every switch bounces pynixd and the
+  # first activation attempt lands on a dead socket ("Connection refused",
+  # failed switch, retry minutes later). Order it behind the real socket
+  # instead; connections then queue in the listen backlog while pynixd
+  # restarts instead of refusing. Only when pynixd is enabled at all: the
+  # `or false` covers hosts where its module is not even imported.
+  systemd.services.home-manager-lillecarl = lib.mkIf (config.services.pynixd.enable or false) {
+    after = [ "pynixd.socket" ];
+    wants = [ "pynixd.socket" ];
+  };
 }
