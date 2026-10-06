@@ -18,6 +18,16 @@ in
   environment.etc."pynixd/filter.py".source =
     nixidaePynixd.sources.pynixd + "/pynixd/filters/scheduler_focus.py";
 
+  # The MacBook builder's public key, pinned by reverse_acceptor below.
+  # Public, so it commits like ../../lillecarl.pub itself: it is that same
+  # key, shared with this machine's user. A missing file fails the daemon
+  # at startup, never silently.
+  environment.etc."pynixd/builders/macbook.pub".source = ../../lillecarl.pub;
+
+  # The acceptor below faces the internet. Same shape as services that
+  # open their own port (../ttyd.nix): the rule lives with the service.
+  networking.firewall.allowedTCPPorts = [ 2235 ];
+
   # Nix 2.35 names the socket-activated descriptor `nix-daemon.socket` in
   # LISTEN_FDNAMES, and the upstream socket unit pynixd listens behind relies
   # on that name. Under 2.34 the socket activates on nothing and every client
@@ -95,25 +105,18 @@ in
       };
 
       # Reverse builder acceptor, for the MacBook as a roaming
-      # aarch64-darwin builder. STAGED, not enabled: Lillecarl/pynixd#75
-      # gave the acceptor builder pinning, but no key material exists
-      # yet. To enable: take the MacBook's builder public key into
-      # /etc/pynixd/builders/macbook.pub (public keys commit like
-      # ../lillecarl.pub does), uncomment this and the firewall rule in
-      # ./wireguard.nix, then rebuild. The MacBook side
-      # (reverse_initiator) is that machine's own config: it dials this
-      # port and registers itself when online.
-      #
-      # authorized_builder_keys has no default on purpose: null pins
-      # nothing and is for loopback tests only, never for this port.
-      # A missing pin file fails the daemon at startup, never silently.
-      #
-      # reverse_acceptor = {
-      #   enabled = true;
-      #   host = "10.100.0.1"; # wg-dynhetz only. 0.0.0.0 stays undecided.
-      #   port = 2235;
-      #   authorized_builder_keys = [ "/etc/pynixd/builders/macbook.pub" ];
-      # };
+      # aarch64-darwin builder. Public port, pinned builders: anyone may
+      # connect, but only the pinned MacBook key registers -- a rogue key
+      # registers nothing. Pre-auth exposure is noise and DoS, not trust.
+      # The MacBook side (reverse_initiator, hosts/macbook/pynixd.nix)
+      # dials this port and registers itself when online; the scheduler
+      # picks it up dynamically.
+      reverse_acceptor = {
+        enabled = true;
+        # Default host (every interface, v4 and v6) on purpose.
+        port = 2235;
+        authorized_builder_keys = [ "/etc/pynixd/builders/macbook.pub" ];
+      };
     };
   };
 

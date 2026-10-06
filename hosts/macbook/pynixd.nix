@@ -19,22 +19,23 @@ in
         log_level = "INFO";
 
         # Reverse initiator: register this machine as a roaming builder
-        # with dynhetz. STAGED, not enabled: it needs a builder keypair
-        # first. Generate it here, on this machine, so the private key
-        # never travels: `ssh-keygen -t ed25519 -f /etc/nix/pynixd-reverse
-        # -N ""`, then hand the .pub to dynhetz's
-        # /etc/pynixd/builders/macbook.pub and uncomment. Reconnects with
-        # backoff whenever the tunnel is down, so nothing here depends on
-        # dynhetz being reachable at boot.
-        #
-        # reverse_initiator = {
-        #   enabled = true;
-        #   acceptor_host = "10.100.0.1"; # dynhetz over wg-dynhetz.
-        #   acceptor_port = 2235;
-        #   store_id = "macbook";
-        #   systems = [ "aarch64-darwin" ];
-        #   server_host_key_paths = [ "/etc/nix/pynixd-reverse" ];
-        # };
+        # with dynhetz. Dials the public address, not the tunnel: this
+        # machine initiates outbound and listens on nothing. The dial is
+        # server-unverified (one-way pinning, Lillecarl/pynixd#75), so a
+        # man in the middle of the path could answer it -- hostile
+        # networks are the case that bites. The tunnel address
+        # (10.100.0.1) stays the safer acceptor_host if that ever matters.
+        # Authenticates with the shared user key, whose public half
+        # dynhetz pins. Reconnects with backoff whenever dynhetz is
+        # unreachable, so nothing here depends on it at boot.
+        reverse_initiator = {
+          enabled = true;
+          acceptor_host = "dynhetz.ch.se.eu.org";
+          acceptor_port = 2235;
+          store_id = "macbook";
+          systems = [ "aarch64-darwin" ];
+          server_host_key_paths = [ "/Users/lillecarl/.ssh/id_ed25519" ];
+        };
 
         stores.vz-builder = {
           # `ssh-subprocess` runs `nix-daemon --stdio` on the far side, which is
