@@ -89,14 +89,30 @@ async def test_activity_touched_by_traffic() -> None:
 @pytest.mark.anyio
 async def test_abrupt_close_reports_error() -> None:
     """A peer that dies mid-stream is `error`, not `eof` -- the log line must
-    tell a crash apart from a clean goodbye. SO_LINGER zero makes close send
-    RST."""
-    async with _forwarding() as (client_a, client_b, slot):
-        await client_b.send(b"unread")
-        await anyio.sleep(0.2)
-        raw = client_a.extra(SocketAttribute.raw_socket)
-        raw.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
-        await client_a.aclose()
+    tell a crash apart from a clean goodbye.
+
+    The dying peer is a bare socket: anyio's aclose sends FIN before closing,
+    and the forwarder rightly reads that as EOF. SO_LINGER zero on a bare
+    close sends RST alone."""
+    slot: dict[str, ForwardStats] = {}
+    async with await anyio.create_tcp_listener(local_host="127.0.0.1") as multi:
+        (listener,) = multi.listeners
+        port = listener.extra(SocketAttribute.local_port)
+        dying = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        dying.setblocking(False)
+        dying.connect_ex(("127.0.0.1", port))
+        side_a = await listener.accept()
+        await anyio.wait_writable(dying)
+        client_b, side_b = await _pair(listener)
+
+    async def run() -> None:
+        slot["stats"] = await forward(side_a, side_b)
+
+    with anyio.fail_after(DEADLINE):
+        async with client_b, anyio.create_task_group() as task_group:
+            task_group.start_soon(run)
+            dying.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack("ii", 1, 0))
+            dying.close()
 
     stats = slot["stats"]
     assert stats.ended_by is EndedBy.ERROR
