@@ -60,6 +60,9 @@ it say whether it can answer.
 - read → edit → read. The verification read is not optional.
 - No `edit` tool (some subagents): read the file, then `write` it whole. Still
   never `sed`.
+- Whenever the `edit` tool fails you, use **pyedit**: load the
+  `pyedit` skill for its instructions (also served over MCP:
+  `pyedit mcp`).
 
 ## Timeouts
 
@@ -75,6 +78,20 @@ anything.
 - Work that truly runs for minutes gets no big timeout: run it in the
   background and read the log file. A timeout that fires is a result; get it
   sooner, not later.
+
+## Background work
+
+`pystemctl` owns background processes. Never `setsid`, `nohup`, trailing
+`&`, or `sleep`-polling for completion.
+
+- Start: `pystemctl run --tag <name> -- <cmd>` (`--remain-after-exit`
+  keeps the exit status; successful units are otherwise collected).
+- Wait: `pystemctl wait --tag <name> --timeout <s>` reports the unit's
+  exit code. A timeout that fires is a result; investigate, do not re-wait
+  longer.
+- Read: `pystemctl logs --tag <name>`; live list: `pystemctl jobs`.
+- `sleep` waits for clocks (settle delays, rate limits), never for
+  processes.
 
 ## Working copy hygiene
 
