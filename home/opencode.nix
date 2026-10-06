@@ -22,6 +22,7 @@
   inputs,
   lib,
   pkgs,
+  platform,
   selfStr,
   ...
 }:
@@ -104,8 +105,13 @@ in
     # ~/.config/opencode/skills natively. It stays opencode-only: Claude
     # Code has background jobs built in, which is what this skill teaches
     # under systemd.
-    home.file.".config/opencode/skills/pystemctl".source =
-      "${(import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl}/share/skills/pystemctl/pystemctl";
+    #
+    # Linux only: pystemctl runs on the Linux hosts, and its package does
+    # not evaluate on darwin at all.
+    home.file.".config/opencode/skills/pystemctl" = lib.mkIf platform.isLinux {
+      source =
+        "${(import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl}/share/skills/pystemctl/pystemctl";
+    };
 
     # phabfive ships its own skill too. ./agents.nix links the same store path
     # into ~/.claude and ~/.gemini; opencode needs its own link because it
