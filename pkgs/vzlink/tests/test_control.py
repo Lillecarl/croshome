@@ -22,7 +22,7 @@ import pytest
 from anyio.abc import SocketAttribute
 
 from vzlink import supervisor
-from vzlink.protocol import STREAM_ERRORS, Op, check_response, read_message, send_message
+from vzlink.protocol import STREAM_ERRORS, Op, VmStopping, check_response, read_message, send_message
 
 from conftest import DEADLINE
 
@@ -111,6 +111,13 @@ async def _fake_vm():
     """A process with a pid that answers to SIGTERM, standing in for vzvm."""
     async with _child([sys.executable, "-c", "import time; time.sleep(120)"]) as vm:
         yield vm
+
+
+SLOW_STOP_VM = """
+import signal, sys, time
+signal.signal(signal.SIGTERM, lambda *_: (time.sleep(2), sys.exit(0)))
+time.sleep(120)
+"""
 
 
 @asynccontextmanager
@@ -257,6 +264,68 @@ async def test_proxy_forwards_and_logs(state_dir) -> None:
                     assert "closed: eof" in proxy.log
                     assert f"up=11 down={len(expected)}" in proxy.log
                 assert "unregister" in sup.log and "(0 live)" in sup.log
+
+
+@pytest.mark.anyio
+async def test_proxy_waits_out_a_stopping_vm(state_dir) -> None:
+    """A proxy that arrives while the VM is stopping must not register with
+    it -- the connection would die with the VM. It waits for that
+    supervisor to leave and is served by the next one."""
+    with anyio.fail_after(DEADLINE):
+        async with _fake_guest() as (guest_port, readiness_port):
+            async with _child([sys.executable, "-c", SLOW_STOP_VM]) as old_vm:
+                async with _supervisor(state_dir, guest_port, readiness_port, old_vm.proc.pid) as (old, sock):
+                    check_response(await _rpc(sock, {"op": Op.ENSURE_UP.value, "id": "warm"}), Op.ENSURE_UP)
+                    old.proc.terminate()
+                    while "stopping the VM" not in old.log:
+                        await anyio.sleep(0.05)
+
+                    client_end, proxy_end = socket.socketpair()
+                    argv = [
+                        sys.executable, "-m", "vzlink.proxy",
+                        "--control-sock", sock,
+                        "--internal-port", str(guest_port),
+                        "--boot-timeout", "20",
+                        "--kickstart-cmd", "true",
+                    ]  # fmt: skip
+                    async with _child(argv, stdin=proxy_end) as proxy:
+                        proxy_end.close()
+                        assert await old.wait() == 0
+                        async with _fake_vm() as new_vm:
+                            async with _supervisor(state_dir, guest_port, readiness_port, new_vm.proc.pid) as (new, _):
+                                async with await anyio.abc.UNIXSocketStream.from_socket(client_end) as client:
+                                    got = b""
+                                    try:
+                                        while len(got) < len(BANNER):
+                                            got += await client.receive()
+                                    except anyio.EndOfStream:
+                                        await proxy.wait()
+                                        pytest.fail(
+                                            f"proxy closed the client\n--- proxy\n{proxy.log}"
+                                            f"--- old\n{old.log}--- new\n{new.log}"
+                                        )
+                                    assert got == BANNER
+                                    await client.send_eof()
+                                    with pytest.raises(anyio.EndOfStream):
+                                        while True:
+                                            await client.receive()
+                                assert await proxy.wait() == 0
+                                assert "the VM is stopping" in proxy.log
+                                assert "refused ensure_up" in old.log
+                                assert "register" in new.log
+
+
+@pytest.mark.anyio
+async def test_stopping_supervisor_refuses_new_work() -> None:
+    sup = supervisor.Supervisor(_args())
+    sup.stopping = True
+    for op in (Op.ENSURE_UP, Op.REGISTER):
+        answer = await sup.dispatch({"op": op.value, "id": "late"})
+        assert answer["status"] == "stopping"
+        with pytest.raises(VmStopping):
+            check_response(answer, op)
+    # A connection that is already live still says goodbye.
+    assert (await sup.dispatch({"op": Op.UNREGISTER.value, "id": "late"}))["status"] == "ok"
 
 
 @pytest.mark.anyio

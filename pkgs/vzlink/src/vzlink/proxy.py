@@ -28,6 +28,7 @@ from vzlink.protocol import (
     ControlError,
     Op,
     ProtocolError,
+    VmStopping,
     check_response,
     new_conn_id,
     read_message,
@@ -40,6 +41,7 @@ if TYPE_CHECKING:
 logger: Final = logging.getLogger("vzlink.proxy")
 
 SUPERVISOR_POLL: Final = 0.25
+STOPPING_POLL: Final = 0.5
 RPC_SLOP: Final = 5.0
 KICKSTART_TIMEOUT: Final = 30.0
 CONNECT_TIMEOUT: Final = 5.0
@@ -137,28 +139,41 @@ async def _bring_up(
     args: argparse.Namespace, conn_id: str, log: logging.Logger
 ) -> anyio.abc.SocketStream:
     """Kickstart, wait for the supervisor, wait for the guest, connect, and
-    register. Raises one of RPC_ERRORS or OSError at the stage that failed."""
+    register. A supervisor that is stopping its VM is asked again until the
+    next one answers. Not by watching the control socket vanish: the next
+    supervisor binds the same path within milliseconds, faster than a poll
+    sees it gone. Raises one of RPC_ERRORS or OSError at the stage that
+    failed."""
     start = time.monotonic()
+    deadline = start + args.boot_timeout
     if args.kickstart_cmd is not None:
         kickstart_argv = shlex.split(args.kickstart_cmd)
     else:
         kickstart_argv = ["/bin/launchctl", "kickstart", f"system/{args.daemon_label}"]
-    log.info("kickstart rc=%d", await _kickstart(kickstart_argv))
 
-    deadline = start + args.boot_timeout
-    await _wait_for_supervisor(args.control_sock, deadline)
-    remaining = max(deadline - time.monotonic(), 1.0)
-    info = await _rpc(args.control_sock, Op.ENSURE_UP, conn_id, remaining + RPC_SLOP)
-    log.info("guest ready after %.1fs: %s", time.monotonic() - start, info.get("stages", []))
-
-    with anyio.fail_after(CONNECT_TIMEOUT):
-        upstream = await anyio.connect_tcp("127.0.0.1", args.internal_port)
-    try:
-        await _rpc(args.control_sock, Op.REGISTER, conn_id, RPC_SLOP)
-    except BaseException:
-        await upstream.aclose()
-        raise
-    return upstream
+    waiting = False
+    while True:
+        log.info("kickstart rc=%d", await _kickstart(kickstart_argv))
+        await _wait_for_supervisor(args.control_sock, deadline)
+        remaining = max(deadline - time.monotonic(), 1.0)
+        try:
+            info = await _rpc(args.control_sock, Op.ENSURE_UP, conn_id, remaining + RPC_SLOP)
+            log.info("guest ready after %.1fs: %s", time.monotonic() - start, info.get("stages", []))
+            with anyio.fail_after(CONNECT_TIMEOUT):
+                upstream = await anyio.connect_tcp("127.0.0.1", args.internal_port)
+            try:
+                await _rpc(args.control_sock, Op.REGISTER, conn_id, RPC_SLOP)
+            except BaseException:
+                await upstream.aclose()
+                raise
+            return upstream
+        except VmStopping:
+            if time.monotonic() >= deadline:
+                raise
+            if not waiting:
+                log.info("the VM is stopping; waiting for the next one")
+                waiting = True
+            await anyio.sleep(STOPPING_POLL)
 
 
 async def _run_proxy(args: argparse.Namespace) -> int:

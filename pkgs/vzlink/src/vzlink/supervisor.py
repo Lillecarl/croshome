@@ -38,6 +38,7 @@ from vzlink.protocol import (
     ok,
     read_message,
     send_message,
+    stopping,
 )
 
 logger: Final = logging.getLogger("vzlink.supervisor")
@@ -159,6 +160,11 @@ class Supervisor:
         never a hangup."""
         op = request.get("op")
         conn_id = str(request.get("id", "?"))
+        if self.stopping and op in (Op.ENSURE_UP, Op.REGISTER):
+            # The VM is going away: a connection started now would die with
+            # it. The proxy retries against the next supervisor.
+            logger.info("refused %s %s: stopping", op, conn_id)
+            return stopping(Op(op))
         if op == Op.ENSURE_UP:
             return await self.ensure_up()
         if op == Op.REGISTER:

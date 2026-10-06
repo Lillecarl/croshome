@@ -31,6 +31,7 @@ class Status(StrEnum):
 
     OK = "ok"
     ERROR = "error"
+    STOPPING = "stopping"
 
 
 class ProtocolError(ValueError):
@@ -44,6 +45,11 @@ class PeerClosed(ProtocolError):
 
 class ControlError(RuntimeError):
     """The peer answered, with Status.ERROR."""
+
+
+class VmStopping(ControlError):
+    """The supervisor is stopping its VM. The next one comes from a fresh
+    kickstart once this supervisor has exited."""
 
 
 STREAM_ERRORS: Final = (OSError, anyio.ClosedResourceError, anyio.BrokenResourceError)
@@ -104,6 +110,8 @@ def check_response(obj: dict[str, Any], op: Op) -> dict[str, Any]:
         raise ProtocolError(f"answer is for {obj.get('op')!r}, not {op.value!r}")
     if obj.get("status") == Status.ERROR.value:
         raise ControlError(str(obj.get("message", "no message")))
+    if obj.get("status") == Status.STOPPING.value:
+        raise VmStopping(str(obj.get("message", "the VM is stopping")))
     if obj.get("status") != Status.OK.value:
         raise ProtocolError(f"answer has no status: {obj!r}")
     return obj
@@ -118,6 +126,11 @@ def error(op: Op | str, message: str) -> dict[str, Any]:
     """Build a Status.ERROR answer. A plain string echoes an op the peer
     sent that is not an Op, so its answer still names its own request."""
     return {"op": str(op), "status": Status.ERROR.value, "message": message}
+
+
+def stopping(op: Op) -> dict[str, Any]:
+    """Build a Status.STOPPING answer."""
+    return {"op": op.value, "status": Status.STOPPING.value, "message": "the VM is stopping"}
 
 
 def new_conn_id() -> str:
