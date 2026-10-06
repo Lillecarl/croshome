@@ -81,10 +81,16 @@ let
     # Host TCP to guest vsock. The guest's sshd listens on vsock:22 (see
     # ./guest.nix), and `connect` below dials this loopback port, so a build
     # needs no address in the guest's NAT and no name resolution.
+    # The second forward reaches vzlink-guest, which tells the supervisor
+    # whether nix-daemon serves once sshd answers.
     vsock.forwards = [
       {
         listen = "127.0.0.1:${toString cfg.internalPort}";
         vsockPort = 22;
+      }
+      {
+        listen = "127.0.0.1:${toString cfg.readinessPort}";
+        vsockPort = guest.config.virtualisation.linux-vz-builder.readinessVsockPort;
       }
     ];
 
@@ -173,7 +179,6 @@ let
     runtimeInputs = [
       cfg.vzvm
       pkgs.coreutils
-      pkgs.procps
       pkgs.jq
     ];
     text = ''
@@ -229,6 +234,8 @@ let
       fi
 
       config=${lib.escapeShellArg "${cfg.stateDir}/vzvm.json"}
+      # Covers a failure before the exec below; after it, the supervisor
+      # removes the same files.
       trap 'rm -f "$config" ${lib.escapeShellArg runningFile}' EXIT
 
       jq --argjson cpus "$cpus" --argjson rosetta "$rosetta" \
@@ -242,78 +249,41 @@ let
       # way out so a dead VM never looks live.
       printf '%s\n%s\n' ${lib.escapeShellArg toplevel} "$vm" > ${lib.escapeShellArg runningFile}
 
-      # Idle shutdown. A connection is live exactly while its handler runs, so
-      # counting handlers is an accurate idle test and needs nothing from the
-      # guest. Without this the VM would outlive the build that started it and
-      # keep holding the RAM this design exists to give back.
-      idle=0
-      while kill -0 $vm 2>/dev/null; do
-        sleep 15
-        if pgrep -f vz-builder-connect >/dev/null; then
-          idle=0
-        else
-          idle=$((idle + 15))
-          if [ "$idle" -ge ${toString cfg.idleTimeout} ]; then
-            echo "vz-builder: idle for ${toString cfg.idleTimeout}s, shutting down" >&2
-            # Plain SIGTERM. vzvm answers it by asking the guest to stop and
-            # waiting for it, then forcing it if that does not land, so the
-            # guest powers off and releases the socket rather than being
-            # pulled. Contrast vfkit, whose requestStop is an ACPI event this
-            # direct-kernel-boot guest cannot receive, making every stop a hard
-            # kill -- and the mDNS goodbye that never came is what the vsock
-            # path here replaces.
-            kill $vm 2>/dev/null || true
-            break
-          fi
-        fi
-      done
-      wait $vm 2>/dev/null || true
+      # exec keeps the pid, so vzvm stays the supervisor's child and the
+      # supervisor reaps it. The supervisor answers the proxies' readiness
+      # asks, counts their registered connections, and stops the VM after
+      # idleTimeout without one. Without that the VM would outlive the build
+      # that started it and keep holding the RAM this design exists to give
+      # back.
+      #
+      # The stop is a plain SIGTERM first. vzvm answers it by asking the
+      # guest to power off and releasing the socket rather than pulling it.
+      # Contrast vfkit, whose requestStop is an ACPI event this
+      # direct-kernel-boot guest cannot receive.
+      exec ${lib.getExe' pkgs.vzlink "vzlink-supervisor"} \
+        --state-dir ${lib.escapeShellArg cfg.stateDir} \
+        --internal-port ${toString cfg.internalPort} \
+        --readiness-port ${toString cfg.readinessPort} \
+        --boot-timeout ${toString cfg.bootTimeout} \
+        --idle-timeout ${toString cfg.idleTimeout} \
+        --vm-pid "$vm" \
+        --running-file ${lib.escapeShellArg runningFile} \
+        --vzvm-config "$config"
     '';
   };
 
-  # launchd hands this an accepted connection on stdin/stdout. It brings the VM
-  # up if it is not already, waits for the guest to answer, then gets out of
-  # the way and just moves bytes.
+  # launchd hands this an accepted connection on stdin/stdout. vzlink-proxy
+  # kickstarts the VM, waits for the supervisor to report the guest serving
+  # (bounded by bootTimeout, so a guest that never boots fails the build
+  # instead of hanging it), registers the connection, and moves bytes.
   connect = pkgs.writeShellApplication {
     name = "vz-builder-connect";
-    runtimeInputs = [
-      pkgs.bash
-      pkgs.socat
-      pkgs.coreutils
-    ];
     text = ''
-      /bin/launchctl kickstart system/org.nixos.${cfg.daemonName} 2>/dev/null || true
-
-      # Wait for the guest, not for the VM. vzvm accepts a forwarded connection
-      # at once and holds it until the guest's sshd answers, so an SSH banner
-      # on the loopback port is the guest being ready. Bounded by a wall-clock
-      # deadline, so a guest that never boots fails the build instead of
-      # hanging it -- the failure a stale mDNS registration used to cause here.
-      ready=0
-      deadline=$(( SECONDS + ${toString cfg.bootTimeout} ))
-      while [ "$SECONDS" -lt "$deadline" ]; do
-        if [ "$(timeout 5 bash -c 'exec 3<>/dev/tcp/127.0.0.1/${toString cfg.internalPort} && head -c 4 <&3' 2>/dev/null)" = "SSH-" ]; then
-          ready=1
-          break
-        fi
-        sleep 0.25
-      done
-
-      if [ "$ready" -ne 1 ]; then
-        echo "vz-builder-connect: the guest did not answer on 127.0.0.1:${toString cfg.internalPort} within ${toString cfg.bootTimeout}s" >&2
-        exit 1
-      fi
-
-      # Deliberately not `exec socat`. The idle watchdog in runVm above finds a
-      # live connection with `pgrep -f vz-builder-connect`, and exec replaces
-      # this process image, so the name it greps for disappears the instant the
-      # handler starts moving bytes. Every open connection then looked idle and
-      # the VM shut down under running builds, which surfaces as "Nix daemon
-      # disconnected unexpectedly (maybe it crashed?)" -- a message that points
-      # at the guest and not at the host that killed it. Keeping the wrapper
-      # process alive costs one shell per open connection and makes the
-      # watchdog's "counting handlers" comment true.
-      socat STDIO TCP:127.0.0.1:${toString cfg.internalPort},connect-timeout=5
+      exec ${lib.getExe' pkgs.vzlink "vzlink-proxy"} \
+        --control-sock ${lib.escapeShellArg "${cfg.stateDir}/vzlink-control.sock"} \
+        --internal-port ${toString cfg.internalPort} \
+        --boot-timeout ${toString cfg.bootTimeout} \
+        --daemon-label org.nixos.${cfg.daemonName}
     '';
   };
 in

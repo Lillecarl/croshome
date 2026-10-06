@@ -279,6 +279,15 @@ in
       '';
     };
 
+    readinessPort = lib.mkOption {
+      type = lib.types.port;
+      default = 31124;
+      description = ''
+        Loopback port vzvm forwards to the guest's readiness agent. The
+        supervisor asks it whether nix-daemon serves, once sshd answers.
+      '';
+    };
+
     authorizedKeys = lib.mkOption {
       type = lib.types.listOf lib.types.str;
       default = [ ];
@@ -431,8 +440,8 @@ in
           SockProtocol = "TCP";
         };
         # Wait = false: launchd calls accept() itself and hands the connection
-        # over stdin/stdout, so the handler is an ordinary shell script rather
-        # than something that has to speak the launchd check-in API.
+        # over stdin/stdout, so the handler is one process per connection
+        # rather than something that has to speak the launchd check-in API.
         inetdCompatibility.Wait = false;
         StandardErrorPath = "/var/log/vz-builder.log";
       };

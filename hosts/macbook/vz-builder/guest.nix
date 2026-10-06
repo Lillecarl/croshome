@@ -91,9 +91,37 @@ in
     '';
   };
 
+  options.virtualisation.linux-vz-builder.readinessVsockPort = lib.mkOption {
+    type = lib.types.port;
+    default = 11123;
+    description = ''
+      vsock port `vzlink-guest` answers readiness on. ./vm.nix reads it from
+      here to forward the host's `readinessPort`, so the two cannot drift.
+    '';
+  };
+
   config = lib.mkMerge [
     {
       system.stateVersion = "26.11";
+
+      # Tells the host supervisor whether nix-daemon serves, so a slow boot
+      # names its missing stage instead of timing out on the SSH banner.
+      # Nothing waits on it: a broken agent costs that log detail, not the
+      # boot, and the host falls back to the same timeout error.
+      systemd.services.vzlink-guest = {
+        description = "Answer the host's builder readiness probes over vsock";
+        wantedBy = [ "multi-user.target" ];
+        serviceConfig = {
+          ExecStart = lib.escapeShellArgs [
+            (lib.getExe' (pkgs.python3.pkgs.callPackage ../../../pkgs/vzlink { }) "vzlink-guest")
+            "--vsock-port"
+            (toString cfg.readinessVsockPort)
+          ];
+          DynamicUser = true;
+          Restart = "always";
+          RestartSec = 1;
+        };
+      };
 
       boot.kernelParams = [
         "console=hvc0" # vzvm's virtio console
