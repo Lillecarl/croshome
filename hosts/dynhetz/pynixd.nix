@@ -54,6 +54,12 @@ in
       # The traces buy agreement points for the cutover; the mirror they
       # compare against is what OP101 plans from.
       gc_liveness_interval = 3600;
+      # Trigger: usage fraction that starts a bounded GC drive between
+      # schedules. 0.75 fires past three quarters full; the drive runs
+      # bounded passes back to back down to the store's target, and that
+      # gap is the hysteresis. Shares one gc_cooldown window (900s) with
+      # scheduled passes, so a hovering disk fires at most once per window.
+      gc_high_watermark = 0.75;
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
       # startup and, until that finishes, refuses every build with "no
@@ -82,6 +88,10 @@ in
         # and EXECUTE now deletes what the plan names, vetoed roots aside.
         # Set back to false to refuse deletes again; nothing else changes.
         gc_allow_execute = true;
+        # Floor: collection passes stop once freed bytes project usage
+        # under this fraction. 0.70 ends the relief the 0.75 watermark
+        # starts; without it a triggered pass is unbounded.
+        gc_target_usage = 0.7;
       };
     };
   };
