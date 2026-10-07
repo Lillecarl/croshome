@@ -14,14 +14,13 @@
 #    hangs off the link-local gateway.
 #  - `usePredictableInterfaceNames = false`, so the NIC is `eth0` here exactly
 #    as it was in the rescue system the machine was probed from.
-{
-  config,
-  pkgs,
-  lib,
-  modulesPath,
-  inputs,
-  homeArgs,
-  ...
+{ config
+, pkgs
+, lib
+, modulesPath
+, inputs
+, homeArgs
+, ...
 }:
 {
   imports = [
@@ -137,13 +136,26 @@
     hardware.cpu.amd.updateMicrocode = true;
     hardware.enableRedistributableFirmware = true;
 
+    # Memory is this host's scarce resource (61 GiB backing five KubeVirt
+    # guests plus the host cluster); CPU is not. So hugepages stay off and
+    # identical pages merge across VMs:
+    # - transparent_hugepage=never on the cmdline (future boots) and via
+    #   tmpfiles at each switch (right now, no reboot): 2 MiB pages never
+    #   merge, and nothing here wants them.
+    # - hardware.ksm merges identical 4 KiB pages across the five
+    #   same-image guests, no guest change needed.
+    boot.kernelParams = [ "transparent_hugepage=never" ];
+    systemd.tmpfiles.rules = [
+      "w /sys/kernel/mm/transparent_hugepage/enabled - - - - never"
+    ];
+    hardware.ksm.enable = true;
+
     # Support building crossPlatform with QEMU
     boot.binfmt.emulatedSystems = [
       {
         "x86_64-linux" = "aarch64-linux";
         "aarch64-linux" = "x86_64-linux";
-      }
-      .${pkgs.stdenv.hostPlatform.system}
+      }.${pkgs.stdenv.hostPlatform.system}
     ];
     time.timeZone = "Europe/Stockholm";
     # Terminfo packages for terminals we're using
