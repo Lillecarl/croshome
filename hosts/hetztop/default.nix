@@ -48,6 +48,11 @@
       useGlobalPkgs = true;
       extraSpecialArgs = homeArgs;
       users.lillecarl = import ./home.nix;
+      # Move aside any unmanaged file home-manager is about to replace,
+      # instead of failing activation on it. Same collision as dynhetz:
+      # anything that writes ~/.config/user-dirs.dirs before home-manager
+      # links its managed copy breaks the switch without this.
+      backupFileExtension = "hm-backup";
     };
 
     boot.loader.grub.enable = true;

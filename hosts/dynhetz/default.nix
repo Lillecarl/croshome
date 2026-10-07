@@ -90,6 +90,12 @@
       useGlobalPkgs = true;
       extraSpecialArgs = homeArgs;
       users.lillecarl = import ./home.nix;
+      # Move aside any unmanaged file home-manager is about to replace,
+      # instead of failing activation on it. The collision this covers:
+      # xdg-user-dirs-update (./xdg-user-dirs.nix) writes
+      # ~/.config/user-dirs.dirs before home-manager links its own
+      # managed copy on the same switch.
+      backupFileExtension = "hm-backup";
     };
 
     boot.loader.systemd-boot.enable = true;

@@ -64,6 +64,11 @@
   xdg.userDirs = {
     enable = true;
     createDirectories = true;
+    # Stated rather than left to stateVersion: true on the NixOS hosts
+    # (25.11), false on the MacBook (26.11), and the difference is silent.
+    # The module prefers `xdg-user-dir`, but nothing here is ready to drop
+    # the variables, so keep exporting them everywhere alike.
+    setSessionVariables = true;
   };
 
   programs.direnv = {
