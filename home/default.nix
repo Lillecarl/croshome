@@ -58,6 +58,14 @@
   # no XDG layout of its own, and this config expects one on every machine.
   xdg.enable = true;
 
+  # Declarative user directories, Projects included (xdg-user-dirs 0.20
+  # enables it by default upstream). createDirectories covers logins where no
+  # desktop session runs xdg-user-dirs-update.
+  xdg.userDirs = {
+    enable = true;
+    createDirectories = true;
+  };
+
   programs.direnv = {
     enable = true;
     nix-direnv.enable = true;

@@ -30,6 +30,13 @@
   # underneath it to set one.
   xdg.enable = true;
 
+  # The same user directories as ../../home/default.nix, which this host does
+  # not import. Projects included (xdg-user-dirs 0.20 enables it upstream).
+  xdg.userDirs = {
+    enable = true;
+    createDirectories = true;
+  };
+
   programs.home-manager.enable = true;
   programs.fish.enable = true;
 

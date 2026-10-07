@@ -50,6 +50,7 @@
     ./nix-gc.nix
     ./terminfo.nix
     ./pipewire.nix
+    ./xdg-user-dirs.nix
     ./mdmonitor-mail.nix
     ./openvpn.nix
     ./dynusers.nix
