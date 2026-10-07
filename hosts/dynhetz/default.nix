@@ -130,6 +130,7 @@
       "kvm-amd"
     ];
     boot.kernelPackages = pkgs.linuxPackages_latest;
+    boot.kernel.sysctl."kernel.task_delayacct" = 1;
 
     # A physical CPU ships microcode revisions the board's firmware may not
     # carry; load ours from nixpkgs at initrd time.

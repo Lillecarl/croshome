@@ -1,6 +1,6 @@
 ---
 name: nix-language
-description: The Nix language itself — syntax and semantics that models reliably get wrong. Use before writing or editing any .nix file, and when a Nix expression fails to parse or evaluates to something unexpected. Covers attribute key quoting, the shallow // merge, with scoping, list syntax, paths versus strings, string escaping, function arguments, the lib.optional family, and lib.getExe/lib.getExe' for package binaries. For running nix commands, use the nix skill.
+description: The Nix language itself — syntax and semantics that models reliably get wrong. Use before writing or editing any .nix file, and when a Nix expression fails to parse or evaluates to something unexpected. Covers attribute key quoting, the shallow // merge, with scoping, list syntax, paths versus strings, string escaping, function arguments, the lib.optional family, lib.getExe/lib.getExe' for package binaries, and Python package-set scoping. For running nix commands, use the nix skill.
 ---
 
 # The Nix language
@@ -249,3 +249,42 @@ nix run --file /etc/nixpkgs nixdoc -- --file <file>.nix --category demo --descri
 `imports` resolves before `config` exists. Reading `pkgs` or `config` to decide
 what to import makes the module system recurse, and the error it gives names
 neither. Pass a `specialArgs` value instead.
+
+## Python package sets: override the interpreter, not the set
+
+`python312Packages` is `python312.pkgs` (`all-packages.nix`), and
+`python3Packages` is `python314Packages`. One scope per interpreter version.
+
+Overriding the set misses the interpreter-bound users:
+
+```nix
+pkgs.python312Packages.override { overrides = _: p: { ...; }; }
+# pkgs.python312Packages.anyio => qfpl1c9355j30in9yinpf65m5d6nr909-python3.12-anyio-4.14.2.drv
+# pkgs.python312.pkgs.anyio     => h595cdhgvy8s9ajn3b4xrpxrwy8isylm-python3.12-anyio-4.14.2.drv
+```
+
+Two different derivations. nixpkgs-internals such as `odoo18` resolve through
+the interpreter-bound set, so they never see the fix.
+
+Override the interpreter with `packageOverrides` instead. The top-level set
+follows through the fixed point, so no set entry is needed:
+
+```nix
+final: prev: {
+  python312 = prev.python312.override {
+    packageOverrides = _: pprev: {
+      anyio = pprev.anyio.overridePythonAttrs (_: { doCheck = false; });
+    };
+  };
+}
+# pkgs.python312Packages.anyio => qfpl1c9355j30in9yinpf65m5d6nr909-python3.12-anyio-4.14.2.drv
+# pkgs.python312.pkgs.anyio     => qfpl1c9355j30in9yinpf65m5d6nr909-python3.12-anyio-4.14.2.drv
+```
+
+Same hash both ways. After any Python overlay, evaluate both spellings and
+require agreement — a second, divergent derivation in one tree means the
+override hit one scope and missed the other.
+
+Use `overridePythonAttrs`, not `overrideAttrs`, on a Python package.
+`overrideAttrs` on the `toPythonModule` wrapper returns the same derivation
+hash with the change silently absent.
