@@ -190,7 +190,17 @@ in
         # ICMP is in the list on purpose: without it `ping` from a pod fails
         # while TCP works, which reads as a routing problem and is not one.
         pool4 =
-          map
+          [
+            # The static forward below owns this port: outside the dynamic
+            # range, so outbound masquerading never hands it out. 443
+            # answers nowhere else on this host since OpenVPN's removal.
+            {
+              protocol = "TCP";
+              prefix = "${nodeIPv4}/32";
+              "port range" = "443-443";
+            }
+          ]
+          ++ map
             (protocol: {
               inherit protocol;
               prefix = "${nodeIPv4}/32";
@@ -202,36 +212,35 @@ in
               "ICMP"
             ];
 
-        # Nothing here yet. This is where an inbound port-forward goes: a
-        # static BIB entry maps one IPv4 port on this host to one IPv6
-        # address and port inside the cluster, which is the only way an
-        # IPv4-only client reaches an IPv6-only pod. Netfilter cannot DNAT
-        # across address families, so this is not a thing a plain iptables
-        # rule can do.
+        # Inbound port-forwards: a static BIB entry maps one IPv4 port on
+        # this host to one IPv6 address and port, which is the only way an
+        # IPv4-only client reaches an IPv6-only service. Netfilter cannot
+        # DNAT across address families, so this is not a thing a plain
+        # iptables rule can do.
         #
-        #   bib = [
-        #     {
-        #       protocol = "TCP";
-        #       "ipv4 address" = "${nodeIPv4}#8080";
-        #       "ipv6 address" = "2a01:4f9:3071:11d7:b0::5#80";
-        #     }
-        #   ];
+        # grafana.lab3.ch.se.eu.org is AAAA-only: IPv6 people reach it
+        # directly, and this entry gives IPv4-only people the same service
+        # on this host's port 443. The target is nixlab3's traefik
+        # LoadBalancer VIP (first /112 of the e2::/80 in
+        # ./kubernetes/guest-routing.nix) -- a Service address, so it stays
+        # put, unlike a pod address.
         #
-        # No brackets around the IPv6 address: `#` is the port separator, and
-        # a bracketed form is rejected with "Cannot parse '[...]' as an IPv6
-        # address". Checked with `jool file check`, which parses a config
-        # without touching the kernel and needs no root.
+        # No brackets around the IPv6 address: `#` is the port separator,
+        # and a bracketed form is rejected with "Cannot parse '[...]' as
+        # an IPv6 address". Checked with `jool file check`, which parses a
+        # config without touching the kernel and needs no root.
         #
-        # Three things go with it. The port needs its own pool4 entry, outside
-        # the dynamic range above, or Jool has not reserved it. It must be a
-        # port nothing on this host already answers on -- 443 is taken by
-        # ./openvpn.nix. And the IPv6 side has to be an address that stays
-        # put: a pod address is rebuilt with the pod, so aim at a Service with
-        # a fixed address out of the pod /80. A ULA ClusterIP is the tempting
-        # target and is not a tested one -- whether Jool's reinjected packet
-        # meets kube-proxy's DNAT depends on hook ordering nobody here has
-        # measured.
-        bib = [ ];
+        # What traefik sees as the client is a 64:ff9b::/96 synthesis of
+        # the real IPv4 address, not the address itself: L3 translation
+        # carries no PROXY protocol. IP allowlists and rate limits in
+        # traefik match the translator, not the client.
+        bib = [
+          {
+            protocol = "TCP";
+            "ipv4 address" = "${nodeIPv4}#443";
+            "ipv6 address" = "2a01:4f9:3071:11d7:e2::1#443";
+          }
+        ];
       };
     };
 
