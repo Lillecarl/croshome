@@ -338,7 +338,7 @@ in
           # a public address is an amplifier for somebody else's attack.
           #
           # This one is unbound's: everything is refused but the pods, the
-          # virtual machines, the OpenVPN clients and the host itself. The
+          # virtual machines and the host itself. The
           # other is the firewall's -- ./kubernetes/default.nix trusts
           # cni0 and opens no port on eth0, and 53 is not among the ports it
           # opens, so a query from the internet is dropped before unbound sees
@@ -356,12 +356,6 @@ in
             "0.0.0.0/0 refuse"
             "${podSubnet} allow"
             "${vmSubnet} allow"
-            # OpenVPN clients, whose pools are owned by ./openvpn.nix
-            # (::e0::/80 on udp/1194, ::e1::/80 on tcp/443). The server pushes
-            # this resolver as their DNS, so without these lines every name
-            # they resolve is refused.
-            "2a01:4f9:3071:11d7:e0::/80 allow"
-            "2a01:4f9:3071:11d7:e1::/80 allow"
             # WireGuard per-user peers, owned by ./wireguard.nix (::e3::/80).
             # Their config carries `DNS =` pointing here, so without this line
             # every name they resolve is refused -- and on macOS that is worse

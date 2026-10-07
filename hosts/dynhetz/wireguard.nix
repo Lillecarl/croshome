@@ -1,9 +1,7 @@
-# General-purpose access to dynhetz itself -- not the lab-VPN role
-# (../openvpn.nix is the TLS-based one for that, for clients behind
-# restrictive firewalls), and not
-# scoped to any particular service: this gets each peer (lillecarl's
-# MacBook, and a MikroTik router set up as an exit node) a real address
-# dynhetz will route to, for whatever dynhetz ends up hosting.
+# General-purpose access to dynhetz itself -- not scoped to any particular
+# service: this gets each peer (lillecarl's MacBook, and a MikroTik router
+# set up as an exit node) a real address dynhetz will route to, for
+# whatever dynhetz ends up hosting.
 #
 # IPv6 is the point, alongside the private IPv4 range every VPN like this
 # needs anyway: Hetzner routes dynhetz's whole /64
@@ -64,13 +62,12 @@
 #                                    (solid-kubernetes). Its nodes announce
 #                                    their /96 sub-prefixes over BGP:
 #                                    ./kubernetes/guest-routing.nix.
-#   2a01:4f9:3071:11d7:00e0::/80  -- OpenVPN clients on udp/1194, in use:
-#                                    ../openvpn.nix. IPv6-only pool, and
-#                                    the pushed route for the whole /64 that
-#                                    gets a client to everything else here.
-#   2a01:4f9:3071:11d7:00e1::/80  -- OpenVPN clients on tcp/443, in use: same
-#                                    file. Its own pool because the two server
-#                                    instances cannot share one.
+#   2a01:4f9:3071:11d7:00e0::/80  -- free. It held the OpenVPN udp/1194
+#                                    client pool; OpenVPN is gone (2026-10).
+#                                    Reuse it before taking a new one.
+#   2a01:4f9:3071:11d7:00e1::/80  -- free. It held the OpenVPN tcp/443
+#                                    client pool; same removal. Reuse it
+#                                    before taking a new one.
 #   2a01:4f9:3071:11d7:00e2::/80  -- LoadBalancer services for the nixlab3
 #                                    guest cluster. Only the first /112 out of
 #                                    it is committed:
@@ -114,19 +111,18 @@
 # The next network takes ::00e4::/80 (::00e2::/80's first /112 is taken
 # above, its remainder is free).
 #
-# Not a systemd.network.netdevs entry like ../openvpn.nix's dummy/
-# bridge devices: WireGuardPeer's PublicKey has no file-based option in
-# systemd's own netdev format (unlike PrivateKeyFile/PresharedKeyFile),
-# so it would have to be a literal value baked into this file at Nix
-# eval time -- meaning either committing key material to the repo, or a
-# separate script writing back into the checkout, neither of which fits
-  # "generated once, locally, kept out of the repo" (see ../openvpn.nix
-# for the same reasoning applied to its PKI). Configuring the interface
-# imperatively via `wg set`, entirely at activation time, sidesteps that.
+# Not a systemd.network.netdevs entry: WireGuardPeer's PublicKey has no
+# file-based option in systemd's own netdev format (unlike
+# PrivateKeyFile/PresharedKeyFile), so it would have to be a literal value
+# baked into this file at Nix eval time -- meaning either committing key
+# material to the repo, or a separate script writing back into the
+# checkout, neither of which fits "generated once, locally, kept out of
+# the repo". Configuring the interface imperatively via `wg set`, entirely
+# at activation time, sidesteps that.
 { pkgs, lib, ... }:
 let
-  # Same source of truth as ../openvpn.nix's client distribution: one
-  # directory per account. Read again rather than shared through an option,
+  # One directory per account, from the same directory ./dynusers.nix
+  # builds users from. Read again rather than shared through an option,
   # because the coupling would be one readDir either way.
   wgUsers = builtins.attrNames (
     lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./dynusers)
@@ -233,11 +229,11 @@ assert noCollision "IPv6" userV6;
       fi
       # Two peers, each with its own keypair and its own `wg set ... peer`
       # line -- WireGuard has no equivalent of a certificate CN multiple
-      # peers can share. client.* is lillecarl's MacBook (same
-      # "generate once, hand out the whole client config" approach as
-      # ../openvpn.nix). mikrotik.* is the MikroTik router: an exit-node
-      # client, so it may send from any address -- the NAT and forwarding
-      # on this host that make that reachable are a later change.
+      # peers can share. client.* is lillecarl's MacBook, generated once
+      # with its whole client config handed out. mikrotik.* is the
+      # MikroTik router: an exit-node client, so it may send from any
+      # address -- the NAT and forwarding on this host that make that
+      # reachable are a later change.
       if [ ! -f client.key ]; then
         wg genkey > client.key
         wg pubkey < client.key > client.pub
@@ -271,9 +267,7 @@ assert noCollision "IPv6" userV6;
       # the Address in the user's own file cannot drift: both are printed from
       # the same Nix expression.
       #
-      # A user's key is theirs alone -- unlike ../openvpn.nix's shared client
-      # certificate, which is safe to copy into every home because connecting
-      # also needs that user's PAM password. A WireGuard config is the whole
+      # A user's key is theirs alone. A WireGuard config is the whole
       # credential, so each file is 0600 and owned by its user, and nobody
       # else's file is readable.
       install -d -m 0700 users
@@ -296,11 +290,11 @@ assert noCollision "IPv6" userV6;
         # DNS is not optional here, and the reason is macOS-specific.
         #
         # macOS sends AAAA queries only when `scutil --nwi` reports IPv6
-        # reachable, and that is decided by network SERVICES, not interfaces.
-        # ../openvpn.nix has the long version beside its own DNS push: a tun
-        # interface with a global address and working connectivity does not
-        # count, every resolver is then flagged "Request A records", and
-        # getaddrinfo stops returning AAAA for any name at all.
+        # reachable, and that is decided by network SERVICES, not
+        # interfaces. A tun interface with a global address and working
+        # connectivity does not count: every resolver is then flagged
+        # "Request A records", and getaddrinfo stops returning AAAA for
+        # any name at all.
         #
         # This line only does its job with a client that registers a real
         # network service. Measured: with WireGuard.app (NetworkExtension) the
@@ -312,8 +306,8 @@ assert noCollision "IPv6" userV6;
         # 64:ff9b::/96 rides along because that resolver does DNS64: a name
         # with no AAAA is answered with a synthesized address in that prefix,
         # and Jool on dynhetz translates it. Without the route those answers
-        # point nowhere. ../openvpn.nix needs no equivalent because it pushes
-        # a v6 default route, which covers the prefix by accident.
+        # point nowhere, and this tunnel pushes no default route to cover
+        # the prefix by accident, so the route is stated explicitly.
         # Two files, one keypair. They differ only in AllowedIPs, which on the
         # client side is a routing table and nothing else -- the server's
         # allowed-ips for this peer stays the pair of host addresses either
@@ -471,8 +465,7 @@ assert noCollision "IPv6" userV6;
 
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
         # destination does not exist, so a rule cannot refresh a file a user
-        # already has. ../openvpn.nix distributes its client config the same
-        # way, for the same reason.
+        # already has.
         # Guarded on both sides: a listed account may have no system user yet,
         # or no home. Neither is worth failing the unit for -- an unconfigured
         # peer is harmless, a wg-dynhetz that never comes up is not, and this
@@ -564,11 +557,10 @@ assert noCollision "IPv6" userV6;
   # and the timeout reads as an unlisted source rather than a dropped packet.
   #
   # Scoped to this interface rather than adding wg-dynhetz to
-  # trustedInterfaces. ../openvpn.nix trusts its tun devices wholesale and can
-  # afford to: every packet there is an authenticated client. The same is true
-  # of a WireGuard peer, but the MikroTik peer holds allowed-ips 0.0.0.0/0,
-  # so trusting the interface would also expose this host's every port to
-  # whatever that router forwards. One port is the smaller statement.
+  # trustedInterfaces. Every packet here is an authenticated peer, but the
+  # MikroTik peer holds allowed-ips 0.0.0.0/0, so trusting the interface
+  # would also expose this host's every port to whatever that router
+  # forwards. One port is the smaller statement.
   networking.firewall.interfaces."wg-dynhetz" = {
     allowedUDPPorts = [ 53 ];
     allowedTCPPorts = [ 53 ];
