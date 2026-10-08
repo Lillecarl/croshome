@@ -70,6 +70,16 @@ On bare `asyncio`, where you have no choice:
 - A task from `create_task` that must outlive the call needs a strong
   reference held somewhere real.
 
+`asyncio.TaskGroup` is better than `gather`, but it is still the fallback:
+an anyio task group is the same structure and stays portable. The order is
+`anyio.create_task_group` > `asyncio.TaskGroup` > `gather`/loose
+`create_task`.
+
+An asyncio-only API (`shield`, `asyncio` streams, `asyncssh`, `Future`) is
+backend-pinning tech debt, not a sanctioned fallback. Every one of them has
+an anyio solution; it just takes rearchitecting instead of a one-line swap.
+Do not document one as "no anyio equivalent" — file the rework.
+
 ## Typing
 
 **Annotate, and annotate with the types, not with strings.**
