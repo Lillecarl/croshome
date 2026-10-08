@@ -249,6 +249,12 @@
         # cyberus-linux: solid-kubernetes' nixlab3 nodes run Cyberus Linux,
         # with Kubernetes from kubernetes4nix.
         substituters = [
+          # pynixd's own HTTP cache first: it races every upstream at once
+          # and redirects the NAR to the highest-priority one that answered,
+          # where Nix itself would ask each in turn for every path. Misses
+          # fall through to the next substituter, so this entry only ever
+          # accelerates. ../../pynixd.nix sets the port.
+          "http://127.0.0.1:8080"
           "https://lillecarl.cachix.org"
           "https://nixkube.cachix.org"
           "https://cache.cyberus-linux.com"
