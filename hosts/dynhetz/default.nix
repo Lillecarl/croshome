@@ -287,6 +287,16 @@
       enable = true;
       openFirewall = true;
     };
+    # Ban hammer with a light touch: ten failures in ten minutes earns ten
+    # minutes offline. A typo costs a coffee break, not an afternoon, and
+    # localhost never counts. The default sshd jail applies; the module
+    # raises sshd LogLevel to VERBOSE itself so failures are observable.
+    services.fail2ban = {
+      enable = true;
+      maxretry = 10;
+      bantime = "10m";
+      ignoreIP = [ "127.0.0.1/8" ];
+    };
     services.openssh = {
       enable = true;
       openFirewall = true;
