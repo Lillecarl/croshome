@@ -84,6 +84,10 @@
       isNormalUser = true;
       openssh.authorizedKeys.keyFiles = [ ../../lillecarl.pub ];
       shell = pkgs.fish;
+      # Without this the user manager -- and the aid and ocahub user
+      # services with it -- stops at the last logout. The daemons must
+      # survive a reboot nobody logs into afterwards.
+      linger = true;
     };
     home-manager = {
       useGlobalPkgs = true;
