@@ -158,8 +158,9 @@
 
     # Slack automation CLI for AI agents. Built by the overlay entry of the
     # same name (../pkgs/default.nix), which calls upstream's nix/package.nix
-    # at v0.10.1 with Linux autoPatchelf. Both platforms: upstream ships all
-    # four binaries and the overlay patches only Linux.
+    # at v0.10.1. Both platforms: upstream ships all four binaries, and the
+    # overlay launches the Linux ones through the glibc loader (patching the
+    # ELF breaks bun's bundle lookup).
     agent-slack
 
     # Shells

@@ -406,10 +406,12 @@ in
   # stablyai/agent-slack#169), so this stays one release behind until that
   # is re-cut. v0.10.1's asset dispatches correctly -- measured.
   #
-  # One deviation beyond the version: autoPatchelf on Linux, because the
-  # release binaries are dynamically linked and run nowhere on NixOS as
-  # shipped (measured: they need only glibc). Mach-O needs no patching, so
-  # darwin stays exactly upstream's shape.
+  # Linux launches through the glibc loader, not autoPatchelf: the release
+  # binaries are dynamically linked and run nowhere on NixOS as shipped,
+  # but patching the ELF breaks bun's embedded-bundle lookup and the
+  # binary falls back to acting as the bun CLI (measured both ways: raw
+  # bytes dispatch, patched bytes do not). The wrapper keeps the bytes
+  # intact. Mach-O needs nothing, so darwin stays exactly upstream's shape.
   agent-slack =
     let
       version = "0.10.1";
@@ -425,6 +427,10 @@ in
         aarch64-linux = "sha256-YdU9FAGIliK1tmJJpGIxIuYHQnT1L3FWAstSmuKdln0=";
         x86_64-linux = "sha256-1xYOpi0/uy1PfPGs7U5Egy8BFNsGTp+Ap2JeH7fFHXk=";
       };
+      loaderBySystem = {
+        aarch64-linux = "ld-linux-aarch64.so.1";
+        x86_64-linux = "ld-linux-x86-64.so.2";
+      };
       system = final.stdenv.hostPlatform.system;
       onLinux = final.stdenv.hostPlatform.isLinux;
     in
@@ -435,9 +441,15 @@ in
         hash = hashes.${system};
       };
       nativeBuildInputs =
-        (old.nativeBuildInputs or [ ]) ++ final.lib.optionals onLinux [ final.autoPatchelfHook ];
-      buildInputs =
-        (old.buildInputs or [ ]) ++ final.lib.optionals onLinux [ final.glibc ];
+        (old.nativeBuildInputs or [ ]) ++ final.lib.optionals onLinux [ final.makeWrapper ];
+      postInstall =
+        (old.postInstall or "")
+        + final.lib.optionalString onLinux ''
+          mkdir -p $out/libexec
+          mv $out/bin/agent-slack $out/libexec/agent-slack
+          makeWrapper ${final.glibc}/lib/${loaderBySystem.${system}} $out/bin/agent-slack \
+            --add-flags $out/libexec/agent-slack
+        '';
     });
 
   # The privileged command queue: an agent enqueues with `aisudo CMD...`,
