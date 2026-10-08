@@ -399,6 +399,47 @@ in
   # share/skills/phabfive/phabfive.
   phabfive = (import "${inputs.phabfive}" { pkgs = final; }).phabfive;
 
+  # Slack automation CLI for AI agents, from its own nix/package.nix rather
+  # than its flake -- and at v0.10.1 rather than the version its
+  # nix/sources.json names (0.5.2 at the tag). v0.10.2's release binaries
+  # run as stock bun instead of the app (upstream issue
+  # stablyai/agent-slack#169), so this stays one release behind until that
+  # is re-cut. v0.10.1's asset dispatches correctly -- measured.
+  #
+  # One deviation beyond the version: autoPatchelf on Linux, because the
+  # release binaries are dynamically linked and run nowhere on NixOS as
+  # shipped (measured: they need only glibc). Mach-O needs no patching, so
+  # darwin stays exactly upstream's shape.
+  agent-slack =
+    let
+      version = "0.10.1";
+      assetBySystem = {
+        aarch64-darwin = "agent-slack-darwin-arm64";
+        x86_64-darwin = "agent-slack-darwin-x64";
+        aarch64-linux = "agent-slack-linux-arm64";
+        x86_64-linux = "agent-slack-linux-x64";
+      };
+      hashes = {
+        aarch64-darwin = "sha256-fYyVT6UD/ADVPGnvwW7mEcIGunXxptSVzRF185usDag=";
+        x86_64-darwin = "sha256-WM9mXagpNaDtg9mmfdiQb913FcLdfiV1Q7ocBvm8OJQ=";
+        aarch64-linux = "sha256-YdU9FAGIliK1tmJJpGIxIuYHQnT1L3FWAstSmuKdln0=";
+        x86_64-linux = "sha256-1xYOpi0/uy1PfPGs7U5Egy8BFNsGTp+Ap2JeH7fFHXk=";
+      };
+      system = final.stdenv.hostPlatform.system;
+      onLinux = final.stdenv.hostPlatform.isLinux;
+    in
+    (final.callPackage "${inputs.agent-slack}/nix/package.nix" { }).overrideAttrs (old: {
+      inherit version;
+      src = final.fetchurl {
+        url = "https://github.com/stablyai/agent-slack/releases/download/v${version}/${assetBySystem.${system}}";
+        hash = hashes.${system};
+      };
+      nativeBuildInputs =
+        (old.nativeBuildInputs or [ ]) ++ final.lib.optionals onLinux [ final.autoPatchelfHook ];
+      buildInputs =
+        (old.buildInputs or [ ]) ++ final.lib.optionals onLinux [ final.glibc ];
+    });
+
   # The privileged command queue: an agent enqueues with `aisudo CMD...`,
   # a human drains with `aisudo run` (plain in an entitled terminal, sudo
   # for root). Elevation needs a password and entitlements no agent session

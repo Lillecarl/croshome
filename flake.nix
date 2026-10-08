@@ -184,6 +184,14 @@
       url = "github:Lillecarl/pyjj";
       flake = false;
     };
+
+    # Slack automation CLI for AI agents. A source tree, not the flake: this
+    # calls ./nix/package.nix directly, pinned to v0.10.2 in the overlay
+    # rather than the version its own nix/sources.json names.
+    agent-slack = {
+      url = "github:stablyai/agent-slack";
+      flake = false;
+    };
   };
   outputs =
     inputs:

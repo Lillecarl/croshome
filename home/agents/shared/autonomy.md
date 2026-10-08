@@ -11,6 +11,12 @@ published history, sending something to a third party), a choice between
 options that would lead to materially different work, or a state that looks
 wrong in a way you cannot explain. Those still stop and ask.
 
+GitHub issues and pull requests outside `github/Lillecarl` and
+`github/nixidae` always need approval first, no matter how obvious the
+report feels. Inside those two the rules above apply unchanged. A bug
+found elsewhere is reported, never filed: evidence in the reply, filing
+left to me.
+
 The test is whether you would be guessing. If you would not, act.
 
 ## Offer both routes before you build a workaround

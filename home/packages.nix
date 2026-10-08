@@ -156,6 +156,12 @@
     # fish completions that ../home/fish.nix picks up without being told.
     phabfive
 
+    # Slack automation CLI for AI agents. Built by the overlay entry of the
+    # same name (../pkgs/default.nix), which calls upstream's nix/package.nix
+    # at v0.10.1 with Linux autoPatchelf. Both platforms: upstream ships all
+    # four binaries and the overlay patches only Linux.
+    agent-slack
+
     # Shells
     # The vendored xonsh bundle, built by the overlay entry of the same name
     # (../pkgs/default.nix). Installed, but deliberately not made anyone's

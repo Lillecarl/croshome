@@ -38,6 +38,22 @@
         "type": "github"
       }
     },
+    "agent-slack": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1788505346,
+        "narHash": "sha256-0eeI3Tvb4LWDXkXvvjUQyHB8UkQ/nksFHMBkFx8ZAqI=",
+        "owner": "stablyai",
+        "repo": "agent-slack",
+        "rev": "adda22908cecb3fbb53be7b44b8c1e0876d6688b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "stablyai",
+        "repo": "agent-slack",
+        "type": "github"
+      }
+    },
     "aid": {
       "flake": false,
       "locked": {
@@ -489,6 +505,7 @@
       "inputs": {
         "acpcli": "acpcli",
         "agenix": "agenix",
+        "agent-slack": "agent-slack",
         "aid": "aid",
         "bun2nix": "bun2nix",
         "catppuccin": "catppuccin",
