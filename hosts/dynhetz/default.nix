@@ -275,6 +275,9 @@
       enable = true;
       interval = "monthly";
     };
+    # Weekly discard: btrfs mounts without discard=async, so nothing trims
+    # until this runs. The block layer already discards (see ./disko.nix).
+    services.fstrim.enable = true;
 
     programs.mosh = {
       enable = true;

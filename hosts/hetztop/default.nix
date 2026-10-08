@@ -124,6 +124,9 @@
       enable = true;
       interval = "monthly";
     };
+    # Weekly discard: btrfs mounts without discard=async, so nothing trims
+    # until this runs. Also releases space on the host's thin provisioning.
+    services.fstrim.enable = true;
 
     programs.mosh = {
       enable = true;
