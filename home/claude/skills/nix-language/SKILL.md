@@ -34,6 +34,10 @@ Same for a key that is entirely digits, and for one holding a dot, a space or
 any other non-identifier character. A dot inside quotes stays one key:
 `{ "a.b" = 1; }` has a single key, not a nested attrset.
 
+**A keyword needs quotes**, to define and to select: `{ "rec" = 1; }."rec"`.
+Bare `rec`, `let`, `in`, `if`, `with`, `inherit`, `assert` are syntax errors
+as keys. `or` is the exception: `{ or = 1; }.or` works.
+
 ## `//` is a shallow merge
 
 It replaces a key outright. It does not merge into it.
