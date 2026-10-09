@@ -152,9 +152,20 @@ in
     # same user-data, so none can carry its own address. A lease follows
     # the machine's DUID, which NixOS derives from its machine-id, so a
     # machine keeps its address across reboots.
+    #
+    # Only while the lease lives: kea reclaims an expired lease and hands
+    # the machine the first free address instead. Measured 2026-10-08: this
+    # host was down 6 h, the default 2 h lease ran out, and nixlab3's
+    # control plane came back on a new address its etcd could not bind.
+    # 30 days outlasts any outage; a deleted machine's address stays
+    # taken that long, which a 65k pool absorbs. Renewal stays hourly.
     services.kea.dhcp6 = {
       enable = true;
       settings = {
+        valid-lifetime = 30 * 24 * 3600;
+        preferred-lifetime = 30 * 24 * 3600;
+        renew-timer = 3600;
+        rebind-timer = 2 * 3600;
         interfaces-config.interfaces = [ vmBridge ];
         subnet6 = [
           {
