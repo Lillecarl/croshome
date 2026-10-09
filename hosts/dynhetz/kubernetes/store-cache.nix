@@ -4,7 +4,14 @@
 # (solid-kubernetes), so a pod can run a store path built here without a
 # push to anywhere.
 #
-# nix-serve-ng listens on every address. cni0 is trusted (./default.nix),
+# Served by Harmonia, not nix-serve-ng: nixpkgs builds nix-serve-ng against
+# Lix, and its CppNix path calls libstore APIs Nix 2.35 removed
+# (initLibStore, openStore(), getDefaultSubstituters) -- the flag-off build
+# fails, and upstream HEAD is identical. Harmonia shells out to the `nix`
+# CLI instead of linking libstore, so no implementation coupling exists to
+# maintain.
+#
+# Harmonia listens on every address. cni0 is trusted (./default.nix),
 # and the firewall opens port 5000 on the VM bridge for the guest nodes.
 #
 # The signing key is made on this machine the first time and stays here.
@@ -19,20 +26,25 @@ in
 {
   networking.firewall.interfaces.${network.vmBridge}.allowedTCPPorts = [ 5000 ];
 
-  services.nix-serve = {
+  services.harmonia.cache = {
     enable = true;
-    package = pkgs.nix-serve-ng;
-    # The default is IPv4 only, and pods here are IPv6 only. warp's name
-    # for any IPv6 address: nix-serve-ng's --listen parser rejects an IPv6
-    # literal, bracketed or not.
-    bindAddress = "*6";
-    secretKeyFile = "${keyDir}/key";
+    # The key the nix-serve era generated. Guests pin its public half in
+    # ../../../kube/modules/nixkube.nix, so the file stays where it is
+    # under its name; only the server reading it changes.
+    signKeyPaths = [ "${keyDir}/key" ];
+    settings = {
+      # The default already, stated because it matters: pods here are IPv6
+      # only, and nix-serve-ng's warp listener could not express an IPv6
+      # wildcard (`*6`). Same port, so the firewall rule above and the
+      # guests' substituter URL stand.
+      bind = "[::]:5000";
+    };
   };
 
-  systemd.services.nix-serve-keygen = {
-    description = "Make nix-serve's signing key and its public half";
-    wantedBy = [ "nix-serve.service" ];
-    before = [ "nix-serve.service" ];
+  systemd.services.harmonia-keygen = {
+    description = "Make Harmonia's signing key and its public half";
+    wantedBy = [ "harmonia.service" ];
+    before = [ "harmonia.service" ];
     path = [ config.nix.package ];
     serviceConfig = {
       Type = "oneshot";

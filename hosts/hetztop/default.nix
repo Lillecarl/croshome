@@ -111,7 +111,6 @@
         ];
         sandbox = "relaxed";
       };
-      # package = pkgs.lixPackageSets.latest.lix;
       nixPath = [
         "nixpkgs=/etc/nixpkgs"
       ];

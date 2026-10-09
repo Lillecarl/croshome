@@ -2,7 +2,7 @@
 # workload here can run a store path this configuration builds, with no
 # container image.
 #
-# The node substitutes from dynhetz's own store, which nix-serve-ng serves
+# The node substitutes from dynhetz's own store, which Harmonia serves
 # (../../hosts/dynhetz/kubernetes/store-cache.nix). A closure built on
 # this machine is therefore already available, and no in-cluster cache is
 # needed: pynixd is off.
