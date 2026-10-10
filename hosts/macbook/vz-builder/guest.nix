@@ -251,6 +251,10 @@ in
         fsType = "ext4";
         autoFormat = true;
         neededForBoot = true;
+        # Formatted a moment earlier from a freshly truncated image, so there
+        # is nothing to check. Not on the boot's critical path: measured, it
+        # saves no time, only a unit.
+        noCheck = true;
         options = [ "noatime" ];
       };
 
