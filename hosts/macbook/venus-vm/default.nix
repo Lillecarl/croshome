@@ -120,7 +120,11 @@ let
           rev = "5d26f605f50f8e22002ec6db5fb775e1992d4e96";
           hash = "sha256-LYIbB2AUA9LZPA8hE0ZXnScoQkaPJMss5ZqOWUXcPig=";
         };
-        patches = [ ];
+        # A guest compositor imports a 10-bit BGR Venus buffer (zink picks
+        # A2R10G10B10 for a 10-bit EGL config) as MTLPixelFormatBGR10A2Unorm,
+        # which ANGLE cannot sample: the window shows opaque black. Wrap it
+        # as RGB10A2Unorm with a red/blue sampling swizzle instead.
+        patches = [ ./virglrenderer-metal-bgr10a2-import.patch ];
         mesonFlags = old.mesonFlags ++ [
           (lib.mesonBool "tests" false)
           (lib.mesonBool "check-gl-errors" false)

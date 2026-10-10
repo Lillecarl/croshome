@@ -1,0 +1,75 @@
+diff -ru a/src/vrend/vrend_metal.m b/src/vrend/vrend_metal.m
+--- a/src/vrend/vrend_metal.m	2026-10-11 13:45:28
++++ b/src/vrend/vrend_metal.m	2026-10-11 13:45:35
+@@ -135,6 +135,15 @@
+       return false;
+    }
+ 
++   /* ANGLE accepts a BGR10A2Unorm texture as an EGLImage but cannot sample it
++    * (GL_BGR10_A2_ANGLEX is NeverSupported), so the importer reads opaque
++    * black. RGB10A2Unorm has the same layout with red and blue swapped; the
++    * sampler views swap them back (vrend_resource_metal_swaps_rb). A Metal
++    * descriptor swizzle does not work here: ANGLE samples through its own
++    * views, which drop it. */
++   if (descriptor.pixelFormat == MTLPixelFormatBGR10A2Unorm)
++      descriptor.pixelFormat = MTLPixelFormatRGB10A2Unorm;
++
+    NSUInteger deviceAlignment, bytesPerRow;
+    /* the backing MTLBuffer is shared system memory, so the texture must be too */
+    descriptor.resourceOptions = MTLResourceStorageModeShared;
+diff -ru a/src/vrend/vrend_renderer.c b/src/vrend/vrend_renderer.c
+--- a/src/vrend/vrend_renderer.c	2026-10-11 13:45:28
++++ b/src/vrend/vrend_renderer.c	2026-10-11 13:45:46
+@@ -1056,6 +1056,17 @@
+ }
+ 
+ static inline bool
++vrend_resource_metal_swaps_rb(const struct vrend_resource *res)
++{
++#ifdef ENABLE_METAL
++   return res->metal_swap_rb;
++#else
++   (void)res;
++   return false;
++#endif
++}
++
++static inline bool
+ vrend_resource_needs_redblue_swizzle(struct vrend_resource *res,
+                                      enum virgl_formats view_format)
+ {
+@@ -2869,6 +2880,12 @@
+       view->srgb_decode = GL_SKIP_DECODE_EXT;
+    }
+ 
++   if (vrend_resource_metal_swaps_rb(res)) {
++      GLenum tmp = view->gl_swizzle[0];
++      view->gl_swizzle[0] = view->gl_swizzle[2];
++      view->gl_swizzle[2] = tmp;
++   }
++
+    if (!has_bit(view->texture->storage_bits, VREND_STORAGE_GL_BUFFER)) {
+       enum virgl_formats format;
+       bool needs_view = false;
+@@ -14160,6 +14177,8 @@
+          }
+ 
+          gr->metal_native = true;
++         gr->metal_swap_rb = desc.format == VIRGL_FORMAT_B10G10R10A2_UNORM ||
++                             desc.format == VIRGL_FORMAT_B10G10R10X2_UNORM;
+          gr->storage_bits |= VREND_STORAGE_EGL_IMAGE;
+ 
+          ret = vrend_resource_alloc_texture(gr, args->format, gr->egl_image);
+diff -ru a/src/vrend/vrend_renderer.h b/src/vrend/vrend_renderer.h
+--- a/src/vrend/vrend_renderer.h	2026-10-11 13:45:28
++++ b/src/vrend/vrend_renderer.h	2026-10-11 13:45:38
+@@ -117,6 +117,9 @@
+     * in the correct channel order, so the red/blue compensation swizzle that
+     * other imported (vulkan/dmabuf) EGL images need must be skipped for them. */
+    bool metal_native;
++   /* Imported 10-bit BGR, wrapped as RGB10A2Unorm because ANGLE cannot sample
++    * BGR10A2Unorm. Sampler views swap red and blue back. */
++   bool metal_swap_rb;
+ #endif
+ 
+    uint64_t size;
