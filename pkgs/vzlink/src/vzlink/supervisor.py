@@ -55,7 +55,9 @@ PROBE_TIMEOUT: Final = 5.0
 READY_PROBE_TIMEOUT: Final = 0.3
 STOP_GRACE: Final = 30.0
 KILL_GRACE: Final = 5.0
-STOP_POLL: Final = 0.5
+# waitpid with WNOHANG, so a tight poll is cheap; a proxy waiting on a stop
+# reboots the VM as soon as this notices.
+STOP_POLL: Final = 0.05
 
 
 class StopReason(StrEnum):
