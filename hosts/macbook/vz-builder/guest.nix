@@ -547,6 +547,9 @@ in
       # vzvm writes the console to a file, so nothing can type at a login
       # prompt; the gettys and the virtual console setup are dead weight.
       console.enable = false;
+      # console.enable does not cover these: getty@tty1 and autovt@tty1 ran
+      # until this was set.
+      services.getty.enable = false;
       systemd.oomd.enable = false;
       services.logrotate.enable = false;
       # One logind session, and a user manager for root, per ssh-ng
