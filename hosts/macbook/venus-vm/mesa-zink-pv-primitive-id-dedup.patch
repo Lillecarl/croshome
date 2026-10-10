@@ -1,0 +1,33 @@
+diff -ru a/src/gallium/drivers/zink/zink_compiler.c b/src/gallium/drivers/zink/zink_compiler.c
+--- a/src/gallium/drivers/zink/zink_compiler.c
++++ b/src/gallium/drivers/zink/zink_compiler.c
+@@ -331,6 +331,21 @@
+    UNREACHABLE("impossible deref type");
+ }
+
++static nir_def *
++lower_pv_mode_load_primitive_id(nir_builder *b)
++{
++   /* A generated passthrough GS already carries PrimitiveId as an input
++    * varying. Loading the system value as well would emit a second
++    * BuiltIn-PrimitiveId input and produce invalid SPIR-V, so reuse the
++    * varying when it exists. */
++   nir_variable *var = nir_find_variable_with_location(b->shader,
++                                                       nir_var_shader_in,
++                                                       VARYING_SLOT_PRIMITIVE_ID);
++   if (var)
++      return nir_load_var(b, var);
++   return nir_load_primitive_id(b);
++}
++
+ static void
+ lower_pv_mode_emit_rotated_prim(nir_builder *b,
+                                 struct lower_pv_mode_state *state,
+@@ -384,6 +400,6 @@
+    /* odd or even primitive within draw
+     */
+-   nir_def *odd_prim = nir_imod(b, nir_load_primitive_id(b), two);
++   nir_def *odd_prim = nir_imod(b, lower_pv_mode_load_primitive_id(b), two);
+    for (unsigned i = 0; i < state->primitive_vert_count; i++) {
+       /* odd or even triangle within strip emitted by user GS
+        * this is handled using the table

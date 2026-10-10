@@ -1,0 +1,27 @@
+diff -ru a/spirv_msl.cpp b/spirv_msl.cpp
+--- a/spirv_msl.cpp
++++ b/spirv_msl.cpp
+@@ -14852,7 +14852,24 @@
+ 			string size_expr = to_buffer_size_expression(var_id);
+ 			if (!size_expr.empty())
+ 			{
++				// The size expression holds one scalar per descriptor
++				// element when the descriptor itself is arrayed. A
++				// single-element array (e.g. zink wraps a lone uniform
++				// block in struct[1]) still declares a pointer-typed
++				// name, so index element 0; without it Metal sees a
++				// pointer used as a scalar and rejects the shader.
++				auto *size_var = maybe_get_backing_variable(var_id);
++				if (size_var)
++				{
++					auto &size_var_type = get<SPIRType>(size_var->basetype);
++					if (size_var_type.array.size() == 1 &&
++					    size_var_type.array[0] == 1 &&
++					    size_var_type.array_size_literal.size() == 1 &&
++					    size_var_type.array_size_literal[0] &&
++					    !is_var_runtime_size_array(*size_var))
++						size_expr += "[0]";
++				}
+ 				uint32_t stride = get_decoration(type.self, DecorationArrayStride);
+ 				if (stride == 0 && type.parent_type)
+ 				{

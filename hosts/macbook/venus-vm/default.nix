@@ -61,6 +61,11 @@ let
       rev = "939b40b33a44443c404c4078823c406e3c94866f";
       hash = "sha256-YeiKovpy41nXCn0jbMbTi0Y/3VxUitFrDaHfyxGsQEU=";
     };
+    # UTM's robustness2 path declares a pointer-typed size name for an
+    # arrayed descriptor but uses it as a scalar, which Metal rejects.
+    # Index element 0 for single-element arrays (zink wraps a lone
+    # uniform block in struct[1]).
+    patches = [ ./spirv-cross-robust-size-index.patch ];
   };
 
   moltenvk =
@@ -176,6 +181,18 @@ let
             # into the submit path and segfaulted. The pipeline-create
             # paths fail gracefully there; do the same.
             ./mesa-venus-getpipelinecachedata-null-ring.patch
+            # Always create graphics pipelines synchronously. An async
+            # create on another ring can reach the host after a command
+            # buffer that binds the new pipeline, and the host then fails
+            # the bind lookup. Cross-ring seqno chaining is still TODO
+            # in vn_get_target_ring.
+            ./mesa-venus-sync-pipeline-create.patch
+            # zink's provoking-vertex lowering loads PrimitiveId as a
+            # system value even when the generated passthrough GS already
+            # carries it as a varying, emitting two BuiltIn-PrimitiveId
+            # inputs. Strict consumers reject the module. Reuse the
+            # varying when it exists.
+            ./mesa-zink-pv-primitive-id-dedup.patch
           ];
         });
         environment.systemPackages = [
@@ -304,6 +321,10 @@ let
             # Log failing Venus calls: zink's first graphics pipeline is
             # unknown to the host renderer, which wedges the guest ring.
             export VN_DEBUG=result
+            # Dump zink's SPIR-V: the host rejects the first graphics
+            # pipeline (spirv-val errors plus a geometry stage gears never
+            # asked for), so read what zink actually emits.
+            export ZINK_DEBUG=spirv
           fi
           # Line-buffered, or timeout's SIGTERM drops the FPS lines.
           timeout 16 stdbuf -oL es2gears_wayland &
@@ -311,7 +332,9 @@ let
           sleep 8
           grim "/out/es2gears-$driver.png"
           wait "$gears"
-          unset MESA_LOADER_DRIVER_OVERRIDE VN_DEBUG
+          # ZINK_DEBUG=spirv writes dumpNN.spv into the session cwd.
+          cp dump*.spv /out/ 2>/dev/null
+          unset MESA_LOADER_DRIVER_OVERRIDE VN_DEBUG ZINK_DEBUG
         done
         coredumpctl info --no-pager -1
 
@@ -337,6 +360,11 @@ let
       # device, which exists only on ANGLE's Metal backend; WebKit's ANGLE
       # (what UTM ships) defaults to it, nixpkgs' does not.
       export ANGLE_DEFAULT_PLATFORM=metal
+      # Host-side Vulkan validation: vkr enables VK_LAYER_KHRONOS_validation
+      # with VKR_DEBUG=validate, so a failing host pipeline create logs its
+      # reason instead of surfacing only as a guest bind lookup error.
+      export VKR_DEBUG=validate
+      export VK_LAYER_PATH=${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d
       export TMPDIR=''${TMPDIR:-/tmp}
       exec ${vm}/bin/run-venus-vm "$@"
     '';

@@ -1,0 +1,18 @@
+diff -ru a/src/virtio/vulkan/vn_pipeline.c b/src/virtio/vulkan/vn_pipeline.c
+--- a/src/virtio/vulkan/vn_pipeline.c
++++ b/src/virtio/vulkan/vn_pipeline.c
+@@ -1737,6 +1737,14 @@
+       return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
+    }
+
++   /* Always create synchronously. An async create submitted on another
++    * ring can reach the host after a command buffer that binds the new
++    * pipeline, and the host then fails the bind with an object lookup
++    * error. Cross-ring seqno chaining is still TODO in
++    * vn_get_target_ring. Costs pipeline-creation latency; correctness
++    * first until the chaining exists. */
++   want_sync = true;
++
+    if (want_sync || target_ring != dev->primary_ring) {
+       if (target_ring == dev->primary_ring) {
+          VN_TRACE_SCOPE("want sync");
