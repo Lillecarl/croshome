@@ -42,10 +42,15 @@ let
   # was charged to guest RAM and capped at half of it -- 3.9 GiB of the 8. A
   # build large enough to exceed that died, which is what these two images fix.
   #
-  # Recreated on every start, so they are ephemeral. That costs nothing:
-  # `truncate` writes no data, the guest's mkfs.xfs leaves the image sparse,
-  # and it is the same /nix volume the activation check already proves is
-  # case-sensitive.
+  # Recreated on every start, so they are ephemeral. That costs nothing: an
+  # empty ASIF image is 4 MiB and takes 40-80ms to create at either size, the
+  # guest's mkfs.xfs leaves it sparse, and it is the same /nix volume the
+  # activation check already proves is case-sensitive.
+  #
+  # ASIF, Apple's sparse image format (macOS 26), not a raw file from
+  # `truncate`: measured with XFS and `.cached`, 2.5x the 64k random-write
+  # IOPS, 1.5x the 1m write and 2.8x the 1m read throughput; small I/O and
+  # a small-file tree copy unchanged.
   storeDisk = "${cfg.imageDir}/vz-store.img";
   swapDisk = "${cfg.imageDir}/vz-swap.img";
 
@@ -193,8 +198,8 @@ let
       # runs on instead of pinning one Mac's core count into the repo.
       cpus=${if cfg.cores == null then "$(/usr/sbin/sysctl -n hw.ncpu)" else toString cfg.cores}
 
-      # Sparse and fresh every start. A 128 GiB store disk occupies 2.4 MiB
-      # once formatted, and the guest's mkfs.xfs takes 50ms -- measured,
+      # Sparse and fresh every start. The 128 GiB store image occupies 13 MiB
+      # after a boot, and the guest's mkfs.xfs takes 50ms -- measured,
       # because `fileSystems.autoFormat` gives no way to pass mkfs options and
       # a filesystem that wrote its inode tables eagerly would have cost
       # seconds on a seven-second boot.
@@ -203,9 +208,12 @@ let
       # vzvm appends, so the log held every boot ever. Keep this boot and the
       # one before it, which is the one a post-mortem wants.
       mv -f ${lib.escapeShellArg "${cfg.stateDir}/console.log"} ${lib.escapeShellArg "${cfg.stateDir}/console.log.1"} 2>/dev/null || true
-      truncate -s ${toString cfg.diskSize}M ${lib.escapeShellArg storeDisk}
+      # Bytes, not `M`: diskutil reads M as 10^6, which shrinks the disk 5%.
+      /usr/sbin/diskutil image create blank --fs none --format ASIF \
+        --size ${toString (cfg.diskSize * 1048576)} ${lib.escapeShellArg storeDisk} >/dev/null
       ${lib.optionalString (cfg.swapSize > 0) ''
-        truncate -s ${toString cfg.swapSize}M ${lib.escapeShellArg swapDisk}
+        /usr/sbin/diskutil image create blank --fs none --format ASIF \
+          --size ${toString (cfg.swapSize * 1048576)} ${lib.escapeShellArg swapDisk} >/dev/null
       ''}
 
       install -d -m 0755 ${lib.escapeShellArg keyDir}
