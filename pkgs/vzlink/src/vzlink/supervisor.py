@@ -45,8 +45,14 @@ logger: Final = logging.getLogger("vzlink.supervisor")
 
 BANNER: Final = b"SSH-"
 BANNER_POLL: Final = 0.25
-READY_POLL: Final = 0.5
+READY_POLL: Final = 0.25
 PROBE_TIMEOUT: Final = 5.0
+# vzvm holds a connection to a guest port that is not listening yet and
+# retries it every 1.5s (VsockProxy.swift in applicative-systems/vzvm). A
+# fresh connection tries at once, so readiness polls with short probes
+# instead of waiting inside vzvm's hold. A probe it still holds when the
+# guest comes up gets one readiness line, then closes.
+READY_PROBE_TIMEOUT: Final = 0.3
 STOP_GRACE: Final = 30.0
 KILL_GRACE: Final = 5.0
 STOP_POLL: Final = 0.5
@@ -124,9 +130,9 @@ async def banner_probe(port: int) -> bytes:
     return head
 
 
-async def readiness_probe(port: int) -> dict[str, Any]:
+async def readiness_probe(port: int, timeout: float = READY_PROBE_TIMEOUT) -> dict[str, Any]:
     """Ask the guest agent whether the builder serves. One JSON line."""
-    with anyio.fail_after(PROBE_TIMEOUT):
+    with anyio.fail_after(timeout):
         async with await anyio.connect_tcp("127.0.0.1", port) as stream:
             return await read_message(stream)
 
@@ -190,25 +196,25 @@ class Supervisor:
             return answer
 
     async def _boot(self) -> dict[str, Any]:
-        """Two stages with one shared deadline: the SSH banner proves the VM
-        answers, the readiness agent proves the builder serves."""
+        """Two stages with one shared deadline: the readiness agent proves
+        the builder serves, then the SSH banner proves sshd answers. In that
+        order because readiness polls fast (see READY_PROBE_TIMEOUT), and
+        once it answers sshd is up too: both sockets come up together in
+        sockets.target."""
         start = time.monotonic()
         deadline = start + self.args.boot_timeout
         where = f"127.0.0.1:{self.args.internal_port}"
         within = f"within {self.args.boot_timeout:.0f}s"
         stages: list[dict[str, Any]] = []
 
-        if not await self._wait_for_banner(deadline):
-            return error(Op.ENSURE_UP, f"the guest did not answer on {where} {within} (no SSH banner)")
-        stages.append({"stage": "banner", "seconds": round(time.monotonic() - start, 1)})
-
         reasons = await self._wait_for_ready(deadline)
         if reasons is not None:
-            return error(
-                Op.ENSURE_UP,
-                f"the guest did not answer on {where} {within} (banner ok, builder not ready: {reasons})",
-            )
+            return error(Op.ENSURE_UP, f"the guest did not answer on {where} {within} (builder not ready: {reasons})")
         stages.append({"stage": "ready", "seconds": round(time.monotonic() - start, 1)})
+
+        if not await self._wait_for_banner(deadline):
+            return error(Op.ENSURE_UP, f"the guest did not answer on {where} {within} (ready, but no SSH banner)")
+        stages.append({"stage": "banner", "seconds": round(time.monotonic() - start, 1)})
         logger.info("guest ready: %s", stages)
         return ok(Op.ENSURE_UP, stages=stages)
 

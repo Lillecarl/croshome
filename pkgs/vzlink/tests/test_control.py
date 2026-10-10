@@ -161,7 +161,7 @@ async def test_ensure_up_reports_stages(state_dir) -> None:
             async with _supervisor(state_dir, guest_port, readiness_port, vm.proc.pid) as (_, sock):
                 answer = await _rpc(sock, {"op": Op.ENSURE_UP.value, "id": "t1"})
                 info = check_response(answer, Op.ENSURE_UP)
-                assert [s["stage"] for s in info["stages"]] == ["banner", "ready"]
+                assert [s["stage"] for s in info["stages"]] == ["ready", "banner"]
 
 
 @pytest.mark.anyio
@@ -362,7 +362,7 @@ async def test_failed_boot_is_not_cached() -> None:
         sup = supervisor.Supervisor(_args(internal_port=9, readiness_port=9, boot_timeout=0.5))
         answer = await sup.ensure_up()
         assert answer["status"] == "error"
-        assert "did not answer on 127.0.0.1:9 within 0s (no SSH banner)" in answer["message"]
+        assert "did not answer on 127.0.0.1:9 within 0s (builder not ready:" in answer["message"]
 
         async with _fake_guest() as (guest_port, readiness_port):
             sup.args.internal_port = guest_port
