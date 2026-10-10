@@ -269,7 +269,16 @@ in
   system ? builtins.currentSystem,
   pkgs ? import inputs.nixpkgs { inherit system; config = { }; overlays = [ ]; },
 }:
-{ greet = pkgs.callPackage ./nix/package.nix { }; /* shell, checks, overlay, nixosModule */ }
+let
+  greet = pkgs.callPackage ./nix/package.nix { };
+in
+{
+  inherit greet;
+  shell = pkgs.callPackage ./nix/shell.nix { inherit greet; };
+  checks = pkgs.callPackages ./nix/checks.nix { inherit greet; };
+  overlay = import ./nix/overlay.nix;
+  nixosModule = ./nix/module.nix;
+}
 ```
 
 ```nix
@@ -287,17 +296,24 @@ overlays.default = import ./nix/overlay.nix;     # same file default.nix exposes
   default is impure: the result depends on the caller's `NIX_PATH`.
 - **`config = { }; overlays = [ ];`** when importing nixpkgs. Omitted, nixpkgs
   reads `~/.config/nixpkgs/{config,overlays}.nix` and the build varies by user.
-- **Packages are `callPackage` files**, not inline in `default.nix`. Each takes
-  its exact dependencies as arguments, never `pkgs`.
+- **`default.nix` only wires.** Each output is one line: a `callPackage` of,
+  or a path to, a file in `nix/`. A body longer than that gets its own file.
+- **Those files are `callPackage`-able.** Each takes its exact dependencies as
+  arguments, never `pkgs`. Project outputs come in by name:
+  `callPackage ./nix/shell.nix { inherit greet; }`.
+- **An attrset of derivations loads with `callPackages`.** `callPackage` adds
+  `override` and `overrideDerivation` to the set, and `nix flake check`
+  rejects those as checks.
 - **Overlay and module are plain files.** The flake's `overlays.default` and
   `nixosModules.default` and `default.nix`'s `overlay` and `nixosModule` point
   at the same path.
 - **A module builds from the consumer's `pkgs`**: package option default
   `pkgs.greet or (pkgs.callPackage ./package.nix { })`. It never imports a
   pinned nixpkgs and never sets `nixpkgs.overlays`.
-- **`shell.nix` is `(import ./. { }).shell`**, defined once in `default.nix`.
+- **`shell.nix` is `(import ./. { }).shell`**, defined in `nix/shell.nix`.
   `mkShell { inputsFrom = [ pkg ]; }` takes the package's build inputs.
-- **Checks live in `default.nix`** as `checks`; the flake re-exports them.
+- **Checks live in `nix/checks.nix`**, exposed as `checks` in `default.nix`;
+  the flake re-exports them.
 
 ## Writing a package
 

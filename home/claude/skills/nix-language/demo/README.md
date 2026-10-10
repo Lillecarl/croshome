@@ -5,13 +5,15 @@ flakes; nothing is reachable only through a flake. Copy it, rename `greet`.
 
 | file | role |
 | --- | --- |
-| `default.nix` | The real entry point. Every output lives here. |
+| `default.nix` | The real entry point. Wires `nix/` files to `pkgs`; defines nothing itself. |
 | `flake.nix` | Wrapper: maps `default.nix` over systems. Owns the pins. |
 | `flake.lock` | The one lock. Both entry points read it. |
 | `nix/compat.nix` | Reads `flake.lock` without the flake evaluator (flake-compatish). |
 | `nix/package.nix` | `callPackage`-able derivation. No pins, no `pkgs` argument. |
 | `nix/overlay.nix` | Adds `greet` to a consumer's package set. |
 | `nix/module.nix` | NixOS module. Builds from the consumer's `pkgs`. |
+| `nix/shell.nix` | Dev shell, `callPackage`-able. |
+| `nix/checks.nix` | Every check, as one attrset. Loaded with `callPackages`. |
 | `shell.nix` | `(import ./. { }).shell`, for `nix-shell` and direnv. |
 
 ## Commands
@@ -30,8 +32,9 @@ Inside a git repo that does not track these files, flake commands need
 
 ## Rules the layout encodes
 
-- **`default.nix` first.** It takes `inputs`, `system` and `pkgs`, each
-  defaulted. A consumer passes their own `pkgs` and gets one nixpkgs, not two.
+- **`default.nix` first, and thin.** It takes `inputs`, `system` and `pkgs`,
+  each defaulted, and maps files in `nix/` to outputs. A body longer than a
+  `callPackage` line belongs in its own file. A consumer passes their own `pkgs` and gets one nixpkgs, not two.
   The flake passes `legacyPackages.${system}`.
 - **One lock.** `flake.lock` pins; `nix/compat.nix` reads it for
   non-flake evaluation. No npins or niv beside it.
@@ -43,6 +46,9 @@ Inside a git repo that does not track these files, flake commands need
 - **`src` is a fileset**, not `./.`. Docs and `.nix` edits do not rebuild.
 - **`import nixpkgs { config = { }; overlays = [ ]; }`.** Without the empty
   values, nixpkgs reads `~/.config/nixpkgs`.
+- **An attrset of derivations loads with `callPackages`.** `callPackage`
+  adds `override` and `overrideDerivation` to the set, and `nix flake check`
+  rejects those as checks.
 - **Checks cover the outputs**: version check in the build, a
   `passthru.tests` run, nixfmt, and an eval-only module test (about 2s).
 

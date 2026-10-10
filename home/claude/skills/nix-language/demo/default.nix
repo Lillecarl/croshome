@@ -14,8 +14,6 @@ in
 }:
 
 let
-  inherit (pkgs) lib;
-
   greet = pkgs.callPackage ./nix/package.nix { };
 in
 {
@@ -25,40 +23,9 @@ in
   overlay = import ./nix/overlay.nix;
   nixosModule = ./nix/module.nix;
 
-  shell = pkgs.mkShell {
-    inputsFrom = [ greet ];
-    packages = [ pkgs.nixfmt ];
-  };
-
-  checks = greet.passthru.tests // {
-    inherit greet;
-
-    # Evaluation only, no VM: proves the module wires the package in.
-    module =
-      let
-        system = pkgs.nixos {
-          imports = [ ./nix/module.nix ];
-          programs.greet.enable = true;
-          boot.isContainer = true;
-          system.stateVersion = lib.trivial.release;
-        };
-      in
-      assert lib.elem greet system.config.environment.systemPackages;
-      pkgs.emptyFile;
-    nixfmt =
-      pkgs.runCommand "nixfmt-check"
-        {
-          nativeBuildInputs = [ pkgs.nixfmt ];
-          src = lib.fileset.toSource {
-            root = ./.;
-            fileset = lib.fileset.fileFilter (file: file.hasExt "nix") ./.;
-          };
-        }
-        ''
-          find "$src" -name '*.nix' -exec nixfmt --check {} +
-          touch $out
-        '';
-  };
-
+  shell = pkgs.callPackage ./nix/shell.nix { inherit greet; };
+  # callPackages, not callPackage: the latter adds `override` to the set,
+  # and `nix flake check` rejects a check that is not a derivation.
+  checks = pkgs.callPackages ./nix/checks.nix { inherit greet; };
   formatter = pkgs.nixfmt-tree;
 }
