@@ -98,6 +98,8 @@ in
     {
       system.stateVersion = "26.11";
 
+      boot.kernelPackages = pkgs.linuxPackages_latest;
+
       # ./vm.nix hands vzvm exactly this list after `init=`.
       boot.kernelParams = [
         "console=hvc0" # vzvm's virtio console
