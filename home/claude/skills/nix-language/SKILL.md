@@ -311,7 +311,12 @@ overlays.default = import ./nix/overlay.nix;     # same file default.nix exposes
   `config.allowUnfree`. Let `default.nix` import nixpkgs.
 - **`nix/compat.nix` is `import flake-compatish ../.`.** The path form
   evaluates the working copy in place. Its `.compatish.override` changes
-  inputs with strict names: a typo is an error, not a silent no-op.
+  inputs with strict names: a typo is an error, not a silent no-op. Another
+  project reroots this one through that file, not `./.`; see
+  `demo/README.md`.
+- **`default.nix` stays a plain function, never a `__functor` set.** The CLI
+  does not auto-call a functor, so `nix build --file . <attr>` breaks, and
+  `callPackage ./. { }` silently ignores the caller's `pkgs`.
 - **`default.nix` only wires.** Each output is one line: a `callPackage` of,
   or a path to, a file in `nix/`. A body longer than that gets its own file.
 - **Those files are `callPackage`-able.** Each takes its exact dependencies as
