@@ -18,6 +18,19 @@ holds across all runs below). Pushed as develop 33c8d34d.
 - aa75215c: GS/SPIR-V fixes + host validation (VKR_DEBUG=validate,
   VK_LAYER_PATH wired in run wrapper). Test scaffolding kept on purpose:
   zero output when healthy.
+- 25fffc9c: this file.
+- (pending) mesh-wrapper + static-vertex-input patches (uncommitted at
+  time of writing; see below). Adds MVK_CONFIG_SHADER_DUMP_DIR to the
+  run wrapper (full .metal per shader lands in $VENUS_OUT/mvkdump).
+
+Local (NOT in repo, regenerable): UTM SPIRV-Cross 939b40b built in
+/tmp/scx-build (static libs) + /tmp/scx-build/driver.cpp replicating
+MoltenVK's conversion config (discrete set 0, robust2, mesh, UBO->buffer 1,
+sizes->buffer 26). Reproduces host output byte-similar, including the bugs.
+`xcrun metal -c` validates candidates (needed one
+`xcodebuild -downloadComponent MetalToolchain`).
+Reference clone: ~/Dynamist/SPIRV-Cross @ 939b40b (geometry-shaders tip;
+nothing newer upstream).
 
 Patches in hosts/macbook/venus-vm/ (all against Mesa 26.2.2 / UTM pins):
 
@@ -44,27 +57,58 @@ Patches in hosts/macbook/venus-vm/ (all against Mesa 26.2.2 / UTM pins):
   zink wraps a lone UBO in struct[1]. Fix indexes [0] for literal
   single-element arrays. Proven locally: unpatched UTM binary emits bare
   `BufferSize / 4u`, patched emits `[0]`.
+- spirv-cross-mesh-wrapper.patch (same pin, 8 hunks, all in
+  emit_mesh_wrapper + discrete call sites): the wrapper called the inner
+  function with the descriptor ARRAY name while it declares per-element
+  `<name>_i` parameters (both object and mesh wrappers) -> undeclared
+  identifier; the mesh wrapper copied the per-PRIMITIVE PrimitiveId input
+  as if per-vertex (garbage `VARYING_SLOT_PRIMITIVE_ID` lines) and never
+  passed gl_PrimitiveID; vertex-index scaling was inverted (strip x3,
+  list x1). Fix: forward each element, skip PrimitiveId in the copy loop,
+  carry the primitive ID in a new Payload member `spvPrimitiveID`
+  (object threadgroup index; MoltenVK MVKCmdDraw dispatches one
+  single-thread object group per primitive, threadCount = primitive
+  count, so positionInGrid.x IS the primitive index), pass
+  `payload.spvPrimitiveID`, scale non-strip triangles x3 / lines x2.
+  Verified: VS+GS+FS all compile under `xcrun metal` (0 errors), host
+  run shows 0 compile errors and the same wiring in the dumped .metal.
+- mesa-zink-venus-static-vertex-input.patch (3 hunks): UTM-mesh bakes
+  PIPELINE vertex state at compile time, so dynamic state never reaches
+  the object shader. Force fully static on Venus via
+  zink_driver_is_venus: have_EXT_vertex_input_dynamic_state=false
+  (zink_screen.c), uses_dynamic_stride=false (zink_context.c),
+  skip the check_vertex_strides recompute (zink_program_state.hpp).
+  Verified: dump shows `vertexIndex * 24` (was `* 0`).
+- moltenvk-tmp-vertex-log.patch (TEMPORARY, host MoltenVK fprintf of
+  vaCnt/vbCnt/bindings/strides; REMOVE before finishing): proved zink
+  sends stride=0 in the pipeline (dynamic-state dummies), which is
+  expected and correct on real drivers.
 
 ## Causal chain, current end
 
 1. Mesa defaults ProvokingVertex=LAST (_mesa_init_lighting). Venus lacks
    EXT_provoking_vertex (Metal limitation), so zink lowers EVERY draw
    through a generated passthrough GS (lower_pv_mode).
-2. That GS compiled to invalid SPIR-V (above) -> rejected. FIXED, GS valid.
-3. Its UBO access compiled to invalid MSL (above) -> Metal rejects with
-   `invalid operands ('const constant uint *' and 'unsigned int')` on
-   `uniform_0_32_1BufferSize / 4u`. FIXED in fork, verified locally.
-4. Host STILL reports `Shader library compile failed / Vertex shader
-   function could not be compiled` (qemu9uphn.log pattern; recheck latest).
-   Remaining VS suspects: uniform-block layout (needs
-   uniformBufferStandardLayout; device reports true, zink never queries it)
-   or FloatControls2 / SPIR-V 1.6 handling in pinned SPIRV-Cross.
-5. Separately: window depth texture is NULL (guard log fires) although
-   eglut asks EGL_DEPTH_SIZE=1. vulkaninfo memory usability lists
-   D16/D32F/S8/D32S8 but NO 24-bit depth on Venus. kopper_allocate_textures
-   calls resource_create with stvis format and no fallback (zink_get_format
-   HAS a D24->D32S8 fallback; the kopper path may not reach it). Even with
-   pipelines fixed, gears may draw blank until depth allocates.
+2. That GS compiled to invalid SPIR-V (dedup patch) -> rejected. FIXED.
+3. Its UBO access compiled to invalid MSL (robust-size patch) -> Metal
+   rejects with pointer-vs-scalar. FIXED.
+4. The mesh WRAPPER (UTM geometry-shaders branch, brand-new code) passed
+   array names for element params, dropped gl_PrimitiveID, scaled
+   vertices backwards. FIXED (mesh-wrapper patch); all three shaders
+   compile under Apple's Metal (0 errors) and on the host (0 errors).
+5. Vertex fetches used stride 0: zink uses vertex_input_dynamic_state +
+   dynamic binding stride (both legal; real drivers consume them at draw
+   time), but UTM-mesh bakes pipeline state at compile time. Recorded as
+   static-vertex-input patch (3 flags). FIXED: dump shows stride 24.
+6. CURRENT: gears runs 600 frames @ ~120 FPS, pipelines compile, draws
+   execute, host validation silent -- but the window is BLACK. virgl
+   gears renders fine (same run), so it is zink-pipeline-side, not
+   environment. Depth texture still NULL (guard log still fires).
+   Prime suspect ranking: (a) depth test with no depth buffer discards
+   everything; (b) FS UBO content wrong (FS reads uniforms via buffer(1);
+   zeros -> black); (c) mesh rasterizer state (viewport/scissor/cull).
+   Ruled OUT by dump inspection: FS<->mesh location linkage matches
+   (locn0 both sides), vertex fetch code now correct.
 
 ## Rejected hypotheses (do not retry)
 
@@ -72,17 +116,31 @@ Patches in hosts/macbook/venus-vm/ (all against Mesa 26.2.2 / UTM pins):
 - fb==NULL vs texture==NULL for the discard crash: the texture-NULL log
   fires; fb guard never fired.
 - Upstream Mesa already fixed: searched, nothing found.
+- "zink sends stride 0 = zink bug": NO. Temporary MoltenVK probe showed
+  the PIPELINE carries stride 0 because zink uses EXT_vertex_input_dynamic
+  _state + BINDING_STRIDE dynamic state (both advertised by Venus, both
+  consumed at draw time on real drivers). The mesh compiler is the only
+  consumer that reads pipeline state. Do not "fix" zink's strides; the
+  static-vertex-input patch is the correct scope.
+- have_EXT_vertex_input_dynamic_state=false ALONE fixes strides: NO.
+  Second dynamic mechanism (uses_dynamic_stride, from EDS) keeps
+  pipelines dynamic via check_vertex_strides recompute. All three flags
+  are needed (screen + context + program_state.hpp).
+- R3 (skip generated GS when no flat varyings): MOOT. The mesh path
+  works; killing the GS is no longer needed or wanted.
 
 ## Device facts (guest vulkaninfo-full.txt)
 
 - Virtio-GPU Venus (Apple M5 Pro), driver 26.2.2. Missing: logicOp,
   customBorderColor, depth_clip_enable (zink warns, continues).
 - geometryShader=true BUT maxGeometry*=0 (UTM MoltenVK MVKDevice.mm sets
-  zeros; mesh path needs private API, which is off). So no GS can ever
-  compile -> the generated GS must go away (skip when no FS inputs are
-  flat: then provoking convention is unobservable) or GS limits must be
-  plumbed host-side.
+  zeros; mesh path needs private API, which is off). Consequence, now
+  understood: UTM compiles EVERY GS pipeline as mesh (for_mesh_pipeline
+  forced for ExecutionModelGeometry; VS as [[object]]). The mesh path is
+  prototype-grade but functional after the patches above.
 - uniformBufferStandardLayout=true, scalarBlockLayout=true.
+- vertexInputDynamicState=true + EDS present: zink uses both dynamic
+  mechanisms; static-vertex-input patch opts Venus out (see above).
 
 ## Symbolization recipe (aarch64-linux binaries on darwin)
 
@@ -96,10 +154,15 @@ vn_get_target_ring NULL return.
 
 ## Next steps
 
-R1: read the CURRENT host Metal error (post SPIRV-Cross fix). If uniform
-layout: check whether zink enables uniformBufferStandardLayout at device
-creation; if not, enable or pad. Then re-run.
-R2: log the depth format in kopper_allocate_textures (temporary mesa_loge),
-confirm 24-bit, add fallback to D32S8/D16 (mirror zink_get_format).
-R3 (if GS still needed): skip generated GS when FS has no flat varyings
-(flat_flags==0 in zink_program) or when device reports zero GS limits.
+R2 (now prime suspect): black screen with working pipelines. First probe
+the depth format in kopper_allocate_textures (temporary mesa_loge of
+format+bind), because the NULL-depth guard still fires every run. If
+24-bit: fall back to D32S8/D16 (mirror zink_get_format). If depth is not
+it: check FS UBO content path (buffer(1) binding through vkr descriptor
+heap with nullDescriptor/robustness), then mesh raster state.
+R4: remove moltenvk-tmp-vertex-log.patch (served its purpose; strides
+prove it in the dumps now).
+R5: hand-written patch hygiene: always verify with `patch -p1 --dry-run`
+against pristine sources; hand-counted hunk headers bit twice (missing
+trailing context line; 9-vs-10-space indent). Generate via diff where
+possible.
