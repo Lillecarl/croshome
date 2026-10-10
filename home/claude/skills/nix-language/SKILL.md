@@ -293,8 +293,7 @@ in
 
 ```nix
 # flake.nix outputs: map default.nix over systems, add nothing
-perSystem = lib.genAttrs systems (system:
-  import ./default.nix { inherit inputs system; pkgs = inputs.nixpkgs.legacyPackages.${system}; });
+perSystem = lib.genAttrs systems (system: import ./default.nix { inherit inputs system; });
 packages = lib.mapAttrs (_: p: { inherit (p) default greet; }) perSystem;
 overlays.default = import ./nix/overlay.nix;     # same file default.nix exposes
 ```
@@ -306,6 +305,13 @@ overlays.default = import ./nix/overlay.nix;     # same file default.nix exposes
   default is impure: the result depends on the caller's `NIX_PATH`.
 - **`config = { }; overlays = [ ];`** when importing nixpkgs. Omitted, nixpkgs
   reads `~/.config/nixpkgs/{config,overlays}.nix` and the build varies by user.
+- **No `legacyPackages` in `flake.nix`.** It passes no `config` and adds
+  `impure-overlays.nix`. Pure under the flake evaluator, but flake-compatish
+  evaluates flake outputs impurely: measured, `NIXPKGS_CONFIG` flips its
+  `config.allowUnfree`. Let `default.nix` import nixpkgs.
+- **`nix/compat.nix` is `import flake-compatish ../.`.** The path form
+  evaluates the working copy in place. Its `.compatish.override` changes
+  inputs with strict names: a typo is an error, not a silent no-op.
 - **`default.nix` only wires.** Each output is one line: a `callPackage` of,
   or a path to, a file in `nix/`. A body longer than that gets its own file.
 - **Those files are `callPackage`-able.** Each takes its exact dependencies as

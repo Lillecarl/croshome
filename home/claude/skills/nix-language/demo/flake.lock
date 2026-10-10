@@ -2,11 +2,11 @@
   "nodes": {
     "flake-compatish": {
       "locked": {
-        "lastModified": 1788776522,
-        "narHash": "sha256-qdPD3fRreZ3deeqzpG19VaTS4cKzV0Nem4QJhQgAwiU=",
+        "lastModified": 1791656140,
+        "narHash": "sha256-a58n6UFEa3FF8Zsj/O1ii2PNpNIwu+WaW6QyjnK7Q54=",
         "owner": "lillecarl",
         "repo": "flake-compatish",
-        "rev": "523101308fe8cd7cba012bf2cf6f3cbe12b039b9",
+        "rev": "14d29ec1c368f18dfe27b1541e1d3bbb7a3a5ff6",
         "type": "github"
       },
       "original": {

@@ -34,10 +34,14 @@ Inside a git repo that does not track these files, flake commands need
 
 - **`default.nix` first, and thin.** It takes `inputs`, `system` and `pkgs`,
   each defaulted, and maps files in `nix/` to outputs. A body longer than a
-  `callPackage` line belongs in its own file. A consumer passes their own `pkgs` and gets one nixpkgs, not two.
-  The flake passes `legacyPackages.${system}`.
+  `callPackage` line belongs in its own file. A consumer passes their own
+  `pkgs` and gets one nixpkgs, not two.
+- **The flake passes `inputs` and `system` only**, never
+  `legacyPackages`: flake-compatish evaluates flake outputs impurely, and
+  `legacyPackages` then reads `~/.config/nixpkgs`.
 - **One lock.** `flake.lock` pins; `nix/compat.nix` reads it for
-  non-flake evaluation. No npins or niv beside it.
+  non-flake evaluation (`import flake-compatish ../.`, in place). No npins
+  or niv beside it.
 - **Every flake output is a `default.nix` attribute or a plain file.**
   `overlays.default` and `nixosModules.default` point at the same files
   `default.nix` exposes as `overlay` and `nixosModule`.
@@ -55,7 +59,10 @@ Inside a git repo that does not track these files, flake commands need
 ## Measured
 
 - `nix eval --file . greet.drvPath` equals
-  `nix eval .#packages.x86_64-linux.default.drvPath`.
+  `nix eval .#packages.x86_64-linux.default.drvPath` and
+  `(import ./nix/compat.nix).impure.packages.default.drvPath`.
+- Under flake-compatish, `NIXPKGS_CONFIG` with `allowUnfree = true` turns
+  `legacyPackages.x86_64-linux.config.allowUnfree` true.
 - Appending to a `.nix` file leaves `greet.drvPath` unchanged.
 - Each check fails on its broken case: an unformatted file, and a module
   that drops the package from `systemPackages`.
@@ -63,6 +70,10 @@ Inside a git repo that does not track these files, flake commands need
 
 ## Open for iteration
 
-- flake-compatish warns `overriding self` on every evaluation.
+- flake-compatish warns `overriding self` on every evaluation, path form
+  included (checked at 14d29ec1).
+- `(import ./.).compatish` does not work, because `default.nix` is a
+  function. So the project cannot be a target of another project's
+  `reroot` through `.compatish.override`.
 - No VM test (`testers.runNixOSTest`); the module check is eval-only.
 - No `passthru.updateScript`, no home-manager module, no multi-package scope.

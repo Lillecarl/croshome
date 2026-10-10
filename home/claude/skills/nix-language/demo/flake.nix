@@ -20,13 +20,9 @@
         "aarch64-darwin"
       ];
 
-      perSystem = lib.genAttrs systems (
-        system:
-        import ./default.nix {
-          inherit inputs system;
-          pkgs = inputs.nixpkgs.legacyPackages.${system};
-        }
-      );
+      # Not legacyPackages: it reads ~/.config/nixpkgs when evaluation is
+      # impure, and flake-compatish evaluates these outputs impurely.
+      perSystem = lib.genAttrs systems (system: import ./default.nix { inherit inputs system; });
       forAllSystems = f: lib.mapAttrs (_: f) perSystem;
     in
     {
