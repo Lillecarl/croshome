@@ -1,6 +1,6 @@
 ---
 name: nix-language
-description: The Nix language itself — syntax and semantics that models reliably get wrong. Use before writing or editing any .nix file, and when a Nix expression fails to parse or evaluates to something unexpected. Covers attribute key quoting, the shallow // merge, with scoping, list syntax, paths versus strings, string escaping, function arguments, the lib.optional family, lib.getExe/lib.getExe' for package binaries, and Python package-set scoping. For running nix commands, use the nix skill.
+description: The Nix language itself — syntax and semantics that models reliably get wrong. Use before writing or editing any .nix file, and when a Nix expression fails to parse or evaluates to something unexpected. Covers attribute key quoting, the shallow // merge, with scoping, list syntax, paths versus strings, string escaping, function arguments, the lib.optional family, lib.getExe/lib.getExe' for package binaries, Python package-set scoping, project layout (default.nix first, flake.nix only a wrapper) and nixpkgs package conventions (finalAttrs, filesets, callPackage). Ships a tested template project in demo/ — read it before starting or restructuring a Nix project. For running nix commands, use the nix skill.
 ---
 
 # The Nix language
@@ -116,10 +116,10 @@ An attrset pattern is strict. Extra keys are an error unless you write `...`:
 ({ x, ... }: x) { x = 1; y = 2; }   # => 1
 ```
 
-A default makes the argument optional: `{ pkgs ? import <nixpkgs> { } }:`. That
-is the entry-point convention — it lets a consumer supply their own `pkgs`
-instead of pinning one for them. Inside a NixOS or home-manager module, take
-`{ pkgs, lib, config, ... }:` and never import nixpkgs yourself.
+A default makes the argument optional. An entry point defaults `pkgs` so a
+consumer can pass their own — see **Project layout**. Inside a NixOS or
+home-manager module, take `{ pkgs, lib, config, ... }:` and never import
+nixpkgs yourself.
 
 ## Defaults and recursion
 
@@ -137,7 +137,8 @@ let a = { n = 1; m = a.n + 1; }; in a.m       # => 2
 ```
 
 Prefer `let`. `rec` makes every key in the set a name in scope, so adding a key
-can silently capture a reference meant for an outer binding.
+can silently capture a reference meant for an outer binding. In a derivation,
+use `finalAttrs` instead — see **Writing a package**.
 
 ## The `lib.optional` family
 
@@ -247,6 +248,116 @@ Check your work rather than assume it:
 ```sh
 nix run --file /etc/nixpkgs nixdoc -- --file <file>.nix --category demo --description D
 ```
+
+## Project layout
+
+Template: `demo/` next to this file. Builds, checks pass both ways, and its
+README lists what was measured. Copy it instead of inventing a layout.
+
+**`default.nix` is the project. `flake.nix` is a wrapper around it.** A flake is
+fine to have. An output reachable only through the flake is not: non-flake
+consumers, `nix-shell`, `nix build --file` and other repos importing yours all
+lose it.
+
+```nix
+# default.nix
+let
+  compat = import ./nix/compat.nix;   # reads flake.lock via flake-compatish
+in
+{
+  inputs ? compat.inputs,
+  system ? builtins.currentSystem,
+  pkgs ? import inputs.nixpkgs { inherit system; config = { }; overlays = [ ]; },
+}:
+{ greet = pkgs.callPackage ./nix/package.nix { }; /* shell, checks, overlay, nixosModule */ }
+```
+
+```nix
+# flake.nix outputs: map default.nix over systems, add nothing
+perSystem = lib.genAttrs systems (system:
+  import ./default.nix { inherit inputs system; pkgs = inputs.nixpkgs.legacyPackages.${system}; });
+packages = lib.mapAttrs (_: p: { inherit (p) default greet; }) perSystem;
+overlays.default = import ./nix/overlay.nix;     # same file default.nix exposes
+```
+
+- **One lock.** `flake.lock` pins; `default.nix` reads the same lock. Never a
+  second pin (npins, niv, a `fetchTarball` URL) beside it.
+- **`pkgs` is an argument with a pinned default.** The consumer's `pkgs` wins,
+  so one nixpkgs is instantiated, not two. `import <nixpkgs> { }` as the
+  default is impure: the result depends on the caller's `NIX_PATH`.
+- **`config = { }; overlays = [ ];`** when importing nixpkgs. Omitted, nixpkgs
+  reads `~/.config/nixpkgs/{config,overlays}.nix` and the build varies by user.
+- **Packages are `callPackage` files**, not inline in `default.nix`. Each takes
+  its exact dependencies as arguments, never `pkgs`.
+- **Overlay and module are plain files.** The flake's `overlays.default` and
+  `nixosModules.default` and `default.nix`'s `overlay` and `nixosModule` point
+  at the same path.
+- **A module builds from the consumer's `pkgs`**: package option default
+  `pkgs.greet or (pkgs.callPackage ./package.nix { })`. It never imports a
+  pinned nixpkgs and never sets `nixpkgs.overlays`.
+- **`shell.nix` is `(import ./. { }).shell`**, defined once in `default.nix`.
+  `mkShell { inputsFrom = [ pkg ]; }` takes the package's build inputs.
+- **Checks live in `default.nix`** as `checks`; the flake re-exports them.
+
+## Writing a package
+
+From `/etc/nixpkgs/CONTRIBUTING.md` (Code conventions), `pkgs/README.md`
+(Conventions) and `doc/build-helpers/fixed-point-arguments.chapter.md`.
+`demo/nix/package.nix` applies all of it.
+
+**`finalAttrs`, not `rec`.** `rec` freezes self-references at definition, so
+`overrideAttrs` changes the attribute and not what was built from it:
+
+```nix
+# overrideAttrs { version = "2"; } then read .tag:
+mkDerivation rec { version = "1"; tag = "v${version}"; }                # => "v1"
+mkDerivation (finalAttrs: { version = "1"; tag = "v${finalAttrs.version}"; })  # => "v2"
+```
+
+`finalAttrs.finalPackage` is the package itself, for `passthru.tests`.
+
+Arguments and structure:
+
+- Explicit argument list, no `...`, no `args: with args;`.
+- No `with lib;` over a file. Write `lib.licenses.mit`.
+- `lib.optionals cond [ … ]`, never `if cond then [ … ] else [ ]` or `null`.
+- `tag = version;`, never `"${version}"`.
+- `passthru` before `meta`; `meta` last.
+- New packages: `strictDeps = true;` and `__structuredAttrs = true;`. With
+  strictDeps, build-time tools go in `nativeBuildInputs` and linked libraries
+  in `buildInputs`, and a wrong choice fails instead of working by accident.
+- `"PREFIX=${placeholder "out"}"` in `makeFlags`, not `$out`.
+- Version check: `doInstallCheck = true; nativeInstallCheckInputs = [ versionCheckHook ];`.
+- No import-from-derivation.
+
+Sources:
+
+- Local source: `lib.fileset.toSource { root = ../.; fileset = lib.fileset.unions [ … ]; }`,
+  not `src = ./.;`. `./.` copies everything, `result` links included, and any
+  edit to any file rebuilds.
+- Remote: `fetchFromGitHub { owner; repo; tag = "v${finalAttrs.version}"; hash; }`,
+  or `rev` with a **full** commit hash. A short hash can 404 on GitHub.
+  `hash = "sha256-…"`, never `sha256 =`.
+- Upstream patch: `fetchpatch2` with a `name` saying why, and
+  `?full_index=1` on GitHub URLs.
+
+Names and metadata:
+
+- `pname` lowercase, upstream's name. Attribute name equals `pname`, dashes
+  kept. File names kebab-case.
+- `version` starts with a digit. Unreleased commit:
+  `"<last release>-unstable-YYYY-MM-DD"`, or `"0-unstable-…"`.
+- `meta.description`: one sentence, capitalised, no leading article, no
+  package name, no trailing period.
+- `meta.license` always. `meta.mainProgram` as a literal string when there is
+  one main binary — that is what `lib.getExe` reads.
+- `meta.sourceProvenance` when repackaging a binary.
+
+Inside nixpkgs, no new `overrideAttrs` on another package: change that
+package instead. Outside nixpkgs, overriding is the normal tool.
+
+Format with nixfmt (`pkgs.nixfmt`, `pkgs.nixfmt-tree` as the flake formatter).
+nixpkgs CI enforces it.
 
 ## Module system, briefly
 

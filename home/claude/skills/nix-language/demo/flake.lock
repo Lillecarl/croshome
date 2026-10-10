@@ -1,0 +1,40 @@
+{
+  "nodes": {
+    "flake-compatish": {
+      "locked": {
+        "lastModified": 1788776522,
+        "narHash": "sha256-qdPD3fRreZ3deeqzpG19VaTS4cKzV0Nem4QJhQgAwiU=",
+        "owner": "lillecarl",
+        "repo": "flake-compatish",
+        "rev": "523101308fe8cd7cba012bf2cf6f3cbe12b039b9",
+        "type": "github"
+      },
+      "original": {
+        "owner": "lillecarl",
+        "repo": "flake-compatish",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1791487292,
+        "narHash": "sha256-6BIvCXtdLW4HQwsOGkgH444aB3vCbHypE9TA78ireh8=",
+        "rev": "8edc0c72e3a38faf5434e40d1f19431125fe4b30",
+        "type": "tarball",
+        "url": "https://releases.nixos.org/nixpkgs/nixpkgs-26.11pre1088030.8edc0c72e3a3/nixexprs.tar.xz"
+      },
+      "original": {
+        "type": "tarball",
+        "url": "https://channels.nixos.org/nixpkgs-unstable/nixexprs.tar.xz"
+      }
+    },
+    "root": {
+      "inputs": {
+        "flake-compatish": "flake-compatish",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}

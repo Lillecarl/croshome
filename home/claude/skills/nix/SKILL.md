@@ -64,21 +64,15 @@ nix shell --file /etc/nixpkgs <package> --command <cmd>
 one to use when you need several packages on `PATH`, or when the binary name
 differs from the attribute name.
 
-## 5. Prefer non-flake
+## 5. `default.nix` first, `flake.nix` as a wrapper
 
-Write `default.nix` / `shell.nix`, not `flake.nix`. Flakes copy the source into
-the store and evaluate from there, which is slower, and they pin `pkgs` for the
-consumer instead of letting them supply it. Use `flake.lock` plus flake-compat
-if you want the lockfile without the rest.
+Every output lives in `default.nix`. A `flake.nix` is fine, as a thin wrapper
+that calls `default.nix` and owns `flake.lock`; nothing may be reachable only
+through it. Run things with `--file .`: the flake evaluator copies the source
+into the store first, which is slower.
 
-The entry point that gives a consumer the choice:
-
-```nix
-{ pkgs ? import <nixpkgs> { } }:
-```
-
-See the `nix-language` skill for why that default matters and what to write
-instead of it inside a module.
+The layout, the lock handling and a tested template are in the `nix-language`
+skill (**Project layout**, `demo/`).
 
 ---
 
