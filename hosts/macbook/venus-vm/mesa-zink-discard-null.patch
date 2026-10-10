@@ -1,0 +1,41 @@
+diff -ru a/src/mesa/main/fbobject.c b/src/mesa/main/fbobject.c
+--- a/src/mesa/main/fbobject.c
++++ b/src/mesa/main/fbobject.c
+@@ -53,6 +53,7 @@
+ #include "texobj.h"
+ #include "api_exec_decl.h"
+
++#include "util/log.h"
+ #include "util/u_memory.h"
+ #include "state_tracker/st_cb_eglimage.h"
+ #include "state_tracker/st_context.h"
+@@ -5645,6 +5645,17 @@
+       return;
+
+    prsc = att->Renderbuffer->texture;
++   if (!prsc) {
++      /* A kopper (zink on Wayland) window-system depth attachment can
++       * reach here without backing storage, e.g. when Venus cannot
++       * allocate it. There is nothing to invalidate. */
++      mesa_loge_once("discard_framebuffer: depth/stencil attachment has no resource, skipping invalidate");
++      return;
++   }
++   if (!ctx->pipe) {
++      mesa_loge_once("discard_framebuffer: no pipe context, skipping invalidate");
++      return;
++   }
+
+    /* using invalidate_resource will only work for simple 2D resources */
+    if (prsc->depth0 != 1 || prsc->array_size != 1 || prsc->last_level != 0)
+@@ -5833,4 +5833,10 @@
+    GET_CURRENT_CONTEXT(ctx);
+
+    struct gl_framebuffer *fb = get_framebuffer_target(ctx, GL_FRAMEBUFFER);
++   if (!fb) {
++      /* Queued through glthread from kopperSwapBuffersWithDamage; the draw
++       * framebuffer is gone. There is nothing to invalidate. */
++      mesa_loge_once("InternalInvalidateFramebufferAncillaryMESA: no draw framebuffer, skipping invalidate");
++      return;
++   }
+    discard_attachments(ctx, fb, BITFIELD_BIT(BUFFER_DEPTH) | BITFIELD_BIT(BUFFER_STENCIL));
+ }

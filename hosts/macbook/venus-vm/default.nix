@@ -166,6 +166,16 @@ let
             # FIFO wait while the application retires the swapchain on a
             # resize; vkcube under niri deadlocked in about 1 run in 3.
             ./mesa-wsi-wl-retired-fifo-wait.patch
+            # kopper (zink on Wayland) invalidates depth/stencil through
+            # glthread on every swap. The attachment can reach that path
+            # without backing storage on Venus, which segfaulted es2gears
+            # in discard_attachments. Guard each NULL and log which fired.
+            ./mesa-zink-discard-null.patch
+            # vn_GetPipelineCacheData passed vn_get_target_ring's NULL
+            # (a thread without a ring, e.g. zink's disk-cache writeback)
+            # into the submit path and segfaulted. The pipeline-create
+            # paths fail gracefully there; do the same.
+            ./mesa-venus-getpipelinecachedata-null-ring.patch
           ];
         });
         environment.systemPackages = [
@@ -289,14 +299,19 @@ let
 
         for driver in default zink; do
           echo "== es2gears_wayland, $driver"
-          if [ "$driver" = zink ]; then export MESA_LOADER_DRIVER_OVERRIDE=zink; fi
+          if [ "$driver" = zink ]; then
+            export MESA_LOADER_DRIVER_OVERRIDE=zink
+            # Log failing Venus calls: zink's first graphics pipeline is
+            # unknown to the host renderer, which wedges the guest ring.
+            export VN_DEBUG=result
+          fi
           # Line-buffered, or timeout's SIGTERM drops the FPS lines.
           timeout 16 stdbuf -oL es2gears_wayland &
           gears=$!
           sleep 8
           grim "/out/es2gears-$driver.png"
           wait "$gears"
-          unset MESA_LOADER_DRIVER_OVERRIDE
+          unset MESA_LOADER_DRIVER_OVERRIDE VN_DEBUG
         done
         coredumpctl info --no-pager -1
 

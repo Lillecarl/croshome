@@ -1,0 +1,18 @@
+diff -ru a/src/virtio/vulkan/vn_pipeline.c b/src/virtio/vulkan/vn_pipeline.c
+--- a/src/virtio/vulkan/vn_pipeline.c
++++ b/src/virtio/vulkan/vn_pipeline.c
+@@ -488,7 +488,13 @@
+    struct vn_device *dev = vn_device_from_handle(device);
+    struct vn_physical_device *physical_dev = dev->physical_device;
+    struct vn_ring *target_ring = vn_get_target_ring(dev);
+-
++   /* The pipeline-create paths below all fail gracefully on a NULL ring
++    * (a calling thread without one, e.g. zink's disk-cache writeback
++    * thread). Do the same here instead of crashing in
++    * vn_ring_submit_command. */
++   if (!target_ring)
++      return vn_error(dev->instance, VK_ERROR_OUT_OF_HOST_MEMORY);
++
+    struct vk_pipeline_cache_header *header = pData;
+    VkResult result;
+    if (!pData) {
