@@ -109,6 +109,12 @@ in
         # and then stalls about a second; stage 1 mounts more than that and
         # tripped it twice, ~1.6s of every boot. systemd/systemd#28264.
         "SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST=100"
+        # A panicked guest otherwise sits halted while vzvm reports it
+        # running: every open build hangs with no traffic and the idle
+        # timer never fires. A reboot ends a VZ VM, and the supervisor
+        # drops its connections, so the builds fail instead.
+        "panic=1"
+        "oops=panic"
       ];
 
       # Stage 1 is where the remaining boot time is, and at its default level
