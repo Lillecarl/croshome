@@ -1,0 +1,15 @@
+Attach disks with cachingMode .cached, as Lima does. With .automatic, ext4
+on a virtio-blk disk corrupts under build load on Apple silicon:
+https://github.com/utmapp/UTM/issues/4840
+
+--- a/Sources/vzvm/VirtualMachineBuilder.swift
++++ b/Sources/vzvm/VirtualMachineBuilder.swift
+@@ -140,7 +140,7 @@
+       let attachment = try VZDiskImageStorageDeviceAttachment(
+         url: URL(fileURLWithPath: disk.path),
+         readOnly: disk.readOnly,
+-        cachingMode: .automatic,
++        cachingMode: .cached,
+         synchronizationMode: disk.readOnly ? .none : .fsync)
+       return VZVirtioBlockDeviceConfiguration(attachment: attachment)
+     }

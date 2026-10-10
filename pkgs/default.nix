@@ -282,6 +282,10 @@ in
     else
       prev.vfkit;
 
+  vzvm = prev.vzvm.overrideAttrs (pattrs: {
+    patches = pattrs.patches or [ ] ++ [ ./vzvm-disk-cached.patch ];
+  });
+
   foot = prev.foot.overrideAttrs (pattrs: {
     patches = pattrs.patches or [ ] ++ [
       ./0001-ignore-numlock.patch
