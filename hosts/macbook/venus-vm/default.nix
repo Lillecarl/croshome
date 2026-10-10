@@ -50,6 +50,41 @@ let
     mesonFlags = map (flag: if flag == "-Degl=no" then "-Degl=yes" else flag) old.mesonFlags;
   });
 
+  # UTM's MoltenVK adds robustness2 (zink needs nullDescriptor), geometry
+  # shaders, and host pointer imports into non-host-visible memory types,
+  # which its virglrenderer pin relies on. It needs UTM's SPIRV-Cross.
+  spirv-cross = pkgs.spirv-cross.overrideAttrs {
+    version = "1.4.357.0-utm";
+    src = pkgs.fetchFromGitHub {
+      owner = "utmapp";
+      repo = "SPIRV-Cross";
+      rev = "939b40b33a44443c404c4078823c406e3c94866f";
+      hash = "sha256-YeiKovpy41nXCn0jbMbTi0Y/3VxUitFrDaHfyxGsQEU=";
+    };
+  };
+
+  moltenvk =
+    (pkgs.moltenvk.override {
+      inherit spirv-cross;
+      # UTM builds without it, and the fork's mesh pipeline path sets the
+      # private properties on MTLMeshRenderPipelineDescriptor, which lacks them.
+      enablePrivateAPIUsage = false;
+    }).overrideAttrs
+      (old: {
+        version = "1.4.2-utm";
+        src = pkgs.fetchFromGitHub {
+          owner = "utmapp";
+          repo = "MoltenVK";
+          rev = "05604465d691118cfd20f53a48ecf1aad9c12f93";
+          hash = "sha256-fVIJ7kihxxmQ8eEiIEHsAFUe/JiEQ4p4xkxYw2WuJMU=";
+        };
+        # nixpkgs renames the SPIRV-Cross namespace; the fork spells it once.
+        postPatch = old.postPatch + ''
+          substituteInPlace MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm \
+            --replace-fail "MVK_spirv_cross::" "spirv_cross::"
+        '';
+      });
+
   virglrenderer =
     (pkgs.virglrenderer.override {
       inherit libepoxy;
@@ -147,7 +182,11 @@ let
           };
           qemu.options = [
             "-device virtio-gpu-gl-pci,venus=on,blob=on,hostmem=4G"
-            "-display cocoa,gl=core"
+            # gl=es: EGL through ANGLE. virglrenderer imports a Venus blob
+            # into GL (a Vulkan client presenting to the compositor) only on
+            # EGL; on CGL (gl=core) the compositor's context dies with
+            # EINVAL on PIPE_RESOURCE_SET_TYPE.
+            "-display cocoa,gl=es"
           ];
         };
 
@@ -202,6 +241,7 @@ let
         pkgs.coreutils
         pkgs.grim
         pkgs.mesa-demos
+        pkgs.systemd
         pkgs.util-linux
         pkgs.vulkan-tools
       ];
@@ -219,17 +259,19 @@ let
 
         echo "== vkcube, 1000 frames"
         start=$(date +%s.%N)
-        vkcube --wsi wayland --c 1000 &
+        MESA_LOG=stderr VN_DEBUG=wsi,result vkcube --wsi wayland --c 1000 &
         cube=$!
         sleep 3
         grim /out/vkcube.png
         wait "$cube"
         echo "vkcube rc=$? seconds=$(echo "$(date +%s.%N) - $start" | bc)"
+        coredumpctl info --no-pager vkcube
 
         for driver in default zink; do
           echo "== es2gears_wayland, $driver"
           if [ "$driver" = zink ]; then export MESA_LOADER_DRIVER_OVERRIDE=zink; fi
-          timeout 16 es2gears_wayland &
+          # Line-buffered, or timeout's SIGTERM drops the FPS lines.
+          timeout 16 stdbuf -oL es2gears_wayland &
           gears=$!
           sleep 8
           grim "/out/es2gears-$driver.png"
@@ -254,7 +296,11 @@ let
     text = ''
       export VENUS_OUT=''${VENUS_OUT:-$PWD/venus-out}
       mkdir -p "$VENUS_OUT"
-      export VK_DRIVER_FILES=${pkgs.moltenvk}/share/vulkan/icd.d/MoltenVK_icd.json
+      export VK_DRIVER_FILES=${moltenvk}/share/vulkan/icd.d/MoltenVK_icd.json
+      # virglrenderer wraps Venus blobs as MTLTextures through ANGLE's Metal
+      # device, which exists only on ANGLE's Metal backend; WebKit's ANGLE
+      # (what UTM ships) defaults to it, nixpkgs' does not.
+      export ANGLE_DEFAULT_PLATFORM=metal
       export TMPDIR=''${TMPDIR:-/tmp}
       exec ${vm}/bin/run-venus-vm "$@"
     '';
@@ -263,6 +309,8 @@ in
 {
   inherit
     libepoxy
+    moltenvk
+    spirv-cross
     virglrenderer
     qemu
     guest
