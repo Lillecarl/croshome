@@ -1,0 +1,45 @@
+diff -ru a/src/vulkan/wsi/wsi_common_wayland.c b/src/vulkan/wsi/wsi_common_wayland.c
+--- a/src/vulkan/wsi/wsi_common_wayland.c	2026-10-11 01:31:14
++++ b/src/vulkan/wsi/wsi_common_wayland.c	2026-10-11 01:31:33
+@@ -53,6 +53,7 @@
+ #include <util/compiler.h>
+ #include <util/hash_table.h>
+ #include <util/timespec.h>
++#include <util/u_atomic.h>
+ #include <util/u_endian.h>
+ #include <util/u_vector.h>
+ #include <util/u_dynarray.h>
+@@ -3315,11 +3316,19 @@
+       return ret;
+ 
+    /* For KHR_swapchain_maintenance1. We might have transitioned from FIFO to MAILBOX.
+-    * In this case we need to let the FIFO request complete, before presenting MAILBOX. */
++    * In this case we need to let the FIFO request complete, before presenting MAILBOX.
++    *
++    * A driver that presents from its own thread (venus) can be in this wait
++    * when the application retires the swapchain. The compositor may then
++    * withhold the frame callback until the application commits a buffer for
++    * the new swapchain, which it cannot do while it waits for this present.
++    * Retiring does a roundtrip on this queue, which wakes the dispatch, so
++    * stop waiting once retired.
++    */
+    while (!chain->legacy_fifo_ready) {
+       int ret = wl_display_dispatch_queue(wsi_wl_surface->display->wl_display,
+                                           wsi_wl_surface->display->queue);
+-      if (ret < 0)
++      if (ret < 0 || p_atomic_read(&chain->retired))
+          return VK_ERROR_OUT_OF_DATE_KHR;
+ 
+       queue_dispatched = true;
+@@ -3763,8 +3772,9 @@
+       VK_FROM_HANDLE(wsi_wl_swapchain, old_chain, pCreateInfo->oldSwapchain);
+       /* oldSwapchain is extern-sync, so it is not possible to call AcquireNextImage or QueuePresent
+        * concurrently with this function. Next call to acquire or present will immediately
+-       * return OUT_OF_DATE. */
+-      old_chain->retired = true;
++       * return OUT_OF_DATE. A driver's own present thread can still be in the legacy FIFO
++       * wait of queue_present, which reads this. */
++      p_atomic_set(&old_chain->retired, true);
+    }
+ 
+    /* We need to allocate the chain handle early, since display initialization code relies on it.

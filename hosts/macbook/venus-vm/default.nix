@@ -162,6 +162,10 @@ let
               url = "https://gitlab.freedesktop.org/mesa/mesa/-/commit/4cf0989083d25b92d02c6fef2bed934ad77b4ecd.patch";
               hash = "sha256-MYbhodTaJBnPQplr5xGz94QWv4zBdj1bnfRWSc2Kysk=";
             })
+            # Venus presents from its own thread, which can sit in the legacy
+            # FIFO wait while the application retires the swapchain on a
+            # resize; vkcube under niri deadlocked in about 1 run in 3.
+            ./mesa-wsi-wl-retired-fifo-wait.patch
           ];
         });
         environment.systemPackages = [
@@ -214,7 +218,7 @@ let
           wantedBy = [ "multi-user.target" ];
           serviceConfig.Type = "oneshot";
           script = ''
-            sleep 90
+            sleep 240
             journalctl -b --no-pager > /out/journal.txt 2>&1
             if [ ! -e /out/keep ]; then systemctl poweroff; fi
           '';
@@ -239,7 +243,9 @@ let
       runtimeInputs = [
         pkgs.bc
         pkgs.coreutils
+        pkgs.elfutils
         pkgs.grim
+        pkgs.procps
         pkgs.mesa-demos
         pkgs.systemd
         pkgs.util-linux
@@ -257,15 +263,29 @@ let
         echo "== eglinfo, zink"
         MESA_LOADER_DRIVER_OVERRIDE=zink eglinfo -B -p wayland
 
-        echo "== vkcube, 1000 frames"
-        start=$(date +%s.%N)
-        MESA_LOG=stderr VN_DEBUG=wsi,result vkcube --wsi wayland --c 1000 &
-        cube=$!
-        sleep 3
-        grim /out/vkcube.png
-        wait "$cube"
-        echo "vkcube rc=$? seconds=$(echo "$(date +%s.%N) - $start" | bc)"
-        coredumpctl info --no-pager vkcube
+        # Five runs: a deadlock on resize hit about 1 run in 3. A run still alive after 30s
+        # is hung; record where vkcube and niri are blocked, then kill it.
+        for run in 1 2 3 4 5; do
+          echo "== vkcube run $run, 1000 frames"
+          start=$(date +%s.%N)
+          vkcube --wsi wayland --c 1000 &
+          cube=$!
+          sleep 3
+          timeout 5 grim "/out/vkcube-$run.png"
+          for _ in $(seq 27); do
+            kill -0 "$cube" 2>/dev/null || break
+            sleep 1
+          done
+          if kill -0 "$cube" 2>/dev/null; then
+            echo "vkcube run $run HUNG"
+            eu-stack -p "$cube" > "/out/vkcube-$run-stack.txt" 2>&1
+            eu-stack -p "$(pidof niri)" > "/out/niri-$run-stack.txt" 2>&1
+            timeout 5 grim "/out/vkcube-$run-hung.png"
+            kill -9 "$cube"
+          fi
+          wait "$cube"
+          echo "vkcube rc=$? seconds=$(echo "$(date +%s.%N) - $start" | bc)"
+        done
 
         for driver in default zink; do
           echo "== es2gears_wayland, $driver"
@@ -278,6 +298,7 @@ let
           wait "$gears"
           unset MESA_LOADER_DRIVER_OVERRIDE
         done
+        coredumpctl info --no-pager -1
 
         if [ ! -e /out/keep ]; then systemctl poweroff; fi
       '';
