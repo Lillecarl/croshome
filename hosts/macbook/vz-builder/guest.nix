@@ -128,6 +128,12 @@ in
         "console=hvc0" # vzvm's virtio console
         "quiet"
         "systemd.log_level=warning"
+        # The kernel passes a NAME=value word with no dot in NAME to init as
+        # an environment variable, and PID 1 reads this one
+        # (src/core/mount.c). Its default allows 5 mount events per second
+        # and then stalls about a second; stage 1 mounts more than that and
+        # tripped it twice, ~1.6s of every boot. systemd/systemd#28264.
+        "SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST=100"
       ];
 
       # Stage 1 is where the remaining boot time is, and at its default level
@@ -558,14 +564,9 @@ in
       # database. Both are needed and both live under it, so this is simply
       # less to configure.
       #
-      # It was tried as a boot-time optimisation and is not one. systemd
-      # rate-limits its mount monitor at five events per second and then backs
-      # off for about a second; stage 1 trips that twice, which is ~1.6s of
-      # this boot and the largest remaining cost. Dropping one mount did not
-      # get under the threshold and changed nothing measurable. It is a known
-      # systemd problem, systemd/systemd#28264, semi-fixed in later versions --
-      # so it is worth re-measuring after a systemd bump, and not worth
-      # attacking from here.
+      # Not a boot-time optimisation: the mount stalls it was tried against
+      # come from systemd's mount rate limit, raised on the kernel command
+      # line above.
       fileSystems."/host-nix/nix" = {
         device = "hostnix";
         fsType = "virtiofs";
