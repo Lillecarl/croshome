@@ -197,6 +197,10 @@ let
       # gives no way to pass mkfs options and a filesystem that wrote its inode
       # tables eagerly would have cost seconds on a seven-second boot.
       rm -f ${lib.escapeShellArg storeDisk} ${lib.escapeShellArg swapDisk}
+
+      # vzvm appends, so the log held every boot ever. Keep this boot and the
+      # one before it, which is the one a post-mortem wants.
+      mv -f ${lib.escapeShellArg "${cfg.stateDir}/console.log"} ${lib.escapeShellArg "${cfg.stateDir}/console.log.1"} 2>/dev/null || true
       truncate -s ${toString cfg.diskSize}M ${lib.escapeShellArg storeDisk}
       ${lib.optionalString (cfg.swapSize > 0) ''
         truncate -s ${toString cfg.swapSize}M ${lib.escapeShellArg swapDisk}
