@@ -119,13 +119,13 @@ A build that fails and a build you want to read again both go through
 
 ```sh
 nix build --impure --expr 'let pkgs = import <nixpkgs> {}; in pkgs.fetchFromGitHub {
-  owner = "OWNER"; repo = "REPO"; rev = "v1.0.0"; hash = pkgs.lib.fakeHash;
+  owner = "OWNER"; repo = "REPO"; tag = "v1.0.0"; hash = pkgs.lib.fakeHash;
 }' 2>&1 | grep -E "specified:|got:"
 ```
 
 The `got:` line is the answer. Same trick for `fetchurl`, `fetchFromGitLab` and
-the rest. In `fetchFromGitHub`, `rev` takes a plain tag — `rev = "v1.0.0"`,
-never `refs/tags/v1.0.0`.
+the rest. In `fetchFromGitHub`, name a tag with `tag = "v1.0.0"` and a commit
+with `rev` and the full hash; never `refs/tags/v1.0.0`.
 
 To discover a fetcher's arguments (`true` = has a default, `false` = required):
 
