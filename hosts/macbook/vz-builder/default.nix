@@ -198,7 +198,7 @@ in
         Directory for the ephemeral store and swap images.
 
         Only a directory of image files, so it need not itself be
-        case-sensitive -- the ext4 inside each image is. It defaults under /nix
+        case-sensitive -- the filesystem inside each image is. It defaults under /nix
         because that volume is already known writable and large, not for any
         property of the filesystem.
       '';

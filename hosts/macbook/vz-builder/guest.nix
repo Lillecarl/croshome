@@ -209,34 +209,32 @@ in
       # the host hands over a freshly truncated image on every start, so blkid
       # finds no signature and it is formatted each boot. `formatOptions` no
       # longer exists in NixOS -- systemd-makefs takes none -- so the mkfs
-      # defaults have to be acceptable as they are. They are: measured at
-      # ~95ms, leaving the image sparse, because ext4 initialises its inode
-      # tables lazily.
+      # defaults have to be acceptable as they are.
       #
-      # supportedFilesystems is what puts mkfs.ext4 in the initrd at all. See
-      # nixos/modules/tasks/filesystems/ext.nix -- it keys off this option and
+      # XFS, from ./fsbench.nix, 2026-10-10 on 7.2.4: mkfs 60ms and the image
+      # stays sparse (2.4 MiB). fio within noise of ext4 and f2fs. Not f2fs,
+      # though it led the small-file copy by 6-15%: it formats to 39 MiB,
+      # takes 30% more host disk for the same tree, and its fstrim returns
+      # nothing, where XFS hands the space back. Not btrfs: 10-15x slower
+      # small writes.
+      #
+      # supportedFilesystems is what puts mkfs.xfs in the initrd at all. See
+      # nixos/modules/tasks/filesystems/xfs.nix -- it keys off this option and
       # not off the fileSystems entry below, so leaving it out gives a guest
       # that boots to a stage-1 failure.
-      boot.initrd.supportedFilesystems = [ "ext4" ];
+      boot.initrd.supportedFilesystems = [ "xfs" ];
       # mkForce on the whole entry: netboot defines both with
       # mkImageMediaOverride, which a per-attribute mkForce loses to.
       fileSystems."/" = lib.mkForce {
         device = "/dev/vda";
-        fsType = "ext4";
+        fsType = "xfs";
         autoFormat = true;
         # Formatted a moment earlier from a freshly truncated image, so there
         # is nothing to check. Not on the boot's critical path: measured, it
         # saves no time, only a unit.
         noCheck = true;
-        # nobarrier: fsync never asks for stable storage. It hands the data to
-        # the Mac, whose kernel writes it back when it likes; the disk is
-        # thrown away on every start, so nothing is lost. Measured live: 5000
-        # synced 4 KiB writes 1.96s -> 1.57s; copying a 7941-file tree and 200
-        # `nix-store --add` calls unchanged.
-        options = [
-          "noatime"
-          "nobarrier"
-        ];
+        # No nobarrier: XFS removed the option and refuses to mount with it.
+        options = [ "noatime" ];
       };
       fileSystems."/nix/.rw-store" = lib.mkForce {
         enable = false;
@@ -276,7 +274,7 @@ in
       # that compare mtimes to now say so. Meson and make call it clock skew,
       # and they are right.
       #
-      # On ext4 the timestamps come from the same clock that reads them, so the
+      # On the guest's own disk the timestamps come from the same clock that reads them, so the
       # comparison is consistent no matter what the host thinks the time is.
       # The read-only store share is left as the only virtiofs in a build's
       # path, and it cannot skew anything: Nix normalises store timestamps to

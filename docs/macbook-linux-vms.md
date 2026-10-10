@@ -12,7 +12,7 @@ Every number here was measured, not read.
 | Systems | aarch64-linux, **x86_64-linux** | aarch64-linux |
 | Lifetime | socket-activated, exits after 60s idle | always on |
 | Disk | ephemeral raw images, recreated per start | qcow2 image |
-| Store writes | 128G ext4 on /dev/vda | in the image |
+| Store writes | 128G XFS on /dev/vda | in the image |
 | Swap | 16G on /dev/vdb | none |
 | State | **in use** | kept, `enable = false` |
 
@@ -58,7 +58,7 @@ nix build --file . <attr> && vzrun ./result/bin/<x>
 why the line above works — and falls back to `/nix/.rw-store/build`. Nothing
 else of this Mac is visible; there is no `$HOME` share.
 
-Scratch lives on the guest's own ext4, not on a virtiofs share of a host
+Scratch lives on the guest's own disk, not on a virtiofs share of a host
 directory. That share is why **meson reported clock skew**: the guest runs
 ~70ms behind macOS, so a file written through virtiofs came back with an mtime
 in the guest's future. The read-only store share is the only virtiofs left in a

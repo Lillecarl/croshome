@@ -35,7 +35,7 @@ let
   # Build scratch used to be a virtiofs share of a host directory. That put it
   # on the SSD but gave it the host's clock, and the guest runs about 70ms
   # behind macOS -- so files came back with an mtime in the guest's future and
-  # meson reported clock skew. It lives on the guest's own ext4 now. See
+  # meson reported clock skew. It lives on the guest's own disk now. See
   # ./guest.nix.
   #
   # netboot puts the overlay's upper layer on a tmpfs, so every build *output*
@@ -43,7 +43,7 @@ let
   # build large enough to exceed that died, which is what these two images fix.
   #
   # Recreated on every start, so they are ephemeral. That costs nothing:
-  # `truncate` writes no data, the guest's mkfs.ext4 leaves the image sparse,
+  # `truncate` writes no data, the guest's mkfs.xfs leaves the image sparse,
   # and it is the same /nix volume the activation check already proves is
   # case-sensitive.
   storeDisk = "${cfg.imageDir}/vz-store.img";
@@ -193,11 +193,11 @@ let
       # runs on instead of pinning one Mac's core count into the repo.
       cpus=${if cfg.cores == null then "$(/usr/sbin/sysctl -n hw.ncpu)" else toString cfg.cores}
 
-      # Sparse and fresh every start. A 128 GiB store disk occupies about 6 MiB
-      # once formatted, and the guest's mkfs.ext4 takes ~95ms at any size
-      # between 32 and 256 GiB -- measured, because `fileSystems.autoFormat`
-      # gives no way to pass mkfs options and a filesystem that wrote its inode
-      # tables eagerly would have cost seconds on a seven-second boot.
+      # Sparse and fresh every start. A 128 GiB store disk occupies 2.4 MiB
+      # once formatted, and the guest's mkfs.xfs takes 50ms -- measured,
+      # because `fileSystems.autoFormat` gives no way to pass mkfs options and
+      # a filesystem that wrote its inode tables eagerly would have cost
+      # seconds on a seven-second boot.
       rm -f ${lib.escapeShellArg storeDisk} ${lib.escapeShellArg swapDisk}
 
       # vzvm appends, so the log held every boot ever. Keep this boot and the
