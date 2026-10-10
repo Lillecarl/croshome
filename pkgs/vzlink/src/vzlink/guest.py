@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import socket
 import sys
 from typing import Any, Final
@@ -53,6 +54,20 @@ async def info() -> dict[str, Any]:
         return {"loadavg": (await anyio.Path("/proc/loadavg").read_text()).split()[0]}
     except OSError:
         return {}
+
+
+SD_LISTEN_FDS_START: Final = 3
+
+
+def systemd_listener() -> socket.socket | None:
+    """The listening socket systemd passed, if it passed one (sd_listen_fds).
+    A socket unit listens from sockets.target on, well before this process
+    has started, so a probe that arrives early waits instead of missing."""
+    if os.environ.get("LISTEN_PID") != str(os.getpid()):
+        return None
+    if int(os.environ.get("LISTEN_FDS", "0")) < 1:
+        return None
+    return socket.socket(fileno=SD_LISTEN_FDS_START)
 
 
 def vsock_listener(port: int) -> socket.socket:
@@ -111,16 +126,13 @@ async def _handle_one(stream: anyio.abc.SocketStream, daemon_socket: str, store_
 
 
 async def _amain(args: argparse.Namespace) -> None:
-    logger.info(
-        "answering readiness on vsock:%d (daemon socket %s)",
-        args.vsock_port,
-        args.daemon_socket,
-    )
-    await serve(
-        vsock_listener(args.vsock_port),
-        daemon_socket=args.daemon_socket,
-        store_dir=args.store_dir,
-    )
+    listener = systemd_listener()
+    origin = "systemd"
+    if listener is None:
+        listener = vsock_listener(args.vsock_port)
+        origin = f"vsock:{args.vsock_port}"
+    logger.info("answering readiness on %s (daemon socket %s)", origin, args.daemon_socket)
+    await serve(listener, daemon_socket=args.daemon_socket, store_dir=args.store_dir)
 
 
 def main(argv: list[str] | None = None) -> int:

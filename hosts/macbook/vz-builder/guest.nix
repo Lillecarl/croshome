@@ -105,9 +105,21 @@ in
       system.stateVersion = "26.11";
 
       # Tells the host supervisor whether nix-daemon serves, so a slow boot
-      # names its missing stage instead of timing out on the SSH banner.
-      # Nothing waits on it: a broken agent costs that log detail, not the
-      # boot, and the host falls back to the same timeout error.
+      # names its missing stage instead of timing out on the SSH banner. The
+      # supervisor waits on it before anything connects: if it never answers,
+      # every connection fails with "builder not ready" and the reason it
+      # last gave. Nothing in the guest's own boot waits on it.
+      #
+      # Socket-activated: systemd listens from sockets.target, before sshd
+      # answers, so the host's first probe waits for Python to start instead
+      # of reaching a closed port. vzvm retries a closed vsock port on its own
+      # schedule, and that cost 1.4s of every boot.
+      systemd.sockets.vzlink-guest = {
+        wantedBy = [ "sockets.target" ];
+        listenStreams = [ "vsock::${toString cfg.readinessVsockPort}" ];
+      };
+      # Started at boot as well, not only on the first probe: Python takes
+      # ~0.25s to start, and that is better spent before the host asks.
       systemd.services.vzlink-guest = {
         description = "Answer the host's builder readiness probes over vsock";
         wantedBy = [ "multi-user.target" ];
