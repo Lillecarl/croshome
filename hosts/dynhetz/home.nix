@@ -41,6 +41,9 @@
     # with the session's worker credentials. Needs the aid input at 8913f929+.
     allowWorkerCommand = true;
   };
+  # Telegram runs hosted in the daemon now (Lillecarl/aid in-process plugins):
+  # the token and chat allowlist live in aid-env.age beside DEEPSEEK_API_KEY,
+  # which the daemon already sources as its environmentFile.
   age.secrets.aid-env.file = ../../secrets/aid-env.age;
   systemd.user.services.aid.Unit = {
     Requires = [ "agenix.service" ];
