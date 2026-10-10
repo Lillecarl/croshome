@@ -65,7 +65,16 @@ let
     # arrayed descriptor but uses it as a scalar, which Metal rejects.
     # Index element 0 for single-element arrays (zink wraps a lone
     # uniform block in struct[1]).
-    patches = [ ./spirv-cross-robust-size-index.patch ];
+    # UTM's geometry-to-mesh wrapper passes arrayed discrete resources by
+    # array name while the inner function declares per-element parameters,
+    # drops gl_PrimitiveID, and scales the first-vertex index backwards.
+    # Forward elements, carry the primitive ID through the payload, scale
+    # non-strip draws up. All three generated shaders compile under
+    # Apple's Metal toolchain (checked locally with xcrun metal).
+    patches = [
+      ./spirv-cross-robust-size-index.patch
+      ./spirv-cross-mesh-wrapper.patch
+    ];
   };
 
   moltenvk =
@@ -193,6 +202,13 @@ let
             # inputs. Strict consumers reject the module. Reuse the
             # varying when it exists.
             ./mesa-zink-pv-primitive-id-dedup.patch
+            # UTM's MoltenVK geometry-to-mesh path bakes the pipeline
+            # vertex input state into the object shader at compile time;
+            # dynamic vertex input state and dynamic strides never reach
+            # it, so every fetch uses stride 0 and all triangles are
+            # degenerate. Force fully static vertex input with real
+            # strides baked into the pipeline.
+            ./mesa-zink-venus-static-vertex-input.patch
           ];
         });
         environment.systemPackages = [
@@ -365,6 +381,9 @@ let
       # reason instead of surfacing only as a guest bind lookup error.
       export VKR_DEBUG=validate
       export VK_LAYER_PATH=${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d
+      # Full converted MSL per shader: Metal's error quotes one line, the
+      # dump shows the declaration the failing use refers to.
+      export MVK_CONFIG_SHADER_DUMP_DIR="$VENUS_OUT/mvkdump"
       export TMPDIR=''${TMPDIR:-/tmp}
       exec ${vm}/bin/run-venus-vm "$@"
     '';

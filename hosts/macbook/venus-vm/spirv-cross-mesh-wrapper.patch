@@ -1,0 +1,144 @@
+--- a/spirv_msl.cpp
++++ b/spirv_msl.cpp
+@@ -1940,6 +1940,11 @@
+ 		statement("struct Payload");
+ 		begin_scope();
+ 		statement(join(type_to_glsl(out_var_type), " vertices[", std::to_string(vertex_count_in_primitive(msl_options.input_primitive_type)), "];"));
++		// Carries the Vulkan primitive ID to the mesh function: MoltenVK
++		// dispatches one single-thread object threadgroup per primitive
++		// (MVKCmdDraw geometry path), so the object threadgroup index is
++		// the primitive index, but the mesh function cannot see it.
++		statement("uint spvPrimitiveID;");
+ 		end_scope(";");
+ 
+ 		// Emit struct with info about the draw call.
+@@ -1987,6 +1992,11 @@
+ 
+ 		begin_scope();
+ 
++		// MoltenVK dispatches one single-thread object threadgroup per
++		// primitive (MVKCmdDraw geometry path: threadCount is the primitive
++		// count), so positionInGrid.x is the primitive index. The first
++		// vertex of primitive p is 3p for lists (p for strips), 2p for
++		// lines (p for strips), p for points.
+ 		if (msl_options.input_primitive_type == Options::PrimitiveTopology::TriangleStrip)
+ 		{
+ 			statement("int startingIndex = positionInGrid.x;");
+@@ -1995,13 +2005,13 @@
+ 		else if (msl_options.input_primitive_type == Options::PrimitiveTopology::Triangles)
+ 		{
+ 			statement("int startingIndex = positionInGrid.x;");
+-			statement("if (drawInfo->topoStrip) startingIndex *= 3;");
++			statement("if (!drawInfo->topoStrip) startingIndex *= 3;");
+ 			statement("int vertexCount = 3;");
+ 		}
+ 		else if (msl_options.input_primitive_type == Options::PrimitiveTopology::Lines)
+ 		{
+ 			statement("int startingIndex = positionInGrid.x;");
+-			statement("if (drawInfo->topoStrip) startingIndex *= 2;");
++			statement("if (!drawInfo->topoStrip) startingIndex *= 2;");
+ 			statement("int vertexCount = 2;");
+ 		}
+ 		else if (msl_options.input_primitive_type == Options::PrimitiveTopology::LineStrip)
+@@ -2020,6 +2030,10 @@
+ 		}
+ 
+ 		statement("int instanceIndex = positionInGrid.y;");
++		// The mesh function cannot see the object threadgroup index, so
++		// forward the primitive index through the payload for
++		// gl_PrimitiveID. Single-thread groups make this race-free.
++		statement("payload.spvPrimitiveID = uint(positionInGrid.x);");
+ 
+ 		statement("for (int i = 0; i < vertexCount; ++i)");
+ 		begin_scope();
+@@ -2133,8 +2147,28 @@
+ 
+ 		for (auto &resource : resources)
+ 		{
+-			statement(need_comma ? ", " : "", resource.name);
+-			need_comma = true;
++			auto &res_var = *resource.var;
++			auto &res_type = get_variable_data_type(res_var);
++			// The inner function declares one parameter per array element
++			// (entry_point_args_discrete_descriptors emits "<name>_i" per
++			// descriptor), not one per descriptor, so forward each element.
++			// Mirror the conditions of that emission exactly.
++			if (resource.basetype == SPIRType::Struct && !res_type.array.empty() &&
++			    res_type.array.size() == 1 && !is_var_runtime_size_array(res_var) &&
++			    ir.meta[res_type.self].members.size() != 0)
++			{
++				uint32_t array_size = get_resource_array_size(res_type, res_var.self);
++				for (uint32_t i = 0; i < array_size; ++i)
++				{
++					statement(need_comma ? ", " : "", resource.name, "_", convert_to_string(i));
++					need_comma = true;
++				}
++			}
++			else
++			{
++				statement(need_comma ? ", " : "", resource.name);
++				need_comma = true;
++			}
+ 		}
+ 		ir.for_each_typed_id<SPIRVariable>([&](uint32_t var_id, SPIRVariable &var)
+ 		{
+@@ -2206,6 +2240,9 @@
+ 
+ 		end_scope_decl("in");
+ 		end_scope_decl(join("vertices[", std::to_string(vertex_count), "]"));
++		// Must match the Payload struct emitted for the object function
++		// above: the Vulkan primitive ID, written by the object shader.
++		statement("uint spvPrimitiveID;");
+ 		end_scope(";");
+ 
+ 		// Mesh entry point.
+@@ -2252,6 +2289,14 @@
+ 			if (is_hidden_variable(var, true))
+ 				return;
+ 
++			// BuiltInPrimitiveId is per-primitive, not per-vertex: it is
++			// neither a member of the stage-in struct nor of the payload
++			// vertex, so there is nothing to copy. It is forwarded as a
++			// scalar argument below.
++			if (has_decoration(id, DecorationBuiltIn) &&
++			    get_decoration(id, DecorationBuiltIn) == BuiltInPrimitiveId)
++				return;
++
+ 			statement("if (i < sizeof(", name, ") / sizeof(", name, "[0]))");
+ 			statement("\t", name, "[i] = out.", name, ";");
+ 		});
+@@ -2275,7 +2320,34 @@
+ 		auto resources = get_sorted_entry_point_args(false);
+ 
+ 		for (auto &resource : resources)
+-			statement(", ", resource.name);
++		{
++			auto &res_var = *resource.var;
++			auto &res_type = get_variable_data_type(res_var);
++			// As above: the inner geometry function declares one parameter
++			// per array element, so forward each element.
++			if (resource.basetype == SPIRType::Struct && !res_type.array.empty() &&
++			    res_type.array.size() == 1 && !is_var_runtime_size_array(res_var) &&
++			    ir.meta[res_type.self].members.size() != 0)
++			{
++				uint32_t array_size = get_resource_array_size(res_type, res_var.self);
++				for (uint32_t i = 0; i < array_size; ++i)
++					statement(", ", resource.name, "_", convert_to_string(i));
++			}
++			else
++				statement(", ", resource.name);
++		}
++		ir.for_each_typed_id<SPIRVariable>([&](uint32_t var_id, SPIRVariable &var)
++		{
++			// Forward only what has a correct value: other builtins have
++			// no source here, and omitting them fails loudly at Metal
++			// compile time instead of silently rendering wrong.
++			if (var.storage == StorageClassInput && is_builtin_variable(var) &&
++			    has_decoration(var_id, DecorationBuiltIn) &&
++			    get_decoration(var_id, DecorationBuiltIn) == BuiltInPrimitiveId)
++			{
++				statement(", ", "payload.spvPrimitiveID");
++			}
++		});
+ 
+ 		statement(");");

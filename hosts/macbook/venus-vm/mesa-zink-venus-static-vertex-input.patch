@@ -1,0 +1,43 @@
+--- a/src/gallium/drivers/zink/zink_screen.c
++++ b/src/gallium/drivers/zink/zink_screen.c
+@@ -2945,6 +2945,14 @@
+    /* EXT_vertex_input_dynamic_state is only used with EDS2 and above */
+    if (!screen->info.have_EXT_extended_dynamic_state2)
+       screen->info.have_EXT_vertex_input_dynamic_state = false;
++   if (zink_driver_is_venus(screen))
++      /* UTM's MoltenVK geometry-to-mesh path bakes the pipeline vertex
++       * input state into the object shader at compile time; vertex input
++       * dynamic state never reaches it, so every fetch uses stride 0 and
++       * all triangles are degenerate. Force the static path, which carries
++       * the real state in the pipeline.
++       */
++      screen->info.have_EXT_vertex_input_dynamic_state = false;
+    if (screen->info.line_rast_feats.stippledRectangularLines &&
+        screen->info.line_rast_feats.stippledBresenhamLines &&
+        screen->info.line_rast_feats.stippledSmoothLines &&
+--- a/src/gallium/drivers/zink/zink_context.c
++++ b/src/gallium/drivers/zink/zink_context.c
+@@ -5848,7 +5848,13 @@
+    ctx->gfx_pipeline_state.dyn_state2.vertices_per_patch = 1;
+    ctx->gfx_pipeline_state.uses_dynamic_stride = screen->info.have_EXT_extended_dynamic_state ||
+                                                  screen->info.have_EXT_vertex_input_dynamic_state;
++   if (zink_driver_is_venus(screen))
++      /* Same reason as above: dynamic strides are set through
++       * vkCmdBindVertexBuffers2, which the mesh compiler never sees.
++       * Bake the real strides into the pipeline.
++       */
++      ctx->gfx_pipeline_state.uses_dynamic_stride = false;
+ #if defined(MVK_VERSION)
+    ctx->gfx_pipeline_state.uses_dynamic_stride = ctx->gfx_pipeline_state.uses_dynamic_stride && screen->have_dynamic_state_vertex_input_binding_stride;
+ #endif
+    ctx->compute_pipeline_state.dirty = true;
+--- a/src/gallium/drivers/zink/zink_program_state.hpp
++++ b/src/gallium/drivers/zink/zink_program_state.hpp
+@@ -175,3 +175,6 @@
+         /* even if dynamic stride is available, it may not be usable with the current pipeline */
+-         if (DYNAMIC_STATE != ZINK_NO_DYNAMIC_STATE)
++         /* Venus behind UTM-MoltenVK bakes pipeline vertex state into the
++          * object shader at compile time: dynamic strides never reach it,
++          * so always bake the real strides. */
++         if (DYNAMIC_STATE != ZINK_NO_DYNAMIC_STATE && !zink_driver_is_venus(screen))
+ #if defined(MVK_VERSION)
