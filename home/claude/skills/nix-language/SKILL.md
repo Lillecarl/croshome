@@ -96,6 +96,16 @@ A path is resolved relative to the file it is written in, and copying it into a
 derivation copies the file into the store. `"./foo"` is just a string and does
 neither. `./foo` in an `imports` list is right; `"./foo"` is not.
 
+**No `~/…` paths in a committed file.** Pure evaluation rejects the whole file
+at parse time, even when nothing reads that value, and `tryEval` cannot catch
+it. Write `/. + builtins.getEnv "HOME" + "/Code/x"`: pure, `getEnv` returns
+`""`, and the path simply does not exist. `~` is fine in a gitignored,
+impure-only file such as flake-compatish's `overrides.nix`.
+
+`builtins ? currentSystem` is `false` in pure evaluation and `true` in impure.
+That is the test for "am I impure"; `builtins.currentSystem` itself throws
+when pure.
+
 ## Escaping in strings
 
 In an indented string `''...''`, escape interpolation with `''${`, not `\${`:
