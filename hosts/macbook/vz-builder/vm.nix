@@ -19,6 +19,8 @@
 let
   inherit (guest.config.system.build) kernel netbootRamdisk toplevel;
 
+  vzlink = import ./vzlink.nix { inherit lib pkgs; };
+
   # Where the public half of the builder key is staged for the guest. Only the
   # public half: /etc/nix holds the private key too, and the guest has no
   # business seeing that directory.
@@ -94,7 +96,7 @@ let
       }
       {
         listen = "127.0.0.1:${toString cfg.readinessPort}";
-        vsockPort = guest.config.virtualisation.linux-vz-builder.readinessVsockPort;
+        vsockPort = guest.config.virtualisation.vzlink.readinessVsockPort;
       }
     ];
 
@@ -254,44 +256,32 @@ let
       ${lib.getExe cfg.vzvm} "$config" &
       vm=$!
 
-      # Recorded for the activation check in ./default.nix, and cleared on the
-      # way out so a dead VM never looks live.
-      printf '%s\n%s\n' ${lib.escapeShellArg toplevel} "$vm" > ${lib.escapeShellArg runningFile}
-
-      # exec keeps the pid, so vzvm stays the supervisor's child and the
-      # supervisor reaps it. The supervisor answers the proxies' readiness
-      # asks, counts their registered connections, and stops the VM after
-      # idleTimeout without one. Without that the VM would outlive the build
-      # that started it and keep holding the RAM this design exists to give
-      # back.
-      #
-      # The stop follows stopMode; see its description in ./default.nix.
-      exec ${lib.getExe' pkgs.vzlink "vzlink-supervisor"} \
-        --stop-mode ${cfg.stopMode} \
-        --state-dir ${lib.escapeShellArg cfg.stateDir} \
-        --internal-port ${toString cfg.internalPort} \
-        --readiness-port ${toString cfg.readinessPort} \
-        --boot-timeout ${toString cfg.bootTimeout} \
-        --idle-timeout ${toString cfg.idleTimeout} \
-        --vm-pid "$vm" \
-        --running-file ${lib.escapeShellArg runningFile} \
-        --vzvm-config "$config"
+      # Without the supervisor the VM would outlive the build that started it
+      # and keep holding the RAM this design exists to give back.
+      ${vzlink.supervise {
+        inherit (cfg)
+          stateDir
+          internalPort
+          readinessPort
+          bootTimeout
+          idleTimeout
+          stopMode
+          ;
+        inherit runningFile toplevel;
+        vzvmConfig = ''"$config"'';
+      }}
     '';
   };
 
-  # launchd hands this an accepted connection on stdin/stdout. vzlink-proxy
-  # kickstarts the VM, waits for the supervisor to report the guest serving
-  # (bounded by bootTimeout, so a guest that never boots fails the build
-  # instead of hanging it), registers the connection, and moves bytes.
-  connect = pkgs.writeShellApplication {
+  # launchd hands this an accepted connection on stdin/stdout.
+  connect = vzlink.connect {
     name = "vz-builder-connect";
-    text = ''
-      exec ${lib.getExe' pkgs.vzlink "vzlink-proxy"} \
-        --control-sock ${lib.escapeShellArg "${cfg.stateDir}/vzlink-control.sock"} \
-        --internal-port ${toString cfg.internalPort} \
-        --boot-timeout ${toString cfg.bootTimeout} \
-        --daemon-label org.nixos.${cfg.daemonName}
-    '';
+    inherit (cfg)
+      stateDir
+      internalPort
+      bootTimeout
+      daemonName
+      ;
   };
 in
 {
