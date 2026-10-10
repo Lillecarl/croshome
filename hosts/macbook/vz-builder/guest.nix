@@ -255,7 +255,14 @@ in
         # is nothing to check. Not on the boot's critical path: measured, it
         # saves no time, only a unit.
         noCheck = true;
-        options = [ "noatime" ];
+        # nobarrier: no cache flushes for a disk thrown away on every start.
+        # Measured live: 5000 synced 4 KiB writes 1.96s -> 1.57s; copying a
+        # 7941-file tree and 200 `nix-store --add` calls unchanged. Only
+        # fsync-heavy work, such as SQLite or git test suites, gains.
+        options = [
+          "noatime"
+          "nobarrier"
+        ];
       };
 
       # Swap, on its own ephemeral disk. Nothing returns memory to the host
