@@ -265,11 +265,9 @@ let
       # that started it and keep holding the RAM this design exists to give
       # back.
       #
-      # The stop is a plain SIGTERM first. vzvm answers it by asking the
-      # guest to power off and releasing the socket rather than pulling it.
-      # Contrast vfkit, whose requestStop is an ACPI event this
-      # direct-kernel-boot guest cannot receive.
+      # The stop follows stopMode; see its description in ./default.nix.
       exec ${lib.getExe' pkgs.vzlink "vzlink-supervisor"} \
+        --stop-mode ${cfg.stopMode} \
         --state-dir ${lib.escapeShellArg cfg.stateDir} \
         --internal-port ${toString cfg.internalPort} \
         --readiness-port ${toString cfg.readinessPort} \

@@ -66,6 +66,17 @@ class StopReason(StrEnum):
     VM_DIED = "vm-died"
 
 
+class StopMode(StrEnum):
+    """How to stop the VM. A command-line value, so the strings are stable."""
+
+    # SIGTERM: vzvm asks the guest to power off, so a guest with a disk worth
+    # keeping shuts down cleanly. ~1.5s for the builder guest.
+    GRACEFUL = "graceful"
+    # SIGKILL straight away. For a guest whose disks are recreated on every
+    # start, where a shutdown protects nothing.
+    KILL = "kill"
+
+
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     """Command line. The nix module passes every value; defaults mirror it."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -79,6 +90,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--vm-pid", type=int, required=True)
     parser.add_argument("--running-file", default=None)
     parser.add_argument("--vzvm-config", default=None)
+    parser.add_argument("--stop-mode", type=StopMode, choices=list(StopMode), default=StopMode.GRACEFUL)
     return parser.parse_args(argv)
 
 
@@ -254,23 +266,26 @@ class Supervisor:
         return False
 
     async def stop_vm(self) -> str:
-        """SIGTERM, a bounded wait, then SIGKILL. vzvm answers SIGTERM by
-        asking the guest to power off, so the first step is the clean one."""
+        """Graceful: SIGTERM, a bounded wait, then SIGKILL; vzvm answers
+        SIGTERM by asking the guest to power off. Kill: SIGKILL at once."""
         pid = self.args.vm_pid
         self.stopping = True
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except ProcessLookupError:
-            return "already-dead"
-        logger.info("stopping the VM (%s)", self.stop_reason)
-        if await self._gone_within(STOP_GRACE):
-            return "clean"
-        logger.warning("guest did not stop within %.0fs; forcing", STOP_GRACE)
+        logger.info("stopping the VM (%s, %s)", self.stop_reason, self.args.stop_mode)
+        if self.args.stop_mode is StopMode.GRACEFUL:
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                return "already-dead"
+            if await self._gone_within(STOP_GRACE):
+                return "clean"
+            logger.warning("guest did not stop within %.0fs; forcing", STOP_GRACE)
         try:
             os.kill(pid, signal.SIGKILL)
         except ProcessLookupError:
-            return "clean"
-        return "forced" if await self._gone_within(KILL_GRACE) else "force-failed"
+            return "already-dead"
+        if await self._gone_within(KILL_GRACE):
+            return "killed" if self.args.stop_mode is StopMode.KILL else "forced"
+        return "force-failed"
 
     async def idle_loop(self, scope: anyio.CancelScope) -> None:
         """Cancel `scope` when the VM has died or has been stopped for

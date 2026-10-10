@@ -409,6 +409,25 @@ in
       '';
     };
 
+    stopMode = lib.mkOption {
+      type = lib.types.enum [
+        "graceful"
+        "kill"
+      ];
+      default = "kill";
+      description = ''
+        How the supervisor stops the VM, at idle and when launchd stops it.
+
+        `kill` sends vzvm SIGKILL: about 0.1s. Right for this VM, whose disks
+        are recreated on every start and which is stopped only with no
+        connection live, so a shutdown protects nothing.
+
+        `graceful` sends SIGTERM, which vzvm turns into a guest power-off,
+        and kills only after 30s. About 1.5s for this guest. Use it for a
+        guest whose disk outlives a stop.
+      '';
+    };
+
     bootTimeout = lib.mkOption {
       type = lib.types.int;
       default = 90;

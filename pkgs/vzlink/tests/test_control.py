@@ -121,7 +121,15 @@ time.sleep(120)
 
 
 @asynccontextmanager
-async def _supervisor(state_dir: str, guest_port: int, readiness_port: int, vm_pid: int, *, idle_timeout: float = 30.0):
+async def _supervisor(
+    state_dir: str,
+    guest_port: int,
+    readiness_port: int,
+    vm_pid: int,
+    *,
+    idle_timeout: float = 30.0,
+    extra: tuple[str, ...] = (),
+):
     """The real supervisor module as a child. Yields it and its control socket."""
     running = anyio.Path(state_dir, "running")
     config = anyio.Path(state_dir, "vzvm.json")
@@ -138,6 +146,7 @@ async def _supervisor(state_dir: str, guest_port: int, readiness_port: int, vm_p
         "--vm-pid", str(vm_pid),
         "--running-file", str(running),
         "--vzvm-config", str(config),
+        *extra,
     ]  # fmt: skip
     sock_path = anyio.Path(state_dir, "vzlink-control.sock")
     async with _child(argv) as proc:
@@ -219,7 +228,22 @@ async def test_sigterm_stops_vm(state_dir) -> None:
             sup.proc.terminate()
             assert await sup.wait() == 0
             assert await vm.wait() == -signal.SIGTERM
-            assert "stopping the VM (signal)" in sup.log
+            assert "stopping the VM (signal, graceful)" in sup.log
+
+
+@pytest.mark.anyio
+async def test_kill_mode_does_not_wait_for_the_guest(state_dir) -> None:
+    """Kill mode is for guests whose disks are recreated on every start: no
+    SIGTERM, no shutdown to wait out. The fake VM takes 2s to answer SIGTERM,
+    so a graceful stop could not finish inside the 1s bound."""
+    with anyio.fail_after(DEADLINE):
+        async with _child([sys.executable, "-c", SLOW_STOP_VM]) as vm:
+            async with _supervisor(state_dir, 9, 9, vm.proc.pid, extra=("--stop-mode", "kill")) as (sup, _):
+                sup.proc.terminate()
+                with anyio.fail_after(1.0):
+                    assert await vm.proc.wait() == -signal.SIGKILL
+                assert await sup.wait() == 0
+                assert "stop outcome: killed" in sup.log
 
 
 @pytest.mark.anyio
