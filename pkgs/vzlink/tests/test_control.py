@@ -410,6 +410,47 @@ async def test_boot_in_flight_is_not_idle() -> None:
 
 
 @pytest.mark.anyio
+async def test_hung_guest_is_stopped(monkeypatch) -> None:
+    """A panicked guest accepts nothing, yet vzvm holds the connection open:
+    the probe meets silence, not a refusal. Live connections must not keep
+    such a VM, or every build on it hangs."""
+    monkeypatch.setattr(supervisor, "PROBE_TIMEOUT", 0.3)
+    hung = anyio.Event()
+
+    async def handler(stream: anyio.abc.SocketStream) -> None:
+        if hung.is_set():
+            async with stream:
+                await anyio.sleep_forever()
+        await _ready_handler(stream)
+
+    with anyio.fail_after(DEADLINE):
+        async with (
+            _fake_vm() as vm,
+            await anyio.create_tcp_listener(local_host="127.0.0.1") as ready,
+            anyio.create_task_group() as task_group,
+        ):
+            task_group.start_soon(ready.serve, handler)
+            sup = supervisor.Supervisor(
+                _args(
+                    vm_pid=vm.proc.pid,
+                    readiness_port=ready.extra(SocketAttribute.local_port),
+                    idle_poll=0.1,
+                    hang_timeout=1.0,
+                    stop_mode=supervisor.StopMode.KILL,
+                )
+            )
+            sup.booted = {"status": "ok"}
+            sup.conns["build"] = 0.0
+            task_group.start_soon(sup.idle_loop, task_group.cancel_scope)
+            # An answering guest is kept, well past the hang timeout.
+            await anyio.sleep(2.0)
+            assert vm.proc.returncode is None
+            hung.set()
+            assert await vm.proc.wait() == -signal.SIGKILL
+        assert sup.stop_reason is supervisor.StopReason.HUNG
+
+
+@pytest.mark.anyio
 async def test_alive_reaps_a_dead_child() -> None:
     """vzvm is the supervisor's child. Unreaped, a dead one is a zombie that
     `kill(pid, 0)` still finds, so the VM would look alive forever."""

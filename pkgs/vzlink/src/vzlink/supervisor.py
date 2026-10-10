@@ -64,6 +64,7 @@ class StopReason(StrEnum):
     IDLE = "idle"
     SIGNAL = "signal"
     VM_DIED = "vm-died"
+    HUNG = "hung"
 
 
 class StopMode(StrEnum):
@@ -87,6 +88,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--boot-timeout", type=float, default=90.0)
     parser.add_argument("--idle-timeout", type=float, default=60.0)
     parser.add_argument("--idle-poll", type=float, default=15.0)
+    parser.add_argument("--hang-timeout", type=float, default=60.0, help="0 disables")
     parser.add_argument("--vm-pid", type=int, required=True)
     parser.add_argument("--running-file", default=None)
     parser.add_argument("--vzvm-config", default=None)
@@ -294,8 +296,16 @@ class Supervisor:
         await self._idle_loop()
         scope.cancel()
 
+    async def _answers(self) -> bool:
+        try:
+            await readiness_probe(self.args.readiness_port, PROBE_TIMEOUT)
+        except PROBE_ERRORS:
+            return False
+        return True
+
     async def _idle_loop(self) -> None:
         idle_for = 0.0
+        silent_since: float | None = None
         while True:
             await anyio.sleep(self.args.idle_poll)
             if self.stopping:
@@ -305,6 +315,24 @@ class Supervisor:
                 logger.error("the VM died; %d connection(s) were live", len(self.conns))
                 self.stop_reason = StopReason.VM_DIED
                 return
+            # A panicked guest leaves vzvm running, and vzvm holds every
+            # connection open with no traffic: builds hang forever. Measured
+            # 2026-10-10, ext4 corruption -> oops in PID 1 -> panic.
+            if self.args.hang_timeout > 0 and self.booted is not None and not self.boot_lock.locked():
+                if await self._answers():
+                    silent_since = None
+                else:
+                    now = time.monotonic()
+                    silent_since = now if silent_since is None else silent_since
+                    if now - silent_since >= self.args.hang_timeout:
+                        logger.error(
+                            "the guest has not answered for %.0fs; %d connection(s) were live",
+                            now - silent_since,
+                            len(self.conns),
+                        )
+                        self.stop_reason = StopReason.HUNG
+                        logger.info("stop outcome: %s", await self.stop_vm())
+                        return
             if self.conns or self.boot_lock.locked():
                 idle_for = 0.0
                 continue
@@ -374,7 +402,7 @@ async def _amain(args: argparse.Namespace) -> int:
     finally:
         with anyio.CancelScope(shield=True):
             await cleanup(args)
-    return 1 if supervisor.stop_reason is StopReason.VM_DIED else 0
+    return 1 if supervisor.stop_reason in (StopReason.VM_DIED, StopReason.HUNG) else 0
 
 
 def main(argv: list[str] | None = None) -> int:
