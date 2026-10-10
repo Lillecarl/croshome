@@ -1,10 +1,10 @@
 # The Linux builder guest, as a NixOS system.
 #
-# There is no disk. netboot.nix puts the store in a squashfs inside the initrd
-# and overlays a tmpfs on it, so the whole machine is a kernel plus an initrd
-# and the upper layer lives in RAM. That is affordable only because the host
-# store is mounted alongside it: the guest starts with every path this Mac has
-# already built or fetched, so the upper layer only ever holds what is new.
+# A kernel and an initrd from netboot.nix, booted onto an ephemeral disk the
+# host recreates on every start; see the root filesystem below. With the
+# default hostStore the store is the host's, overlaid: the guest starts with
+# every path this Mac has already built or fetched, and the upper layer on the
+# disk holds only what is new.
 {
   modulesPath,
   config,
@@ -72,10 +72,10 @@ in
       - `off`: not mounted. Every input comes over the network or the wire.
       - `substituter`: the host store is a trusted substituter. Inputs are
         copied from it instead of cache.nixos.org -- no network and no
-        signature round trip, but the bytes still land in the tmpfs upper
-        layer.
+        signature round trip, but the bytes are still copied into the upper
+        layer on the guest's disk.
       - `overlay`: a local-overlay store. The host store becomes the lower
-        layer and nothing is copied at all, so RAM holds only new outputs.
+        layer and nothing is copied at all; the disk holds only new outputs.
         Experimental in Nix; see ./default.nix for the caveats.
     '';
   };
@@ -226,12 +226,13 @@ in
         options = [ "ro" ];
       };
 
-      # Build outputs, on a real disk instead of RAM.
-      #
-      # netboot puts the overlay's upper layer on a tmpfs, so every output a
-      # build produced was charged to guest memory and capped at half of it --
-      # 3.9 GiB of 8. A build bigger than that died, and the failure looked
-      # like an ordinary out-of-space rather than a design limit.
+      # The root is the ephemeral disk, not netboot's tmpfs. Anything written
+      # to a tmpfs stays in guest RAM until swapped, and guest RAM is host RAM
+      # this VM never gives back; the disk is a sparse file, and the kernel
+      # writes back to it at its own pace. So nothing a build or a session
+      # writes -- outputs, /tmp, /var, logs, $HOME -- pins memory.
+      # /nix/.rw-store, which holds the store's upper layer, the build
+      # directory and /scratch, is a directory on it.
       #
       # autoFormat becomes `x-systemd.makefs`, which systemd stage 1 handles;
       # the host hands over a freshly truncated image on every start, so blkid
@@ -246,29 +247,35 @@ in
       # not off the fileSystems entry below, so leaving it out gives a guest
       # that boots to a stage-1 failure.
       boot.initrd.supportedFilesystems = [ "ext4" ];
-      fileSystems."/nix/.rw-store" = lib.mkForce {
+      # mkForce on the whole entry: netboot defines both with
+      # mkImageMediaOverride, which a per-attribute mkForce loses to.
+      fileSystems."/" = lib.mkForce {
         device = "/dev/vda";
         fsType = "ext4";
         autoFormat = true;
-        neededForBoot = true;
         # Formatted a moment earlier from a freshly truncated image, so there
         # is nothing to check. Not on the boot's critical path: measured, it
         # saves no time, only a unit.
         noCheck = true;
-        # nobarrier: no cache flushes for a disk thrown away on every start.
-        # Measured live: 5000 synced 4 KiB writes 1.96s -> 1.57s; copying a
-        # 7941-file tree and 200 `nix-store --add` calls unchanged. Only
-        # fsync-heavy work, such as SQLite or git test suites, gains.
+        # nobarrier: fsync never asks for stable storage. It hands the data to
+        # the Mac, whose kernel writes it back when it likes; the disk is
+        # thrown away on every start, so nothing is lost. Measured live: 5000
+        # synced 4 KiB writes 1.96s -> 1.57s; copying a 7941-file tree and 200
+        # `nix-store --add` calls unchanged.
         options = [
           "noatime"
           "nobarrier"
         ];
       };
+      fileSystems."/nix/.rw-store" = lib.mkForce {
+        enable = false;
+        device = "none";
+        fsType = "tmpfs";
+      };
 
       # Swap, on its own ephemeral disk. Nothing returns memory to the host
       # short of the VM exiting, so this is not about the host: it turns a
-      # build that spikes past `memory` from an OOM kill into a slow build,
-      # and it makes the root tmpfs evictable, tmpfs pages being swap-backed.
+      # build that spikes past `memory` from an OOM kill into a slow build.
       #
       # Not `swapDevices`: NixOS only runs mkswap for that when a `size` is
       # set, which is the swapfile path and writes the whole file with dd on
@@ -307,16 +314,12 @@ in
         # Nix's build directory. Root-owned: the daemon builds here, not users.
         "d /nix/.rw-store/build 0755 root root -"
 
-        # Writable space for people, not just for the daemon. Without this the
-        # disk is root-owned throughout, so an unprivileged session has nothing
-        # but the tmpfs root -- /tmp, /var/tmp and $HOME all being 3.9 GiB of
-        # RAM. That is the very limit this disk exists to remove, and it is
-        # easy to miss, because builds work fine while interactive work does
-        # not.
+        # Writable space for people, not just for the daemon: a short,
+        # world-writable path on the disk.
         #
         # A symlink rather than a bind mount, deliberately. /scratch has to be
-        # short to be worth typing, and the root filesystem is a tmpfs, so a
-        # symlink there is free and has no mount ordering to get wrong.
+        # short to be worth typing, and a symlink has no mount ordering to get
+        # wrong.
         #
         # 1777 matters as much as the path: this is where sandboxed builds
         # need to reach, and they run as nixbld1..N (uid 30001+, group
@@ -437,10 +440,6 @@ in
       users.users.builder = {
         isNormalUser = true;
         group = "builder";
-        # Home on the disk, not on the root tmpfs. Anything an interactive
-        # session leaves in $HOME would otherwise be charged to RAM and capped
-        # at half of it. The mount is neededForBoot, so it is present well
-        # before user activation creates this.
         home = "/nix/.rw-store/home";
         createHome = true;
         openssh.authorizedKeys.keyFiles = lib.optional cfg.debugAccess "${modulesPath}/profiles/keys/ssh_host_ed25519_key.pub";
@@ -511,10 +510,12 @@ in
         # scheduling, and takes an integer only.)
         max-jobs = "auto";
         # Scratch on the guest's own disk, beside the store's write layer and
-        # on the same filesystem as it. Not the root tmpfs, which would charge
-        # every build's temporary files to RAM, and no longer a virtiofs share,
-        # which gave them host timestamps. See the tmpfiles rule above.
+        # on the same filesystem as it. Not a virtiofs share, which gave
+        # build files host timestamps; see the tmpfiles rule above.
         build-dir = "/nix/.rw-store/build";
+        # SQLite fsync for the store database. The disk is thrown away on
+        # every start, so a crash-consistent database protects nothing.
+        fsync-metadata = false;
 
         # cores is how many CPUs each individual job gets. 0 is its sentinel
         # for "all of them": the builder passes NIX_BUILD_CORES = buildCores,
@@ -557,8 +558,9 @@ in
       security.pam.services.sshd.startSession = lib.mkForce false;
       security.pam.services.sshd.lastlog.enable = lib.mkForce false;
       security.pam.services.login.lastlog.enable = lib.mkForce false;
-      # /var is a tmpfs, so systemd treats every boot as an update and as a
-      # first boot: these rerun each time and save state nothing reads.
+      # The root is formatted fresh on every boot, so systemd treats every boot
+      # as an update and as a first boot: these rerun each time and save state
+      # nothing reads.
       environment.etc."machine-id".text = "7a6c62756964657276796e6c696e6b00\n";
       systemd.services.systemd-update-done.enable = false;
       systemd.services.systemd-journal-catalog-update.enable = false;
