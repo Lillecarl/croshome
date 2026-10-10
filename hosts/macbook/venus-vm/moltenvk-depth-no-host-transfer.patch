@@ -1,0 +1,15 @@
+--- a/MoltenVK/MoltenVK/GPUObjects/MVKPixelFormats.mm	2026-10-11 06:58:23
++++ b/MoltenVK/MoltenVK/GPUObjects/MVKPixelFormats.mm	2026-10-11 06:58:32
+@@ -1577,6 +1577,12 @@
+ 
+ 	if (isDepthFormat(vkDesc.mtlPixelFormat) && mvkIsAnyFlagEnabled(vkProps.optimalTilingFeatures, VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_BIT)) {
+ 		vkProps.optimalTilingFeatures |= VK_FORMAT_FEATURE_2_SAMPLED_IMAGE_DEPTH_COMPARISON_BIT;
++	}
++
++	// A depth/stencil attachment must live in private memory, and host-copy usage forbids private
++	// memory, so an image with both would report memoryTypeBits == 0. Do not offer host copy here.
++	if (vkDesc.formatType == kMVKFormatDepthStencil) {
++		mvkDisableFlags(vkProps.optimalTilingFeatures, VK_FORMAT_FEATURE_2_HOST_IMAGE_TRANSFER_BIT);
+ 	}
+ 
+ 	// Vulkan forbids blits between chroma-subsampled formats.

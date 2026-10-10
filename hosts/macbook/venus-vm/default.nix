@@ -92,6 +92,13 @@ let
           rev = "05604465d691118cfd20f53a48ecf1aad9c12f93";
           hash = "sha256-fVIJ7kihxxmQ8eEiIEHsAFUe/JiEQ4p4xkxYw2WuJMU=";
         };
+        # MoltenVK offers host image copy on depth formats, then gives a
+        # depth attachment with that usage memoryTypeBits 0: attachments
+        # need private memory, host copy forbids it. zink asks for the
+        # usage whenever it is offered, so no window depth buffer could be
+        # allocated and every zink frame failed its depth test. Upstream
+        # main has the same code.
+        patches = old.patches or [ ] ++ [ ./moltenvk-depth-no-host-transfer.patch ];
         # nixpkgs renames the SPIRV-Cross namespace; the fork spells it once.
         postPatch = old.postPatch + ''
           substituteInPlace MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm \

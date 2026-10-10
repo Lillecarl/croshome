@@ -19,8 +19,7 @@ holds across all runs below). Pushed as develop 33c8d34d.
   VK_LAYER_PATH wired in run wrapper). Test scaffolding kept on purpose:
   zero output when healthy.
 - 25fffc9c: this file.
-- (pending) mesh-wrapper + static-vertex-input patches (uncommitted at
-  time of writing; see below). Adds MVK_CONFIG_SHADER_DUMP_DIR to the
+- 5901a6b7: mesh-wrapper + static-vertex-input patches. Adds MVK_CONFIG_SHADER_DUMP_DIR to the
   run wrapper (full .metal per shader lands in $VENUS_OUT/mvkdump).
 
 Local (NOT in repo, regenerable): UTM SPIRV-Cross 939b40b built in
@@ -110,6 +109,16 @@ Patches in hosts/macbook/venus-vm/ (all against Mesa 26.2.2 / UTM pins):
    Ruled OUT by dump inspection: FS<->mesh location linkage matches
    (locn0 both sides), vertex fetch code now correct.
 
+7. Black window = no depth buffer. Probes (since removed) showed every
+   window depth create failing in every format: zink got
+   memoryTypeBits 0x0 from vkGetImageMemoryRequirements. Cause in
+   MoltenVK (UTM pin AND upstream main): MVKPixelFormats offers
+   HOST_IMAGE_TRANSFER on depth formats, so zink adds
+   VK_IMAGE_USAGE_HOST_TRANSFER (usage 0x400027); MVKImage then limits
+   a depth attachment to private types and host transfer removes
+   private types -> 0. Fix: moltenvk-depth-no-host-transfer.patch drops
+   the feature for depth/stencil formats. Upstream report candidate.
+
 ## Rejected hypotheses (do not retry)
 
 - no_gpl (VN_DEBUG=result,no_gpl): identical failure, same object id.
@@ -154,14 +163,9 @@ vn_get_target_ring NULL return.
 
 ## Next steps
 
-R2 (now prime suspect): black screen with working pipelines. First probe
-the depth format in kopper_allocate_textures (temporary mesa_loge of
-format+bind), because the NULL-depth guard still fires every run. If
-24-bit: fall back to D32S8/D16 (mirror zink_get_format). If depth is not
-it: check FS UBO content path (buffer(1) binding through vkr descriptor
-heap with nullDescriptor/robustness), then mesh raster state.
-R4: remove moltenvk-tmp-vertex-log.patch (served its purpose; strides
-prove it in the dumps now).
+R2: confirm the depth fix (step 7) renders gears under zink. If still
+black: FS UBO content path (buffer(1) through the vkr descriptor heap),
+then mesh raster state.
 R5: hand-written patch hygiene: always verify with `patch -p1 --dry-run`
 against pristine sources; hand-counted hunk headers bit twice (missing
 trailing context line; 9-vs-10-space indent). Generate via diff where
