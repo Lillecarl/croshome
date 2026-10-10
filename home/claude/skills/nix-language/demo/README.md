@@ -56,42 +56,14 @@ Inside a git repo that does not track these files, flake commands need
 - **Checks cover the outputs**: version check in the build, a
   `passthru.tests` run, nixfmt, and an eval-only module test (about 2s).
 
-## Rerooting this project from another
-
-Point `reroot` at `nix/compat.nix`, not at `./.`. `default.nix` stays a
-plain function:
-
-```nix
-import flake-compatish {
-  source = ./.;
-  reroot.greet = _:
-    ((import (greetSrc + "/nix/compat.nix")).compatish.override {
-      overrides.nixpkgs = myNixpkgs;
-    }).outputs;
-}
-```
-
-- Override `nixpkgs` in the same call. Without it the rerooted project
-  uses its own pin, and the graph holds a second nixpkgs.
-- The value is flake-shaped (`packages.<system>`), not `default.nix`'s
-  attrset.
-- `reroot` matches by input name at every depth. Another flake's input
-  that is also named `greet` is replaced too.
-
-Not a `__functor` `default.nix` with a `compatish` attribute. Measured:
-`nix build --file . greet`, `nix-build -A greet` and `--arg` stop working
-("should be a set but is a function"). `callPackage ./. { }` also ignores
-the caller's `pkgs` without an error, because `lib.functionArgs` of the
-functor is `{ }`.
-
 ## Measured
 
 - `nix eval --file . greet.drvPath` equals
   `nix eval .#packages.x86_64-linux.default.drvPath` and
   `(import ./nix/compat.nix).impure.packages.default.drvPath`.
-- A consumer flake rerooting `greet` onto `/etc/nixpkgs` gets the same
-  `.drv` as `import ./. { pkgs = import /etc/nixpkgs { }; }`. Without the
-  reroot it gets the pinned one.
+- A `__functor` `default.nix` breaks `nix build --file . greet`,
+  `nix-build -A greet` and `--arg` ("should be a set but is a function").
+  `callPackage ./. { }` on it silently ignores the caller's `pkgs`.
 - Under flake-compatish, `NIXPKGS_CONFIG` with `allowUnfree = true` turns
   `legacyPackages.x86_64-linux.config.allowUnfree` true.
 - Appending to a `.nix` file leaves `greet.drvPath` unchanged.
