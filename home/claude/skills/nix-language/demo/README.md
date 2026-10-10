@@ -41,7 +41,9 @@ Inside a git repo that does not track these files, flake commands need
   `legacyPackages` then reads `~/.config/nixpkgs`.
 - **One lock.** `flake.lock` pins; `nix/compat.nix` reads it for
   non-flake evaluation (`import flake-compatish ../.`, in place). No npins
-  or niv beside it.
+  or niv beside it. The `overriding self` warning is intended: `self` is
+  the working directory, untracked files included, and not the git tree
+  the flake evaluator copies.
 - **Every flake output is a `default.nix` attribute or a plain file.**
   `overlays.default` and `nixosModules.default` point at the same files
   `default.nix` exposes as `overlay` and `nixosModule`.
@@ -64,6 +66,8 @@ Inside a git repo that does not track these files, flake commands need
 - A `__functor` `default.nix` breaks `nix build --file . greet`,
   `nix-build -A greet` and `--arg` ("should be a set but is a function").
   `callPackage ./. { }` on it silently ignores the caller's `pkgs`.
+- An untracked file is visible through `inputs.self` of `nix/compat.nix`,
+  and not through `getFlake "git+file://…?dir=…"`.
 - Under flake-compatish, `NIXPKGS_CONFIG` with `allowUnfree = true` turns
   `legacyPackages.x86_64-linux.config.allowUnfree` true.
 - Appending to a `.nix` file leaves `greet.drvPath` unchanged.
@@ -73,7 +77,5 @@ Inside a git repo that does not track these files, flake commands need
 
 ## Open for iteration
 
-- flake-compatish warns `overriding self` on every evaluation, path form
-  included (checked at 14d29ec1).
 - No VM test (`testers.runNixOSTest`); the module check is eval-only.
 - No `passthru.updateScript`, no home-manager module, no multi-package scope.
