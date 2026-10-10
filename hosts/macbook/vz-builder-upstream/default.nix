@@ -4,8 +4,15 @@
 # Upstream ships this as an always-on `nix.linux-builder` daemon. vzvm binds the
 # client port itself -- its VsockProxy owns the listening socket and splices it
 # to guest vsock -- so launchd cannot also own that port. To wake the VM on the
-# first connection, launchd listens on a public port here and a handler starts
-# the VM and proxies to vzvm's internal port: the same shape as our builder.
+# first connection, launchd listens on a public port here, and vzlink drives it
+# exactly as it drives our builder: vzlink-proxy per connection,
+# vzlink-supervisor for readiness, connection counting and idle stop. See
+# ../vz-builder/vzlink.nix and ../vz-builder/vzlink-guest.nix.
+#
+# Unlike ours this guest's store is its own -- an erofs image of its closure
+# plus a persistent disk -- so it works on a case-insensitive /nix: the image
+# is built from host-store files with the case-hack suffixes stripped
+# (nixos/lib/erofs-store-image.nix). The persistent disk is also its root.
 #
 # The two builders coexist because they touch nothing in common: different
 # ports, host names, ssh host aliases and state directories. They do share the
@@ -21,15 +28,56 @@ let
   cfg = config.nix.linux-builder-vz;
 
   keysDir = "${cfg.stateDir}/keys";
+  runningFile = "${cfg.stateDir}/running";
 
-  # Counts a live connection by the same handler name the idle loop greps for.
-  connectName = "vzvm-builder-connect";
+  vzlink = import ../vz-builder/vzlink.nix { inherit lib pkgs; };
 
   # Upstream's nix-builder.nix profile, with our overrides. The package's only
   # argument is the extra module list.
   guest =
     (pkgs.darwin.linux-builder-vz.override {
       modules = [
+        ../vz-builder/vzlink-guest.nix
+        (
+          { config, ... }:
+          {
+            # The readiness agent from ./vzlink-guest.nix, reached like sshd.
+            virtualisation.vz.forwardPorts = [
+              {
+                host.port = cfg.readinessPort;
+                guest.port = config.virtualisation.vzlink.readinessVsockPort;
+              }
+            ];
+
+            # The root on the persistent disk, not upstream's tmpfs: a tmpfs
+            # holds everything written outside the store in guest RAM, which
+            # is host RAM the VM never returns. It also keeps the Nix
+            # database (/nix/var) on the same disk as the store layer it
+            # describes; on a tmpfs root the database forgot every path the
+            # persistent layer held at each boot.
+            #
+            # mkOverride 9 because upstream sets both with mkVMOverride (10),
+            # which beats mkForce. Barriers stay on: unlike ./vz-builder's,
+            # this disk outlives a crash of the Mac.
+            fileSystems."/" = lib.mkOverride 9 {
+              device = "/dev/vdb";
+              fsType = "ext4";
+              autoFormat = true;
+              neededForBoot = true;
+              options = [ "noatime" ];
+            };
+            fileSystems."/nix/.rw-store" = lib.mkOverride 9 {
+              enable = false;
+              device = "none";
+              fsType = "tmpfs";
+            };
+            # A new file, because the disk upstream names after the host
+            # holds the store layer at its top level, not a root.
+            virtualisation.vz.diskImage = lib.mkForce "./${config.networking.hostName}-root.img";
+            # The root persists, so /tmp would too.
+            boot.tmp.cleanOnBoot = true;
+          }
+        )
         {
           networking.hostName = "vzvm-builder";
 
@@ -62,14 +110,12 @@ let
   # builder trusts. HostKeyAlias keeps the two entries apart.
   publicHostKey = "c3NoLWVkMjU1MTkgQUFBQUMzTnphQzFsWkRJMU5URTVBQUFBSUpCV2N4Yi9CbGFxdDFhdU90RStGOFFVV3JVb3RpQzVxQkorVXVFV2RWQ2Igcm9vdEBuaXhvcwo=";
 
-  # Runs the guest, and stops it once no handler is connected. vzvm is exec'd
-  # in place by the run script, so $vm is the vzvm process.
+  # Upstream's run script ends in `exec vzvm`, so $vm is the vzvm process
+  # once it is running. Before that the same script builds the erofs store
+  # image when it is missing -- see `prewarm` below, which normally has.
   runVm = pkgs.writeShellApplication {
     name = "vzvm-builder-vm";
-    runtimeInputs = [
-      pkgs.coreutils
-      pkgs.procps
-    ];
+    runtimeInputs = [ pkgs.coreutils ];
     text = ''
       mkdir -p ${lib.escapeShellArg keysDir}
       install -m 0444 ${lib.escapeShellArg "${cfg.builderKey}.pub"} ${lib.escapeShellArg keysDir}/builder_ed25519.pub
@@ -78,56 +124,80 @@ let
       # only role on that front.
       cd ${lib.escapeShellArg cfg.stateDir}
       exec 2>>${lib.escapeShellArg "${cfg.stateDir}/vm.log"}
-      ${lib.getExe vm} &
-      vm=$!
-      trap 'kill $vm 2>/dev/null || true' EXIT
 
-      idle=0
-      while kill -0 $vm 2>/dev/null; do
-        sleep 15
-        if pgrep -f ${connectName} >/dev/null; then
-          idle=0
-        else
-          idle=$((idle + 15))
-          if [ "$idle" -ge ${toString cfg.idleTimeout} ]; then
-            echo "vzvm-builder: idle for ${toString cfg.idleTimeout}s, shutting down" >&2
-            kill $vm 2>/dev/null || true
-            break
-          fi
-        fi
-      done
-      wait $vm 2>/dev/null || true
-    '';
-  };
-
-  connect = pkgs.writeShellApplication {
-    name = connectName;
-    runtimeInputs = [
-      pkgs.socat
-      pkgs.coreutils
-    ];
-    text = ''
-      /bin/launchctl kickstart system/org.nixos.${cfg.daemonName} 2>/dev/null || true
-
-      # Wait for vzvm's listener, not for the guest: vzvm holds a connection
-      # until the guest is up, so the copy below is the wait.
-      ready=0
-      deadline=$(( SECONDS + ${toString cfg.bootTimeout} ))
-      while [ "$SECONDS" -lt "$deadline" ]; do
-        if timeout 1 socat -u OPEN:/dev/null TCP:127.0.0.1:${toString cfg.internalPort},connect-timeout=1 2>/dev/null; then
-          ready=1
-          break
-        fi
-        sleep 0.25
-      done
-      if [ "$ready" -ne 1 ]; then
-        echo "vzvm-builder-connect: 127.0.0.1:${toString cfg.internalPort} did not answer within ${toString cfg.bootTimeout}s" >&2
-        exit 1
+      # Upstream deletes stale store images only right after building a new
+      # one, and the pre-warm usually builds it, so that never ran. No VM
+      # runs while this launcher does, so no image is in use.
+      if [ -f ${storeImageName} ]; then
+        find . -maxdepth 1 -name 'store-*.img' ! -name ${storeImageName} -delete
       fi
 
-      socat STDIO TCP:127.0.0.1:${toString cfg.internalPort},connect-timeout=5
+      ${lib.getExe vm} &
+      vm=$!
+
+      ${vzlink.supervise {
+        inherit (cfg)
+          stateDir
+          internalPort
+          readinessPort
+          bootTimeout
+          idleTimeout
+          stopMode
+          ;
+        inherit runningFile;
+        inherit (guest.system.build) toplevel;
+      }}
     '';
   };
+
+  connect = vzlink.connect {
+    name = "vzvm-builder-connect";
+    inherit (cfg)
+      stateDir
+      internalPort
+      bootTimeout
+      daemonName
+      ;
+  };
+
+  # The erofs store image, built ahead of the first boot. Upstream builds it
+  # in the run script because a derivation would need the Linux builder this
+  # VM is (vz-vm.nix says so); building it on the host at runtime is the
+  # same choice, made earlier. Activation only kicks this job, so a switch
+  # never waits for it or fails on it, and the run script still builds the
+  # image itself when this has not finished or has failed.
+  #
+  # The name must match upstream's storeImageName (vz-vm.nix), or the run
+  # script will not find the image and builds its own: same closureInfo,
+  # same name rule. Never deletes old images; the run script does that, and
+  # a running VM may still be using one.
+  storeClosureInfo = pkgs.closureInfo {
+    rootPaths = [
+      guest.system.build.toplevel
+      (pkgs.closureInfo { rootPaths = guest.virtualisation.additionalPaths; })
+    ];
+  };
+  storeImageName = "store-${lib.head (lib.splitString "-" (baseNameOf (toString storeClosureInfo)))}.img";
+  prewarm = pkgs.writeShellScript "vzvm-builder-prewarm" ''
+    set -eu
+    image=${lib.escapeShellArg "${cfg.stateDir}/${storeImageName}"}
+    if [ -f "$image" ]; then
+      echo "$(date) store image present: $image"
+      exit 0
+    fi
+    tmp="$image.tmp.prewarm"
+    trap 'rm -f "$tmp"' EXIT
+    echo "$(date) building $image"
+    ${import "${pkgs.path}/nixos/lib/erofs-store-image.nix" {
+      hostPkgs = pkgs;
+      storePaths = "${storeClosureInfo}/store-paths";
+      label = "nix-store";
+      destination = ''"$tmp"'';
+    }}
+    mv "$tmp" "$image"
+    trap - EXIT
+    echo "$(date) built $image"
+  '';
 in
 {
   options.nix.linux-builder-vz = {
@@ -202,7 +272,30 @@ in
     bootTimeout = lib.mkOption {
       type = lib.types.int;
       default = 120;
-      description = "Seconds to wait for vzvm to listen after a wakeup.";
+      description = ''
+        Seconds a connection waits for the guest to serve after a wakeup. It
+        covers building the store image in the rare start the pre-warm job
+        has not done it for.
+      '';
+    };
+
+    readinessPort = lib.mkOption {
+      type = lib.types.port;
+      default = 31025;
+      description = "Loopback port vzvm forwards to the guest's readiness agent.";
+    };
+
+    stopMode = lib.mkOption {
+      type = lib.types.enum [
+        "graceful"
+        "kill"
+      ];
+      default = "graceful";
+      description = ''
+        How the supervisor stops the VM. `graceful`, because this guest's
+        disk persists: vzvm turns SIGTERM into a guest power-off, and the
+        supervisor kills only after 30s.
+      '';
     };
 
     daemonName = lib.mkOption {
@@ -222,6 +315,31 @@ in
     system.activationScripts.preActivation.text = ''
       mkdir -p ${lib.escapeShellArg cfg.stateDir}
     '';
+
+    # Stop a VM running a guest this configuration no longer describes, so
+    # the next build boots the new one; then start the image pre-warm. Both
+    # are best effort: a failure here warns and never fails the switch.
+    system.activationScripts.postActivation.text = ''
+      running=${lib.escapeShellArg runningFile}
+      if [ -e "$running" ]; then
+        gen=$(head -1 "$running")
+        pid=$(sed -n 2p "$running")
+        if [ "$gen" != ${lib.escapeShellArg guest.system.build.toplevel} ]; then
+          echo "vzvm-builder: guest changed, stopping the stale VM (pid $pid)"
+          kill "$pid" 2>/dev/null || true
+        fi
+      fi
+      /bin/launchctl kickstart system/org.nixos.${cfg.daemonName}-prewarm 2>/dev/null \
+        || echo "vzvm-builder: could not start the store image pre-warm; the next boot builds it" >&2
+    '';
+
+    launchd.daemons."${cfg.daemonName}-prewarm".serviceConfig = {
+      ProgramArguments = [ "${prewarm}" ];
+      RunAtLoad = false;
+      KeepAlive = false;
+      StandardOutPath = "${cfg.stateDir}/prewarm.log";
+      StandardErrorPath = "${cfg.stateDir}/prewarm.log";
+    };
 
     launchd.daemons.${cfg.daemonName} = {
       script = "exec ${lib.getExe runVm}";
@@ -253,6 +371,7 @@ in
         Port ${toString cfg.publicPort}
         HostKeyAlias ${cfg.hostName}
         IdentityFile ${cfg.builderKey}
+        Ciphers ${lib.concatStringsSep "," guest.services.openssh.settings.Ciphers}
     '';
 
     nix.distributedBuilds = true;

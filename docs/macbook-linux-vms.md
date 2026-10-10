@@ -160,13 +160,29 @@ them. Both now run on `vzvm`; the difference is the store. This one keeps its
 own store on an erofs image plus a data disk, so it does not need a
 case-sensitive `/nix`.
 
-Upstream runs it always-on. This module starts it on demand. `vzvm` owns the
-client port, so launchd cannot also own it: launchd listens on 31023, and a
-handler starts the VM and splices to `vzvm` on 31024. It stops after 60s idle,
-and `vzvm` powers the guest off cleanly rather than pulling it.
+Upstream runs it always-on. This module starts it on demand, and vzlink drives
+it the same way as ours: launchd listens on 31023, `vzlink-proxy` splices to
+`vzvm` on 31024, and `vzlink-supervisor` waits on the guest's readiness agent
+(forwarded on 31025) and stops the VM after 60s idle. `stopMode` is
+`graceful` here, because the disk persists; measured, ~2.0s.
 
-Its ssh alias is `linux-builder-vz`, and its images, key share and console log
-live in `/var/lib/vzvm-builder/`.
+Two changes to upstream's guest, both through its `modules` list:
+
+- **The root is the persistent disk**, not a tmpfs. On upstream's tmpfs root
+  the Nix database (`/nix/var`) was lost at every boot while the store layer
+  on the disk persisted, so the guest forgot what it had built. Measured: a
+  path built before an idle stop is still valid after the next boot. The disk
+  is `vzvm-builder-root.img`; the older `vzvm-builder.qcow2` holds the
+  previous layout and is unused.
+- **The erofs store image is pre-built.** Upstream builds it in the run script,
+  because a derivation would need this very builder. Activation kicks a launchd
+  job (`vzvm-builder-vm-prewarm`, log `prewarm.log`) that builds it in the
+  background, never blocking or failing the switch; the run script still builds
+  it when the job has not. Measured: 13s for a 1.2 GB image.
+
+Cold build through it: ~12s, of which ~3.7s is sshd starting after the
+readiness agent in upstream's guest. Its ssh alias is `linux-builder-vz`, and
+its images, key share and logs live in `/var/lib/vzvm-builder/`.
 
 ### The persistent Linux VM
 
