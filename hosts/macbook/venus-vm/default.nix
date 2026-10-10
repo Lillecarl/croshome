@@ -47,9 +47,7 @@ let
         --replace-fail '"GLESv1_CM.framework/Versions/Current/GLESv1_CM"' '"${pkgs.angle}/lib/libGLESv1_CM.dylib"' \
         --replace-fail '"GLESv2.framework/Versions/Current/GLESv2"' '"${pkgs.angle}/lib/libGLESv2.dylib"'
     '';
-    mesonFlags = map (
-      flag: if flag == "-Degl=no" then "-Degl=yes" else flag
-    ) old.mesonFlags;
+    mesonFlags = map (flag: if flag == "-Degl=no" then "-Degl=yes" else flag) old.mesonFlags;
   });
 
   virglrenderer =
@@ -92,18 +90,16 @@ let
           url = "https://github.com/utmapp/qemu/releases/download/v10.0.12-utm/qemu-10.0.12-utm.tar.xz";
           hash = "sha256-fJYFKQs0FS3ruELpZaVdLk+7pHk+U2q2d7QCfl3Auho=";
         };
-        patches =
-          lib.filter (p: lib.elem (baseNameOf p) [ "skip-macos-icon.patch" ]) old.patches
-          ++ [
-            (pkgs.fetchurl {
-              url = "https://raw.githubusercontent.com/utmapp/UTM/7eadb056ae0f91d979059544d0ddcd2d5a40be92/patches/qemu-10.0.12-utm.patch";
-              hash = "sha256-BaRtXlL9Zi6NQL0o0jwM9wL5LMKKg+yonp7hTBZGruc=";
-            })
-            # Offer VIRTIO_GPU_F_BLOB_ALIGNMENT (Linux 7.2) at the host page
-            # size, as libkrun does. Without it the guest places Venus's
-            # ring blob 4K-aligned and QEMU aborts on its first access.
-            ./qemu-blob-alignment.patch
-          ];
+        patches = lib.filter (p: lib.elem (baseNameOf p) [ "skip-macos-icon.patch" ]) old.patches ++ [
+          (pkgs.fetchurl {
+            url = "https://raw.githubusercontent.com/utmapp/UTM/7eadb056ae0f91d979059544d0ddcd2d5a40be92/patches/qemu-10.0.12-utm.patch";
+            hash = "sha256-BaRtXlL9Zi6NQL0o0jwM9wL5LMKKg+yonp7hTBZGruc=";
+          })
+          # Offer VIRTIO_GPU_F_BLOB_ALIGNMENT (Linux 7.2) at the host page
+          # size, as libkrun does. Without it the guest places Venus's
+          # ring blob 4K-aligned and QEMU aborts on its first access.
+          ./qemu-blob-alignment.patch
+        ];
       });
 
   guest = import "${pkgs.path}/nixos" {
@@ -138,8 +134,6 @@ let
           pkgs.mesa-demos
         ];
 
-        services.getty.autologinUser = "root";
-
         virtualisation = {
           host.pkgs = hostPkgs;
           qemu.package = qemu;
@@ -157,25 +151,96 @@ let
           ];
         };
 
-        systemd.services.venus-probe = {
+        programs.niri.enable = true;
+
+        # Root, so the test writes to the 9p share without an ownership map.
+        # greetd refuses to start without default_session, even when
+        # initial_session is the only session that ever runs.
+        services.greetd =
+          let
+            session = {
+              user = "root";
+              command = "${lib.getExe pkgs.niri} --config ${niriConfig pkgs}";
+            };
+          in
+          {
+            enable = true;
+            settings.initial_session = session;
+            settings.default_session = session;
+          };
+
+        # The console is the graphical tty, so a session that never comes up
+        # leaves no trace on the host without this.
+        systemd.services.venus-journal = {
           wantedBy = [ "multi-user.target" ];
-          after = [ "multi-user.target" ];
-          path = [
-            pkgs.vulkan-tools
-            pkgs.util-linux
-          ];
           serviceConfig.Type = "oneshot";
           script = ''
-            {
-              dmesg | grep -E '\[drm\]' || true
-              vulkaninfo --summary
-            } > /out/vulkaninfo.txt 2>&1 || true
-            vulkaninfo > /out/vulkaninfo-full.txt 2>&1 || true
+            sleep 90
+            journalctl -b --no-pager > /out/journal.txt 2>&1
             if [ ! -e /out/keep ]; then systemctl poweroff; fi
           '';
         };
       };
   };
+
+  niriConfig =
+    pkgs:
+    pkgs.writeText "niri-venus.kdl" ''
+      hotkey-overlay {
+          skip-at-startup
+      }
+      spawn-at-startup "${lib.getExe (desktopTest pkgs)}"
+    '';
+
+  # Runs inside niri. Writes /out and powers off, unless /out/keep exists.
+  desktopTest =
+    pkgs:
+    pkgs.writeShellApplication {
+      name = "venus-desktop-test";
+      runtimeInputs = [
+        pkgs.bc
+        pkgs.coreutils
+        pkgs.grim
+        pkgs.mesa-demos
+        pkgs.util-linux
+        pkgs.vulkan-tools
+      ];
+      text = ''
+        exec > /out/desktop-test.txt 2>&1
+        set +e
+        dmesg | grep -E '\[drm\]'
+        vulkaninfo --summary
+        vulkaninfo > /out/vulkaninfo-full.txt 2>&1
+
+        echo "== eglinfo, default GL driver"
+        eglinfo -B -p wayland
+        echo "== eglinfo, zink"
+        MESA_LOADER_DRIVER_OVERRIDE=zink eglinfo -B -p wayland
+
+        echo "== vkcube, 1000 frames"
+        start=$(date +%s.%N)
+        vkcube --wsi wayland --c 1000 &
+        cube=$!
+        sleep 3
+        grim /out/vkcube.png
+        wait "$cube"
+        echo "vkcube rc=$? seconds=$(echo "$(date +%s.%N) - $start" | bc)"
+
+        for driver in default zink; do
+          echo "== es2gears_wayland, $driver"
+          if [ "$driver" = zink ]; then export MESA_LOADER_DRIVER_OVERRIDE=zink; fi
+          timeout 16 es2gears_wayland &
+          gears=$!
+          sleep 8
+          grim "/out/es2gears-$driver.png"
+          wait "$gears"
+          unset MESA_LOADER_DRIVER_OVERRIDE
+        done
+
+        if [ ! -e /out/keep ]; then systemctl poweroff; fi
+      '';
+    };
+
   # qemu-common pins `virt-11.0` for darwin hosts; UTM's fork is QEMU 10.0.
   vm = pkgs.runCommand "venus-vm-script" { } ''
     mkdir -p $out/bin
