@@ -510,7 +510,45 @@ in
       # A builder evaluates nothing, so it needs no docs.
       documentation.enable = false;
       documentation.nixos.enable = false;
-      services.getty.autologinUser = "root";
+
+      # Lean: every unit below runs on each boot or stop, and none of them
+      # serves a VM that lives a minute, has no disk to keep, and is reached
+      # only over vsock.
+      #
+      # vzvm writes the console to a file, so nothing can type at a login
+      # prompt; the gettys and the virtual console setup are dead weight.
+      console.enable = false;
+      systemd.oomd.enable = false;
+      services.logrotate.enable = false;
+      # One logind session, and a user manager for root, per ssh-ng
+      # connection. A build opens many, and none of them needs a session.
+      security.pam.services.sshd.startSession = lib.mkForce false;
+      security.pam.services.sshd.lastlog.enable = lib.mkForce false;
+      security.pam.services.login.lastlog.enable = lib.mkForce false;
+      # /var is a tmpfs, so systemd treats every boot as an update and as a
+      # first boot: these rerun each time and save state nothing reads.
+      environment.etc."machine-id".text = "7a6c62756964657276796e6c696e6b00\n";
+      systemd.services.systemd-update-done.enable = false;
+      systemd.services.systemd-journal-catalog-update.enable = false;
+      systemd.services.systemd-random-seed.enable = false;
+      systemd.services.systemd-update-utmp.enable = false;
+      # Generators run on every boot and every daemon-reload. This keeps
+      # fstab, ssh (sshd on vsock), run and debug; the rest look for disks,
+      # TPMs, cloud metadata and gettys this VM does not have.
+      systemd.generators = lib.genAttrs [
+        "systemd-bless-boot-generator"
+        "systemd-cryptsetup-generator"
+        "systemd-factory-reset-generator"
+        "systemd-getty-generator"
+        "systemd-gpt-auto-generator"
+        "systemd-hibernate-resume-generator"
+        "systemd-imds-generator"
+        "systemd-import-generator"
+        "systemd-integritysetup-generator"
+        "systemd-system-update-generator"
+        "systemd-tpm2-generator"
+        "systemd-veritysetup-generator"
+      ] (_: "/dev/null");
     }
 
     # The host store and the host's Nix database. Both are needed: a path on
