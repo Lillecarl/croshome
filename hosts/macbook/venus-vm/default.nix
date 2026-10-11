@@ -257,7 +257,8 @@ let
           let
             session = {
               user = "root";
-              command = "${lib.getExe pkgs.niri} --config ${niriConfig pkgs}";
+              # greetd drops session output; the test copies this file out.
+              command = "${pkgs.bash}/bin/sh -c 'exec ${lib.getExe pkgs.niri} --config ${niriConfig pkgs} > /tmp/niri.log 2>&1'";
             };
           in
           {
@@ -289,6 +290,13 @@ let
       spawn-at-startup "${lib.getExe (desktopTest pkgs)}"
     '';
 
+  gltest =
+    pkgs:
+    pkgs.runCommandCC "venus-gltest" { buildInputs = [ pkgs.libGL ]; } ''
+      mkdir -p $out/bin
+      $CC -O2 -Wall ${./gltest.c} -o $out/bin/venus-gltest -lEGL -lGLESv2
+    '';
+
   # Runs inside niri. Writes /out and powers off, unless /out/keep exists.
   desktopTest =
     pkgs:
@@ -300,7 +308,11 @@ let
         pkgs.elfutils
         pkgs.grim
         pkgs.procps
-        pkgs.mesa-demos
+        # es2gears clears to black, so a window that never receives a
+        # frame looks like one whose draws all fail. Clear to red.
+        (pkgs.mesa-demos.overrideAttrs (old: {
+          patches = old.patches or [ ] ++ [ ./mesa-demos-gears-red-clear.patch ];
+        }))
         pkgs.systemd
         pkgs.util-linux
         pkgs.vulkan-tools
@@ -341,6 +353,12 @@ let
           echo "vkcube rc=$? seconds=$(echo "$(date +%s.%N) - $start" | bc)"
         done
 
+        echo "== gltest, default GL driver"
+        timeout 30 ${gltest pkgs}/bin/venus-gltest
+        echo "== gltest, zink"
+        MESA_LOADER_DRIVER_OVERRIDE=zink timeout 30 ${gltest pkgs}/bin/venus-gltest
+
+
         for driver in default zink; do
           echo "== es2gears_wayland, $driver"
           if [ "$driver" = zink ]; then
@@ -364,6 +382,9 @@ let
           unset MESA_LOADER_DRIVER_OVERRIDE VN_DEBUG ZINK_DEBUG
         done
         coredumpctl info --no-pager -1
+        # The test powers off long before venus-journal's 240s sleep ends.
+        journalctl -b --no-pager > /out/journal.txt 2>&1
+        cp /tmp/niri.log /out/niri.log
 
         if [ ! -e /out/keep ]; then systemctl poweroff; fi
       '';
