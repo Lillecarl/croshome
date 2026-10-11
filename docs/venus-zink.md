@@ -142,6 +142,16 @@ Patches in hosts/macbook/venus-vm/ (all against Mesa 26.2.2 / UTM pins):
    RGB10A2Unorm and swaps R/B in vrend sampler views (metal_swap_rb).
    Verified: zink gears render with correct colours on the default
    10-bit config. Upstream report candidate (UTM virglrenderer).
+10. With the PV GS back on, gears drew as wedges; gltest failed every
+   first>0 draw under zink only. UTM mesh path: MoltenVK dropped
+   firstVertex/vertexOffset (logged "not supported yet"), uploaded
+   DrawInfo before setting topoStrip, and the wrapper fetched odd strip
+   triangles i,i+1,i+2 (Vulkan: i,i+2,i+1; culling drops them).
+   Fix: moltenvk-mesh-base-vertex.patch + spirv-cross-mesh-base-vertex
+   .patch (shared DrawInfo.baseVertex). Verified: gltest all PASS on
+   zink and virgl, gears solid and correct, vkcube 5/5.
+   Still unsupported on the mesh path: firstInstance, and indirect draws
+   (MVKCmdDraw rejects both with a log line).
 
 ## Rejected hypotheses (do not retry)
 
@@ -202,7 +212,10 @@ vn_get_target_ring NULL return.
 
 ## Next steps
 
-R6: report steps 7 and 9 upstream (MoltenVK, UTM virglrenderer).
+R6: report steps 7, 9 and 10 upstream (MoltenVK, UTM virglrenderer,
+UTM MoltenVK/SPIRV-Cross geometry-shaders branch).
+R8: indirect draws and firstInstance on the mesh path (step 10). Any GL
+app using glDrawArraysIndirect or base-instance draws hits it under zink.
 R7: SPIRV-Cross emits a variable named `sampler` that Metal rejects
 ("must use 'struct' tag to refer to type 'sampler'"); seen with
 GALLIUM_HUD=fps under zink, which then aborts.
