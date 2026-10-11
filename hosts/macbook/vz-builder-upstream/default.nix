@@ -97,6 +97,9 @@ let
           # shell indirection: the profile passes the guest's keys through
           # create-builder's environment, which we do not use.
           virtualisation.sharedDirectories.keys.source = lib.mkForce keysDir;
+          # Sandbox build dirs default to /build, a tmpfs of half the guest
+          # RAM. Multi-GB closures (phone system images) do not fit there.
+          nix.settings.build-dir = "/var/nix-builds";
           # Drops the second share upstream adds for host CA certs, whose
           # source is another shell expression.
           virtualisation.useHostCerts = lib.mkForce false;

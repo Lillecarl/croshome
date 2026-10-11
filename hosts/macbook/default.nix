@@ -25,6 +25,11 @@
     # umbrella is `flake = false`, so this is the source tree and no second
     # flake is evaluated.
     ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/darwin")
+    # pymacdns by path: under active development in a checkout next door,
+    # so a flake input would only add a lock entry that overrides.nix
+    # immediately replaced. Only this host imports it, so no other
+    # evaluation reads the path.
+    /Users/lillecarl/Code/pymacdns/nix/darwin-module.nix
     ./pynixd.nix
     ../../secrets
   ];
@@ -118,10 +123,15 @@
   # store image, which works without a case-sensitive /nix. See
   # ./vz-builder-upstream.
   nix.linux-builder-vz = {
-    enable = true;
+    enable = false;
     cores = 8;
-    memorySize = 8192;
-    maxJobs = 15;
+    memorySize = 12288;
+    # The default 20 GiB does not fit large system closures
+    # (e.g. Plasma Mobile) during image assembly.
+    diskSize = 65536;
+    # 15 parallel jobs OOM the 8-12 GiB guest while staging
+    # multi-GB closures; keep it modest.
+    maxJobs = 8;
   };
 
   # A persistent Linux VM for kernel-required workloads (Kubernetes and
@@ -143,7 +153,7 @@
   # framework backs guest RAM lazily, so an idle guest still costs little, but
   # a guest that has once touched 12 GiB keeps it until the VM exits. That is
   # what `idleTimeout` is for.
-  nix.linux-vz-builder.memory = 12288;
+  nix.linux-vz-builder.memory = 8192;
   # What `vzrun` logs in with. This is the public half of ~/.ssh/id_ed25519,
   # so it is checked in on purpose -- the alternative is reading a path outside
   # the repo at evaluation time, which makes the build depend on this Mac.
@@ -263,6 +273,60 @@
       "149.112.112.112"
       "2620:fe::fe"
       "2620:fe::9"
+    ];
+  };
+
+  # pymacdns live, replacing the dnsmasq fallback above rather than joining
+  # it: one local stub on port 53, not two. The daemon forwards to the
+  # system resolvers it discovers itself (DHCP, VPN, /etc/resolver --
+  # including dynami.st above), so split DNS keeps working and nothing here
+  # restates upstreams.
+  #
+  # /etc/resolv.conf points at 127.0.0.1 through the daemon's delimited
+  # block, which it removes on exit -- SIGKILL included, via the supervisor.
+  # macOS regenerates that file on network changes and drops the block until
+  # the daemon restarts; the failure direction is plain DHCP DNS, not silence.
+  #
+  # Check it with `dig @127.0.0.1 grafana.lab3.ch.se.eu.org` (the IPv6-only
+  # host that started this), `sudo tail -f /var/log/pymacdns.log`, and
+  # `pymacdns cache list`. Retreat with `enable = false` plus a rebuild.
+  services.pymacdns = {
+    enable = true;
+    resolvConf = "/etc/resolv.conf";
+    # The daemon runs as root; without this the socket stays 0600 and
+    # `pymacdns cache` only works under sudo.
+    controlSocketGroup = "staff";
+    # Family, not prefix: drop whole dead address sets (AI_ADDRCONFIG
+    # semantics) rather than rewriting individual answers. On this
+    # machine's table it is currently a no-op -- the utun defaults and
+    # the Hetzner /64 make v6 look usable -- and the pruning shows up
+    # on v4-only networks instead.
+    routeFilter = "family";
+    # Quad9 encrypted as the default resolver: the empty domain matches
+    # everything and the negative priority beats discovery. Order is
+    # priority, stated here and nowhere else: DoH first (blends with
+    # HTTPS on hostile networks), DoT behind it, no plaintext at all.
+    # v4 before v6 inside each transport: only the Hetzner /64 is live
+    # here, so the Quad9 v6 endpoints are fallback depth, not primary.
+    # Both were verified unreachable from here (ConnectError, 2026-10-06).
+    # Fail closed -- a Quad9 outage is a SERVFAIL, not a silent fall
+    # back to cleartext. Quad9's certificate covers these IPs, so no
+    # bootstrap lookup is needed.
+    resolvers = [
+      {
+        domain = "";
+        nameservers = [
+          "https://9.9.9.9/dns-query"
+          "https://149.112.112.112/dns-query"
+          "https://[2620:fe::fe]/dns-query"
+          "https://[2620:fe::9]/dns-query"
+          "tls://9.9.9.9"
+          "tls://149.112.112.112"
+          "tls://[2620:fe::fe]"
+          "tls://[2620:fe::9]"
+        ];
+        priority = -100;
+      }
     ];
   };
 
