@@ -38,6 +38,74 @@ let
     # bare `btrfs balance <path>` spelling of start.
     "balance *"
   ];
+
+  # Headroom guard: balance on threshold, not on calendar. Checks
+  # `btrfs filesystem usage` every 15 minutes -- one ioctl and two awk
+  # runs, milliseconds -- and starts a data-only balance when metadata is
+  # over 80% used or unallocated space is under 5G. The balance itself is
+  # the only expensive part and it runs only on breach, at idle priority:
+  # recent passes took seconds (13s for 7GiB on 2026-08-15, 41 chunks on
+  # 2026-10-08). Fail-closed: unparseable output or still-low headroom
+  # after a balance exits non-zero, so the timer failure is the alert. An
+  # already-running balance is left alone, and a balance that frees
+  # nothing cools down for 6h rather than churning on a genuinely full
+  # disk. Same housekeeping priority as the weekly balance below.
+  ensure-headroom = pkgs.writeShellApplication {
+    name = "btrfs-ensure-headroom";
+    runtimeInputs = [
+      pkgs.btrfs-progs
+      pkgs.coreutils
+      pkgs.gawk
+    ];
+    text = ''
+      usage=$(btrfs filesystem usage -b /)
+      unallocated=$(printf '%s\n' "$usage" | awk '/Device unallocated:/ { print $3 }')
+      metapct=$(printf '%s\n' "$usage" | awk '/^Metadata,/ { if (match($0, /\(([0-9.]+)%\)/, m)) print m[1] }')
+
+      if [ -z "$unallocated" ] || [ -z "$metapct" ]; then
+        echo "btrfs-ensure-headroom: could not parse filesystem usage" >&2
+        printf '%s\n' "$usage" >&2
+        exit 1
+      fi
+
+      echo "metadata ''${metapct}% used, unallocated ''${unallocated} bytes"
+
+      if [ "''${metapct%%.*}" -lt 80 ] && [ "$unallocated" -ge 5368709120 ]; then
+        echo "headroom fine, no balance needed"
+        exit 0
+      fi
+
+      if btrfs balance status / | grep -q "is running"; then
+        echo "a balance is already running, leaving it to it"
+        exit 0
+      fi
+
+      # A balance that frees nothing means genuinely full, not fragmented.
+      # Do not churn: at most one balance per cooldown window, but keep
+      # failing so the timer stays red until someone looks.
+      state_dir="''${RUNTIME_DIRECTORY:-/tmp}"
+      now=$(date +%s)
+      last=$(cat "$state_dir/last-balance" 2>/dev/null || echo 0)
+      if [ $(( now - last )) -lt 21600 ]; then
+        echo "headroom low and balanced recently, needs attention" >&2
+        exit 1
+      fi
+
+      echo "headroom low, starting data balance"
+      btrfs balance start -dusage=20 /
+      date +%s > "$state_dir/last-balance"
+
+      usage=$(btrfs filesystem usage -b /)
+      unallocated=$(printf '%s\n' "$usage" | awk '/Device unallocated:/ { print $3 }')
+      metapct=$(printf '%s\n' "$usage" | awk '/^Metadata,/ { if (match($0, /\(([0-9.]+)%\)/, m)) print m[1] }')
+      echo "after balance: metadata ''${metapct}% used, unallocated ''${unallocated} bytes"
+
+      if [ "''${metapct%%.*}" -ge 80 ] || [ "$unallocated" -lt 5368709120 ]; then
+        echo "headroom still low after balance, needs attention" >&2
+        exit 1
+      fi
+    '';
+  };
 in
 {
   # This machine builds Nix packages more or less constantly, and a store of
@@ -49,6 +117,13 @@ in
   # with -28, because relocation has nowhere to relocate to (this happened on
   # 2026-08-05 and 2026-08-10; on 2026-08-15 the device was 100% allocated with
   # metadata at 92%, and one -dusage=20 pass took 13 seconds and gave back 7GiB).
+  #
+  # 2026-10-08: weekly lost the race. Metadata hit 97.5% with 1MiB
+  # unallocated, `nix-collect-garbage -d` stalled on a generation, and df
+  # still showed 71G free. Clearing /tmp cruft and vacuuming the journal
+  # moved metadata to 92%; one manual -dusage=20 pass then freed 34GiB of
+  # unallocated and metadata grew 24G -> 27G on its own. So weekly is now
+  # "at latest": btrfs-ensure-headroom above balances on threshold.
   #
   # So: reclaim the mostly-empty data chunks every week, before allocation
   # reaches the point where the fix no longer runs. Data only. A metadata
@@ -76,6 +151,27 @@ in
       # allocation has been left alone the longest.
       Persistent = true;
       RandomizedDelaySec = "1h";
+    };
+  };
+
+  systemd.services.btrfs-ensure-headroom = {
+    description = "btrfs headroom check of / (balance on threshold, not calendar)";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = lib.getExe ensure-headroom;
+      Nice = 19;
+      IOSchedulingClass = "idle";
+      RuntimeDirectory = "btrfs-ensure-headroom";
+    };
+    # Same reasoning as btrfs-balance: a non-zero exit here is the alert.
+  };
+
+  systemd.timers.btrfs-ensure-headroom = {
+    wantedBy = [ "timers.target" ];
+    timerConfig = {
+      OnCalendar = "*:0/15";
+      Persistent = true;
+      RandomizedDelaySec = "2min";
     };
   };
 
