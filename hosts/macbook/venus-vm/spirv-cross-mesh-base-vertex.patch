@@ -1,0 +1,52 @@
+--- a/spirv_msl.cpp	2026-10-11 13:56:35
++++ b/spirv_msl.cpp	2026-10-11 13:56:35
+@@ -1955,6 +1955,9 @@
+ 		statement("int32_t indexSize;");
+ 		statement("int64_t indexBuffer;");
+ 		statement("uint8_t topoStrip;");
++		// firstVertex for draws, vertexOffset for indexed draws. MoltenVK
++		// fills the same struct (MVKCmdDraw.mm DrawInfo); keep them in step.
++		statement("int32_t baseVertex;");
+ 
+ 		end_scope(";");
+ 
+@@ -2038,30 +2041,34 @@
+ 		statement("for (int i = 0; i < vertexCount; ++i)");
+ 		begin_scope();
+ 		statement("uint vertexIndex;");
++		// Vulkan orders odd triangles of a strip i, i+2, i+1 so they keep
++		// the strip's winding; i, i+1, i+2 flips them and culling drops them.
++		statement("int k = (drawInfo->topoStrip && vertexCount == 3 && (positionInGrid.x & 1) && i > 0) ? 3 - i : i;");
+ 
+ 		statement("if (drawInfo->indexed)");
+ 		begin_scope();
+ 
+ 		statement(R"END(
+ 		if (drawInfo->indexSize == 1) {
+-			vertexIndex = ((constant uchar *)drawInfo->indexBuffer)[startingIndex + i];
++			vertexIndex = ((constant uchar *)drawInfo->indexBuffer)[startingIndex + k];
+ 			if (vertexIndex == 0xff) {
+ 				return;
+ 			}
+ 		} else if (drawInfo->indexSize == 2) {
+-			vertexIndex = ((constant ushort *)drawInfo->indexBuffer)[startingIndex + i];
++			vertexIndex = ((constant ushort *)drawInfo->indexBuffer)[startingIndex + k];
+ 			if (vertexIndex == 0xffff) {
+ 				return;
+ 			}
+ 		} else {
+-			vertexIndex = ((constant uint *)drawInfo->indexBuffer)[startingIndex + i];
++			vertexIndex = ((constant uint *)drawInfo->indexBuffer)[startingIndex + k];
+ 			if (vertexIndex == 0xffffffff) {
+ 				return;
+ 			}
+-		})END");
++		}
++		vertexIndex += drawInfo->baseVertex;)END");
+ 
+ 		end_scope();
+-		statement("else vertexIndex = startingIndex + i;");
++		statement("else vertexIndex = drawInfo->baseVertex + startingIndex + k;");
+ 
+ 		if (stage_in_var_id)
+ 		{

@@ -1,0 +1,59 @@
+--- a/MoltenVK/MoltenVK/Commands/MVKCmdDraw.mm	2026-10-11 13:56:44
++++ b/MoltenVK/MoltenVK/Commands/MVKCmdDraw.mm	2026-10-11 13:57:02
+@@ -165,6 +165,9 @@
+ 	int32_t indexSize;
+ 	uint64_t indexBuffer;
+ 	uint8_t topoStrip;
++	/* firstVertex, or vertexOffset when indexed. SPIRV-Cross's mesh wrapper
++	 * declares the same struct; keep the two in step. */
++	int32_t baseVertex;
+ };
+ 
+ #pragma mark -
+@@ -368,9 +371,8 @@
+ #if MVK_XCODE_14
+                 } else if (pipeline->isGeometryPipeline()) {
+ 					DrawInfo drawInfo = {};
++					drawInfo.baseVertex = _firstVertex;
+ 
+-					[cmdEncoder->_mtlRenderEncoder setObjectBytes: &drawInfo length: sizeof(drawInfo) atIndex: pipeline->getDrawInfoBufferIndex()];
+-
+ 					auto primitiveType = cmdEncoder->getMtlGraphics().getPrimitiveType();
+ 					int threadCount = 0;
+ 					if (primitiveType == MTLPrimitiveTypePoint) {
+@@ -389,8 +391,10 @@
+ 						reportMessage(MVK_CONFIG_LOG_LEVEL_ERROR, "Unsupported primitive type: %lu", primitiveType);
+ 					}
+ 
+-					if (_firstVertex) reportMessage(MVK_CONFIG_LOG_LEVEL_ERROR, "First vertex not supported yet.");
+ 					if (_firstInstance) reportMessage(MVK_CONFIG_LOG_LEVEL_ERROR, "First instance not supported yet.");
++
++					// setObjectBytes copies now: only after topoStrip is set.
++					[cmdEncoder->_mtlRenderEncoder setObjectBytes: &drawInfo length: sizeof(drawInfo) atIndex: pipeline->getDrawInfoBufferIndex()];
+ 
+ 					[cmdEncoder->_mtlRenderEncoder drawMeshThreadgroups: MTLSizeMake(threadCount, _instanceCount, 1)
+ 											threadsPerObjectThreadgroup: MTLSizeMake(1, 1, 1)
+@@ -654,9 +658,9 @@
+ 					drawInfo.indexed = true;
+ 					drawInfo.indexSize = (int)idxSize;
+ 					drawInfo.indexBuffer = ibb.mtlBuffer.gpuAddress + idxBuffOffset;
++					drawInfo.baseVertex = _vertexOffset;
+ 
+ 					[cmdEncoder->_mtlRenderEncoder useResource: ibb.mtlBuffer usage: MTLResourceUsageRead stages: MTLRenderStageObject];
+-					[cmdEncoder->_mtlRenderEncoder setObjectBytes: &drawInfo length: sizeof(drawInfo) atIndex: pipeline->getDrawInfoBufferIndex()];
+ 
+ 					auto primitiveType = cmdEncoder->getMtlGraphics().getPrimitiveType();
+ 					int threadCount = 0;
+@@ -676,9 +680,11 @@
+ 						reportMessage(MVK_CONFIG_LOG_LEVEL_ERROR, "Unsupported primitive type %lu.", primitiveType);
+ 					}
+ 
+-					if (_vertexOffset) reportMessage(MVK_CONFIG_LOG_LEVEL_ERROR, "Vertex offset not supported yet.");
+ 					if (_firstInstance) reportMessage(MVK_CONFIG_LOG_LEVEL_ERROR, "First instance not supported yet.");
+ 
++					// setObjectBytes copies now: only after topoStrip is set.
++					[cmdEncoder->_mtlRenderEncoder setObjectBytes: &drawInfo length: sizeof(drawInfo) atIndex: pipeline->getDrawInfoBufferIndex()];
++
+ 					[cmdEncoder->_mtlRenderEncoder drawMeshThreadgroups:MTLSizeMake(threadCount, _instanceCount, 1)
+ 											threadsPerObjectThreadgroup:MTLSizeMake(1, 1, 1)
+ 											  threadsPerMeshThreadgroup:MTLSizeMake(1, 1, 1)];

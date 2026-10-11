@@ -71,9 +71,13 @@ let
     # Forward elements, carry the primitive ID through the payload, scale
     # non-strip draws up. All three generated shaders compile under
     # Apple's Metal toolchain (checked locally with xcrun metal).
+    # The wrapper also ignored the draw's first vertex and fetched odd
+    # strip triangles with flipped winding; with moltenvk-mesh-base-vertex
+    # it adds the base vertex and uses Vulkan's strip order.
     patches = [
       ./spirv-cross-robust-size-index.patch
       ./spirv-cross-mesh-wrapper.patch
+      ./spirv-cross-mesh-base-vertex.patch
     ];
   };
 
@@ -98,7 +102,12 @@ let
         # usage whenever it is offered, so no window depth buffer could be
         # allocated and every zink frame failed its depth test. Upstream
         # main has the same code.
-        patches = old.patches or [ ] ++ [ ./moltenvk-depth-no-host-transfer.patch ];
+        # The geometry (mesh) draw path dropped firstVertex and
+        # vertexOffset, and uploaded the draw info before marking strips.
+        patches = old.patches or [ ] ++ [
+          ./moltenvk-depth-no-host-transfer.patch
+          ./moltenvk-mesh-base-vertex.patch
+        ];
         # nixpkgs renames the SPIRV-Cross namespace; the fork spells it once.
         postPatch = old.postPatch + ''
           substituteInPlace MoltenVK/MoltenVK/GPUObjects/MVKPipeline.mm \
