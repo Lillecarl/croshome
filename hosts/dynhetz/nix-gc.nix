@@ -6,23 +6,19 @@ let
   nix-collect-garbage = "/run/current-system/sw/bin/nix-collect-garbage";
 in
 {
-  # Collect weekly, keeping a month of generations: unattended, because no
-  # reminder fires before /nix fills. Like the manual rule below this drops
-  # every old generation with it, rollback included -- intended.
+  # The daemon never collects on its own: pynixd manages GC (see
+  # ./pynixd.nix), and a second collector deletes what its liveness
+  # mirror still counts as alive. So the weekly timer stays off and no
+  # min-free/max-free floor is set -- either would let the daemon start
+  # a collection pass beside pynixd's.
   nix.gc = {
-    automatic = true;
-    dates = "weekly";
-    options = "--delete-older-than 30d";
+    automatic = false;
   };
 
   nix.settings = {
     # Deduplicate the store: one copy of every identical file. The first
     # run walks the whole store and is IO-heavy on the mirror.
     auto-optimise-store = true;
-    # Start collecting at 10G free, stop at 100G: a runaway build fills
-    # terabytes here, and an explicit floor beats noticing at zero.
-    min-free = "10G";
-    max-free = "100G";
   };
   # Run as root this collects the system profile too, so it drops every old
   # NixOS generation and with them the ability to roll back to one. That is what
