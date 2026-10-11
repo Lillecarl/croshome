@@ -118,6 +118,30 @@ Patches in hosts/macbook/venus-vm/ (all against Mesa 26.2.2 / UTM pins):
    a depth attachment to private types and host transfer removes
    private types -> 0. Fix: moltenvk-depth-no-host-transfer.patch drops
    the feature for depth/stencil formats. Upstream report candidate.
+8. Still black after 7. Split by experiments (all env or test-only):
+   - Headless gltest.c (surfaceless EGL, FBO, glReadPixels): zink PASSES
+     clear, VBO, VS/FS uniforms, depth, cull, client arrays, indexed,
+     interleaved stride 24, strips with first>0. Same as virgl.
+   - Keeping draws off the generated PV GS (no mesh path): still black.
+     Mesh path is not the cause.
+   - es2gears with a red clear: virgl window red, zink window BLACK.
+     Not even the clear arrives: frames never reach the screen.
+   - API dump: vkcube swapchain R16G16B16A16_SFLOAT/FIFO (works); zink
+     A2R10G10B10_UNORM_PACK32/MAILBOX/PASS_THROUGH. EGL ranks the
+     10-bit config first.
+   - allow_rgb10_configs=false: zink gears RENDER CORRECTLY in the
+     window. MESA_VK_WSI_PRESENT_MODE=fifo alone: still black.
+   - gltest into a GL_RGB10_A2 renderbuffer under zink: PASS. Rendering
+     is fine; the import is not.
+9. Cause: niri (virgl) imports the 10-bit BGR Venus blob; UTM vrend
+   wraps it as MTLPixelFormatBGR10A2Unorm. ANGLE validates that as an
+   EGLImage but maps it to GL_BGR10_A2_ANGLEX, NeverSupported for
+   texturing (angle formatutils.cpp:1148, pin 7ab02e1d). niri samples an
+   incomplete texture: opaque black, no error anywhere.
+   Fix: virglrenderer-metal-bgr10a2-import.patch wraps it as
+   RGB10A2Unorm and swaps R/B in vrend sampler views (metal_swap_rb).
+   Verified: zink gears render with correct colours on the default
+   10-bit config. Upstream report candidate (UTM virglrenderer).
 
 ## Rejected hypotheses (do not retry)
 
@@ -135,6 +159,21 @@ Patches in hosts/macbook/venus-vm/ (all against Mesa 26.2.2 / UTM pins):
   Second dynamic mechanism (uses_dynamic_stride, from EDS) keeps
   pipelines dynamic via check_vertex_strides recompute. All three flags
   are needed (screen + context + program_state.hpp).
+- Object stage missing its UBO/size buffers (uniforms read 0 -> all
+  positions at origin): NO. MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1
+  (env on the runner; set *_ERROR_MODE=nslog) gives zero API or GPU
+  validation errors in virgl_render_server. The 12k "INF or NAN in
+  interpolant _uvso_g0" reports come from qemu-system-aarch64 itself
+  (ANGLE display path), not the guest's pipelines.
+- Host "vkr:" validation spam (FOREIGN queue family, host-pointer import
+  handleTypes, command pool queue family): present in vkcube runs that
+  render fine. Not the black-window cause.
+- Metal texture-descriptor swizzle for the 10-bit import: NO. Metal
+  asserts (swizzle forbids ShaderWrite/RenderTarget usage, QEMU aborts);
+  sample-only usage avoids that, but ANGLE samples through its own views
+  and drops the swizzle (red and blue come out swapped).
+- Forced FIFO present mode (zink uses MAILBOX): no effect on the black
+  window.
 - R3 (skip generated GS when no flat varyings): MOOT. The mesh path
   works; killing the GS is no longer needed or wanted.
 
@@ -163,9 +202,10 @@ vn_get_target_ring NULL return.
 
 ## Next steps
 
-R2: confirm the depth fix (step 7) renders gears under zink. If still
-black: FS UBO content path (buffer(1) through the vkr descriptor heap),
-then mesh raster state.
+R6: report steps 7 and 9 upstream (MoltenVK, UTM virglrenderer).
+R7: SPIRV-Cross emits a variable named `sampler` that Metal rejects
+("must use 'struct' tag to refer to type 'sampler'"); seen with
+GALLIUM_HUD=fps under zink, which then aborts.
 R5: hand-written patch hygiene: always verify with `patch -p1 --dry-run`
 against pristine sources; hand-counted hunk headers bit twice (missing
 trailing context line; 9-vs-10-space indent). Generate via diff where
