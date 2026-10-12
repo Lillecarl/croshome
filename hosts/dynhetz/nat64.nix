@@ -189,17 +189,29 @@ in
         #
         # ICMP is in the list on purpose: without it `ping` from a pod fails
         # while TCP works, which reads as a routing problem and is not one.
-        pool4 =
-          [
-            # The static forward below owns this port: outside the dynamic
-            # range, so outbound masquerading never hands it out. 443
-            # answers nowhere else on this host since OpenVPN's removal.
-            {
-              protocol = "TCP";
-              prefix = "${nodeIPv4}/32";
-              "port range" = "443-443";
-            }
-          ]
+          pool4 =
+            [
+              # The static forwards below own these ports: outside the
+              # dynamic range, so outbound masquerading never hands them
+              # out. Both entries must also be said here because a BIB
+              # entry may only name an address already in pool4 -- Jool
+              # refuses the config otherwise (measured: error 22, "does
+              # not belong to pool4"). Neither port serves anything else
+              # on this IPv4 address: 443 answers nowhere on this host
+              # since OpenVPN's removal, and 6443's only other listener
+              # (the host apiserver's *:6443 socket) is firewall-dead on
+              # this address (see the BIB entry below).
+              {
+                protocol = "TCP";
+                prefix = "${nodeIPv4}/32";
+                "port range" = "443-443";
+              }
+              {
+                protocol = "TCP";
+                prefix = "${nodeIPv4}/32";
+                "port range" = "6443-6443";
+              }
+            ]
           ++ map
             (protocol: {
               inherit protocol;
