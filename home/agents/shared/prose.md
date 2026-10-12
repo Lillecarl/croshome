@@ -27,6 +27,7 @@ apply. Optimise for a model reading once, not a human re-reading.
 - Drop hedging, motivation and reassurance. A model needs no persuading.
 - Lists and fragments beat full sentences.
 - Keep the *why* only where it changes a judgement call at the edge.
+- Name the parties Agent and User, never "you" or "I". "You" could be either; "I" is neither.
 
 ## Comments in code
 
