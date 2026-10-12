@@ -188,6 +188,7 @@
     # guessed at. The TUIs above -- yazi, gitui, lazygit, k9s -- are the
     # opposite, and they are here for a human.
     config.lib.packages.comma
+    bc # arbitrary-precision calculator for shell arithmetic past $(( ))
     gron # JSON to greppable lines and back, for when the shape is unknown
     hyperfine # timing with warm-up, repeats and a variance figure, not one run
     jc # turns the output of ~100 classic commands into JSON
