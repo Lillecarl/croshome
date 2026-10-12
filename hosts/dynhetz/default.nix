@@ -36,6 +36,7 @@
     ./wireguard.nix
     ./scan-access.nix
     ./ollama.nix
+    ./aiscalate.nix
     ./ttyd.nix
     # pynixd stays on its own umbrella pin, `nixidae-pynixd` -- see
     # ../flake.nix. That input never names a path in ./overrides.nix, so a
