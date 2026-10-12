@@ -380,6 +380,21 @@
     gid = 20; # staff
     home = "/Users/lillecarl";
     shell = pkgs.fish;
+    # The public half of ~/.ssh/id_ed25519, same key hetztop and dynhetz
+    # authorize. Read at build time, so the store holds the key, not a path.
+    openssh.authorizedKeys.keyFiles = [ ../../lillecarl.pub ];
+  };
+
+  # Remote Login over SSH as lillecarl, key only. `enable` bootstraps Apple's
+  # own sshd; `extraConfig` lands in sshd_config.d ahead of the defaults, so
+  # these values win.
+  services.openssh = {
+    enable = true;
+    extraConfig = ''
+      PubkeyAuthentication yes
+      PasswordAuthentication no
+      KbdInteractiveAuthentication no
+    '';
   };
 
   # /etc/zshrc still needs managing: zsh remains root's and macOS' fallback shell.
