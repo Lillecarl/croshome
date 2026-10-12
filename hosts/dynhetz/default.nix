@@ -233,6 +233,11 @@
         # container guests and nixpkgs' nspawn tests ask for it.
         auto-allocate-uids = true;
         use-cgroups = true;
+        # A build that prints nothing for an hour is killed. Clients send
+        # this with their options and pynixd forwards it; the default 0 let
+        # two hung pytest builds hold both local slots for 58 hours
+        # (Lillecarl/pynixd#89, #91).
+        max-silent-time = 3600;
         # Replaces the default list, so it names the defaults too.
         system-features = [
           "nixos-test"
