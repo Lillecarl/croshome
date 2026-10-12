@@ -189,17 +189,29 @@ in
         #
         # ICMP is in the list on purpose: without it `ping` from a pod fails
         # while TCP works, which reads as a routing problem and is not one.
-        pool4 =
-          [
-            # The static forward below owns this port: outside the dynamic
-            # range, so outbound masquerading never hands it out. 443
-            # answers nowhere else on this host since OpenVPN's removal.
-            {
-              protocol = "TCP";
-              prefix = "${nodeIPv4}/32";
-              "port range" = "443-443";
-            }
-          ]
+          pool4 =
+            [
+              # The static forwards below own these ports: outside the
+              # dynamic range, so outbound masquerading never hands them
+              # out. Both entries must also be said here because a BIB
+              # entry may only name an address already in pool4 -- Jool
+              # refuses the config otherwise (measured: error 22, "does
+              # not belong to pool4"). Neither port serves anything else
+              # on this IPv4 address: 443 answers nowhere on this host
+              # since OpenVPN's removal, and 6443's only other listener
+              # (the host apiserver's *:6443 socket) is firewall-dead on
+              # this address (see the BIB entry below).
+              {
+                protocol = "TCP";
+                prefix = "${nodeIPv4}/32";
+                "port range" = "443-443";
+              }
+              {
+                protocol = "TCP";
+                prefix = "${nodeIPv4}/32";
+                "port range" = "6443-6443";
+              }
+            ]
           ++ map
             (protocol: {
               inherit protocol;
@@ -239,6 +251,21 @@ in
             protocol = "TCP";
             "ipv4 address" = "${nodeIPv4}#443";
             "ipv6 address" = "2a01:4f9:3071:11d7:e2::1#443";
+          }
+          # nixlab3's control-plane VIP (kubernetes.lab3.ch.se.eu.org,
+          # AAAA-only): this entry gives IPv4-only clients the API on this
+          # host's port 6443. Same shape as the traefik entry above.
+          #
+          # The host's own apiserver also listens on *:6443, so this looks
+          # like a collision and is not: the BIB matches only nodeIPv4,
+          # whose 6443 is firewall-dead today (./kubernetes/default.nix
+          # opens 6443 on wg-dynhetz alone). The host API stays where it
+          # is on loopback, wg-dynhetz and IPv6; only the dead public-V4
+          # endpoint moves, to nixlab3.
+          {
+            protocol = "TCP";
+            "ipv4 address" = "${nodeIPv4}#6443";
+            "ipv6 address" = "2a01:4f9:3071:11d7:e2::4#6443";
           }
         ];
       };

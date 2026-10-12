@@ -178,6 +178,8 @@
     kubectl
     kubectl-explore
     kubectx
+    # OIDC credential plugin; provides the kubectl-oidc_login binary.
+    kubelogin-oidc
     stern
 
     # Google Cloud. `gcloud` for GKE and the rest of GCP.
