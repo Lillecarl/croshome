@@ -37,7 +37,12 @@
     };
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
-      inputs.nixpkgs.follows = "nixpkgs";
+      # No nixpkgs follows: their 2026-10-12 tree needs the installAgentSkills
+      # helper (nixpkgs late Sep 2026) for agent-slack, and our pin
+      # (2026-09-10) predates it -- with the follows, every llm-agents
+      # package fails evaluation. Leaf CLI binaries only, so a second
+      # nixpkgs beside the system's is harmless. Restore the follows at the
+      # next routine nixpkgs bump, once it carries the helper.
     };
     crane.url = "github:ipetkov/crane";
     bun2nix = {

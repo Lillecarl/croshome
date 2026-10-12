@@ -1,0 +1,7 @@
+// opencode2's own config: schema only, everything else deliberate later.
+// v1's settings do NOT carry over -- `permission` became `permissions`,
+// `bash` became `shell`, `task` became `subagent`. Port a setting by
+// reading the v2 shape, never by copying the v1 line.
+{
+  "$schema": "https://opencode.ai/config.json"
+}

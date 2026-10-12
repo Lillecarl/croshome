@@ -170,6 +170,50 @@ let
   phabfiveSkillLink = agentDir: {
     "${agentDir}/skills/phabfive".source = "${pkgs.phabfive}/share/skills/phabfive/phabfive";
   };
+
+  # opencode2: the v2 beta beside v1, not instead of it. llm-agents ships it
+  # as `opencode2`, so the two binaries share no PATH entry and no session
+  # ever starts the wrong one.
+  #
+  # Isolation, because a trial must not touch v1's state:
+  #
+  # - XDG_CONFIG_HOME, XDG_DATA_HOME and XDG_STATE_HOME point at
+  #   ~/.config-opencode2, ~/.local/share-opencode2 and
+  #   ~/.local/state-opencode2. Session databases already separate by
+  #   release channel, and the cache stays shared the way upstream
+  #   designed it, but config, credentials and state get their own roots.
+  #   The names are XDG roots, not opencode directories: v2 appends
+  #   `/opencode` itself.
+  # - ~/.config-opencode2/opencode/ holds symlinks, not copies: skills and
+  #   AGENTS.md track v1 (unchanged format), auth.json shares credentials
+  #   (same format; a dangling link before the first v1 login reads as no
+  #   auth and writes through on login). plugins/ stays absent on purpose:
+  #   v1 implementations do not run in v2. opencode.jsonc is a checkout
+  #   file, so v2's own edits show up as working-copy changes.
+  opencode2 =
+    (runsOnDarwinButFailsTheCheck inputs.llm-agents.packages.${system}.opencode2).overrideAttrs (old: {
+      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
+      # No install check on the wrapper: the redirected XDG_DATA_HOME below
+      # expands $HOME at runtime, and the sandbox's HOME (/homeless-shelter)
+      # is read-only, so v2 dies creating its log dir before --version
+      # prints. The unwrapped binary passes its own check; the wrapper was
+      # run outside the sandbox instead: `opencode2 --version` says 2.0.27
+      # and `debug paths config`/`db` land in the isolated roots.
+      doInstallCheck = false;
+      postFixup =
+        (old.postFixup or "")
+        # --run, not --set: --set bakes the value at build time, and $HOME
+        # at build time is the sandbox (/homeless-shelter) under double
+        # quotes or a literal `$HOME` under single quotes, which v2 takes
+        # as a relative path off the working directory. --run lines land
+        # verbatim in the wrapper script, so $HOME expands when it runs.
+        + ''
+          wrapProgram $out/bin/opencode2 \
+            --run 'export XDG_CONFIG_HOME="$HOME/.config-opencode2"' \
+            --run 'export XDG_DATA_HOME="$HOME/.local/share-opencode2"' \
+            --run 'export XDG_STATE_HOME="$HOME/.local/state-opencode2"'
+        '';
+    });
 in
 {
   # One store path per skill. Both agents read the same set: a skill is
@@ -204,7 +248,20 @@ in
     // pyjjSkillLink ".claude"
     // pyjjSkillLink ".gemini"
     // phabfiveSkillLink ".claude"
-    // phabfiveSkillLink ".gemini";
+    // phabfiveSkillLink ".gemini"
+    // {
+      # v2's isolated roots (see the `opencode2` binding above). Out-of-store
+      # links so they track the live files, the same trade ./opencode.nix
+      # makes for AGENTS.md.
+      ".config-opencode2/opencode/skills".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/opencode/skills";
+      ".config-opencode2/opencode/AGENTS.md".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/opencode/AGENTS.md";
+      ".local/share-opencode2/opencode/auth.json".source =
+        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/opencode/auth.json";
+      ".config-opencode2/opencode/opencode.jsonc".source =
+        config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/agents/opencode2/opencode.jsonc";
+    };
 
   # Single keys merged into ~/.claude/settings.json. Every other key stays as
   # Claude Code wrote it; ./wrapty.nix explains why the file is not generated
@@ -305,5 +362,9 @@ in
         };
       }
     )
+
+    # The v2 beta, wrapped with its own XDG roots (see the `opencode2`
+    # binding above). v1 above stays exactly as it is.
+    opencode2
   ];
 }
