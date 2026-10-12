@@ -240,6 +240,21 @@ in
             "ipv4 address" = "${nodeIPv4}#443";
             "ipv6 address" = "2a01:4f9:3071:11d7:e2::1#443";
           }
+          # nixlab3's control-plane VIP (kubernetes.lab3.ch.se.eu.org,
+          # AAAA-only): this entry gives IPv4-only clients the API on this
+          # host's port 6443. Same shape as the traefik entry above.
+          #
+          # The host's own apiserver also listens on *:6443, so this looks
+          # like a collision and is not: the BIB matches only nodeIPv4,
+          # whose 6443 is firewall-dead today (./kubernetes/default.nix
+          # opens 6443 on wg-dynhetz alone). The host API stays where it
+          # is on loopback, wg-dynhetz and IPv6; only the dead public-V4
+          # endpoint moves, to nixlab3.
+          {
+            protocol = "TCP";
+            "ipv4 address" = "${nodeIPv4}#6443";
+            "ipv6 address" = "2a01:4f9:3071:11d7:e2::4#6443";
+          }
         ];
       };
     };
