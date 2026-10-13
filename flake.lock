@@ -501,11 +501,11 @@
     "pyterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1791904046,
-        "narHash": "sha256-0OVEWSbcGJ1awax2WDrQRO5lMR4VD9eMili9EXv1qAY=",
+        "lastModified": 1791904646,
+        "narHash": "sha256-udL9oM+BzT1t9ojdSUP3Y6A8C8F+Jh7mScI03vZfgd0=",
         "ref": "refs/heads/main",
-        "rev": "4d9d0a160b0ae8a07052f00d674a445419077350",
-        "revCount": 780,
+        "rev": "4705353a7b4002598157a19e1c0e58e375ba7156",
+        "revCount": 781,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Lillecarl/pyterm"
