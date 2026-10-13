@@ -39,6 +39,9 @@ in
       "claude"
       "firefox"
       "fuse-t"
+      # The browser pymux-browser starts for Playwright and other CDP
+      # tools: Firefox speaks only WebDriver BiDi. Lillecarl/pymux#653.
+      "google-chrome"
       "kitty"
       "nextcloud"
       "paseo"
