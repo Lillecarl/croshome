@@ -72,6 +72,28 @@
   # keep a second copy that can drift from it.
   home.stateVersion = osConfig.system.stateVersion;
 
+  # The `t3` CLI beside the service below: `t3 pair` mints pairing tokens
+  # against the running server, `t3 --help` lists the rest. Scoped to this
+  # host rather than shared in ../../home/packages.nix -- the service it
+  # talks to lives here.
+  home.packages = [ pkgs.t3code ];
+
+  # T3 Code, headless: the server workspace from pkgs/t3code (`t3 serve`,
+  # no browser, pairing URL in the logs). Loopback only -- reach it over
+  # `ssh -L 18789:localhost:18789 dynhetz` and open the pairing URL from
+  # `journalctl --user -u t3code -f` on first start. (linger is already on
+  # for this user, so the user manager -- and this service -- starts at boot
+  # with nobody logged in.)
+  systemd.user.services.t3code = {
+    Unit.Description = "T3 Code server (headless, built from source)";
+    Service = {
+      ExecStart = "${lib.getExe pkgs.t3code} serve --port 18789 --host 127.0.0.1 --no-browser";
+      Restart = "always";
+      RestartSec = "2";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
+
   # Spotify playback and control in a terminal. Scoped to this host rather
   # than shared: it plays through this machine's system-wide PipeWire.
   programs.spotify-player = {
