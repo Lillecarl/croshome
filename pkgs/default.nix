@@ -137,6 +137,13 @@ in
       };
     });
 
+  # Local gateway routing Claude Code to other providers. Built by pydd's
+  # npm lane straight from the lock: one node per package, placed where the
+  # lock says, so npm's own placement fights stay out of it. Tracks upstream
+  # releases rather than the nixpkgs pin, which sits two majors behind.
+  # Takes `inputs` for the nixidae tree pydd lives in.
+  claude-code-router = final.callPackage ./claude-code-router.nix { inherit inputs; };
+
   toad = final.python314.pkgs.callPackage ./toad.nix { };
 
   wrapty = final.python314.pkgs.callPackage ./wrapty { };
