@@ -480,4 +480,10 @@ in
   # compiles jj-lib and the crate tree under it from source -- so the first
   # build of either is a long Rust build, and the second is free.
   inherit (pyjj) pyjj-cli pyjjui;
+
+  # The T3 Code server, built from latest main at every rebuild -- see the
+  # file. Server workspace only: the CLI bundle plus the web client it
+  # serves, no desktop/electron/mobile. The dynhetz user service in
+  # ../hosts/dynhetz/home.nix runs it headless.
+  t3code = final.callPackage ./t3code.nix { };
 }
