@@ -292,6 +292,13 @@ in
     ];
   });
 
+  # spotify-player with PulseAudio output instead of rodio/ALSA, so it plays
+  # into pymux's forwarded speaker: pymux's private PipeWire sets
+  # PULSE_SERVER in every pane, and a Pulse client follows it while an ALSA
+  # one plays into the void (dynhetz has no ALSA->PipeWire route). Same
+  # streaming/daemon/media-control features, only the sink moves.
+  spotify-player = prev.spotify-player.override { withAudioBackend = "pulseaudio"; };
+
   tmux-unscroll = prev.tmux.overrideAttrs {
     src = /home/lillecarl/Code/tmux;
   };

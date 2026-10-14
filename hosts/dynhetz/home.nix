@@ -72,6 +72,23 @@
   # keep a second copy that can drift from it.
   home.stateVersion = osConfig.system.stateVersion;
 
+  # Spotify playback and control in a terminal. Scoped to this host rather
+  # than shared: it plays through this machine's system-wide PipeWire.
+  programs.spotify-player = {
+    enable = true;
+    settings = {
+      # From an app at https://developer.spotify.com/dashboard (redirect URI
+      # http://127.0.0.1:8989/login). Uncomment and rebuild once it exists;
+      # without it `spotify_player` refuses to start.
+      # client_id = "...";
+      # No `theme` here: catppuccin (../../home/default.nix) already themes
+      # this program, and a second definition conflicts with it.
+      device = {
+        name = "dynhetz";
+      };
+    };
+  };
+
   # See ../../home/wrapty.nix -- puts wrapty on PATH so ../../home/fish/
   # functions/claude.fish routes `claude` through it, and so the Claude Code
   # plugin manifest under ../../home/claude/skills/wrapty can name its
