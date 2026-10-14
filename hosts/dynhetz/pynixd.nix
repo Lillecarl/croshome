@@ -87,6 +87,10 @@ in
           "big-parallel"
           "kvm"
           "uid-range"
+          # Mirrors nix.settings.system-features: pydd's planner builds
+          # need the daemon socket, and without this the scheduler refuses
+          # them with "no compatible store".
+          "recursive-nix"
         ];
         # Dead and unreferenced for a day may be collected. A week planned
         # nothing on a three-day-old tracker, which is the safe direction

@@ -240,12 +240,17 @@
         # (Lillecarl/pynixd#89, #91).
         max-silent-time = 3600;
         # Replaces the default list, so it names the defaults too.
+        # `recursive-nix`: pydd plans npm builds in a derivation, and the
+        # planner needs the daemon socket at build time. pynixd matches the
+        # feature in ../dynhetz/pynixd.nix; without it there the build is
+        # refused with "no compatible store".
         system-features = [
           "nixos-test"
           "benchmark"
           "big-parallel"
           "kvm"
           "uid-range"
+          "recursive-nix"
         ];
         trusted-public-keys = [
           "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
