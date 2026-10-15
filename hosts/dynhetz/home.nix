@@ -9,9 +9,6 @@
 {
   imports = [
     ../../home
-    # The message hub's MCP server and CLI. The daemon runs as the user
-    # service below; ../../home/claude/skills/ocahub documents the tools.
-    ../../home/ocahub-mcp.nix
     "${inputs.aid}/nix/home-manager.nix"
     ./aid-web.nix
   ];
@@ -48,24 +45,6 @@
   systemd.user.services.aid.Unit = {
     Requires = [ "agenix.service" ];
     After = [ "agenix.service" ];
-  };
-
-  # The cross-agent message hub: a ZeroMQ broker every agent session
-  # registers with. Idle it is one epoll-waiting process; Restart=always
-  # matters because agents reconnect silently but the in-memory registry
-  # does not survive a crash, so a promptly restarted hub is the difference
-  # between one missed message and many. Sockets live in
-  # $XDG_RUNTIME_DIR/ocahub, the mailbox in ~/.local/state/ocahub.
-  systemd.user.services.ocahub = {
-    Unit.Description = "ocahub: cross-agent message hub for OpenCode";
-    Service = {
-      # getExe resolves mainProgram, which is the client `ocac` -- the
-      # daemon must be named explicitly.
-      ExecStart = "${lib.getExe' pkgs.ocahub "ocahubd"}";
-      Restart = "always";
-      RestartSec = "2";
-    };
-    Install.WantedBy = [ "default.target" ];
   };
 
   # There is a NixOS underneath this one, so take its stateVersion rather than

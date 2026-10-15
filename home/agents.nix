@@ -134,8 +134,10 @@ let
   # claude.ai skill sync into, and it is left out so that sync lands in
   # $HOME. Linked like the rest, it wrote 4M of Anthropic's own skills into
   # this repository.
+  # `ocahub` is disabled: cross-agent messaging is off, so its skill stays
+  # out of every agent's view while its source remains in the tree.
   repoSkills = lib.attrNames (
-    lib.filterAttrs (name: type: type == "directory" && name != "synced") (
+    lib.filterAttrs (name: type: type == "directory" && name != "synced" && name != "ocahub") (
       builtins.readDir ./claude/skills
     )
   );

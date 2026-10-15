@@ -1,8 +1,8 @@
 # pyedit as an MCP server, for OpenCode and Claude Code. No secrets: the
 # server only stages edits the caller could already make through the CLI.
 #
-# OpenCode takes it through ./merged-file.nix into opencode.json, the same
-# shape as ./ocahub-mcp.nix. Claude Code takes it through the skill plugin:
+# OpenCode takes it through ./merged-file.nix into opencode.json; Claude
+# Code takes it through the skill plugin:
 # a directory under ~/.claude/skills carrying .claude-plugin/plugin.json
 # naming ./.mcp.json is enabled by default (see ./wrapty.nix), so this
 # module links the store SKILL.md together with both generated manifests.

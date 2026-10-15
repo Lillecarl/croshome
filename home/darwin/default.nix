@@ -8,7 +8,7 @@
   # No XDG_RUNTIME_DIR exists on macOS: the spec makes it the login manager's
   # job and launchd has no equivalent hook. $TMPDIR is launchd's per-user
   # directory (0700, machine-local), so a subdirectory of it has the right
-  # properties. ask, ocahub and wrapty bind their sockets in subdirectories of
+  # properties. ask and wrapty bind their sockets in subdirectories of
   # it; without the variable they fall back to a /run/user that macOS does not
   # have, or to the shared /tmp. A subdirectory rather than $TMPDIR itself, so
   # a program that assumes it owns XDG_RUNTIME_DIR stays inside it.

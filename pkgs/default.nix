@@ -252,27 +252,8 @@ in
 
   merged-file = final.python3.pkgs.callPackage ./merged-file { };
 
-  ocahub = final.python3.pkgs.callPackage ./ocahub { };
-
-  # The mock provider the TUI checks stand up. Upstream, not ours: see
-  # the file.
-  ocahub-fakellm = final.callPackage ./ocahub/fakellm.nix { };
-
-  # The TUI end-to-end check, a derivation of its own: a desktop stack
-  # of inputs that no ordinary build of the hub should carry. pymux
-  # from the pyterm tree, not nixpkgs' abandoned namesake -- callPackage
-  # would bind that one silently, the check would run the wrong
-  # multiplexer, and nothing in the type would say so. See ../flake.nix
-  # for why the input is a source tree.
-  ocahub-tui-e2e = final.callPackage ./ocahub/check-tui.nix {
-    ocahub = final.ocahub;
-    pymux = pyterm.pymux;
-    # pyterm's two-derivation suite runner, vendored verbatim (see the
-    # file): the run keeps its evidence through a red result, the
-    # verdict keeps the gate. The file evaluates to a set of the three
-    # pieces; the check wants the combined one.
-    suite = (final.callPackage ./ocahub/suite.nix { }).suite;
-  };
+  # ocahub entries removed: cross-agent messaging is off. The source
+  # stays in ./ocahub, unevaluated.
 
   jj-hunk = final.callPackage ./jj-hunk.nix { };
 
