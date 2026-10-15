@@ -134,6 +134,26 @@
           # I use it"). Not a secret, only affinity.
           extra_headers:
             x-opencode-session: 5c310b3d-1693-4ad7-99d2-eab7bb6b206c
+      - model_name: muse-spark-1.3-contributor
+        litellm_params:
+          # Responses API only (chat/completions answers "does not support
+          # this protocol"). No responses/ prefix on the model: a prefix
+          # leaks into the upstream model id and Go answers "Model is
+          # unavailable". model_info mode below selects the handler.
+          model: openai/muse-spark-1.3-contributor
+          api_base: https://opencode.ai/inference/go/v1
+          api_key: os.environ/OPENCODE_GO_API_KEY
+          extra_headers:
+            x-opencode-session: 5c310b3d-1693-4ad7-99d2-eab7bb6b206c
+        model_info:
+          mode: responses
+      - model_name: deepseek-v4.1-flash
+        litellm_params:
+          model: openai/deepseek-v4.1-flash
+          api_base: https://opencode.ai/inference/go/v1
+          api_key: os.environ/OPENCODE_GO_API_KEY
+          extra_headers:
+            x-opencode-session: 5c310b3d-1693-4ad7-99d2-eab7bb6b206c
     general_settings:
       master_key: os.environ/LITELLM_MASTER_KEY
   '';
