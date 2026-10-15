@@ -149,8 +149,12 @@
           mode: responses
       - model_name: deepseek-v4.1-flash
         litellm_params:
-          model: openai/deepseek-v4.1-flash
-          api_base: https://opencode.ai/inference/go/v1
+          # Native Anthropic: Go serves this model on /messages, so no
+          # translation touches tools. api_base names the full path
+          # because LITELLM_ANTHROPIC_DISABLE_URL_SUFFIX (in the env
+          # file) stops litellm appending /v1/messages itself.
+          model: anthropic/deepseek-v4.1-flash
+          api_base: https://opencode.ai/inference/go/v1/messages
           api_key: os.environ/OPENCODE_GO_API_KEY
           extra_headers:
             x-opencode-session: 5c310b3d-1693-4ad7-99d2-eab7bb6b206c
