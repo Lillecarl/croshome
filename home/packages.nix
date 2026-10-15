@@ -163,15 +163,6 @@
     # ELF breaks bun's bundle lookup).
     agent-slack
 
-    # Anthropic-API router for agent CLIs: claude-code talks to the local
-    # gateway and the gateway routes to other providers. Built by the
-    # overlay entry of the same name (../pkgs/default.nix) through the
-    # pydd npm lane at upstream v3.1.3. Pure JavaScript, so both
-    # platforms get it; verified on Linux. Providers import from the
-    # on-disk OpenCode credentials through `ccr ui`, so no key enters
-    # the store.
-    claude-code-router
-
     # Shells
     # The vendored xonsh bundle, built by the overlay entry of the same name
     # (../pkgs/default.nix). Installed, but deliberately not made anyone's

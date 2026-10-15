@@ -236,6 +236,19 @@ in
     armor = true;
   };
 
+  # LiteLLM proxy environment: OPENCODE_ZEN_API_KEY and OPENCODE_GO_API_KEY
+  # (copied from ~/.local/share/opencode/auth.json) plus LITELLM_MASTER_KEY
+  # for the proxy's own auth, one KEY=value per line.
+  # ../hosts/dynhetz/home.nix decrypts it with home agenix and hands it to
+  # litellm.service as its EnvironmentFile. Same recipients as aid-env:
+  # read by a user service, so the user key and no host key.
+  "litellm-env.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl-ssh
+    ];
+  };
+
   # Adding another: name it here and in `age.secrets` in ./default.nix. Naming
   # it in only one of the two places is the usual mistake -- this file decides
   # who *can* decrypt, that file decides what actually gets decrypted and where

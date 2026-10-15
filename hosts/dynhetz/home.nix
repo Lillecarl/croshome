@@ -94,6 +94,52 @@
     Install.WantedBy = [ "default.target" ];
   };
 
+  # LiteLLM proxy: one OpenAI-style endpoint on loopback :4000 in front of
+  # the OpenCode subscriptions, so every agent CLI speaks the same API.
+  # Models come from the file below (edit it to add more); keys come from
+  # the environment, never the store: ../../secrets/litellm-env.age
+  # decrypts with home agenix and lands as this service's EnvironmentFile.
+  # Lists with: curl -H "Authorization: Bearer $LITELLM_MASTER_KEY"
+  # localhost:4000/v1/models (key in the decrypted env file).
+  age.secrets.litellm-env.file = ../../secrets/litellm-env.age;
+  systemd.user.services.litellm = {
+    Unit.Description = "LiteLLM proxy (OpenCode Zen + Go on loopback)";
+    Service = {
+      ExecStart = "${pkgs.litellm}/bin/litellm --config ${config.xdg.configFile."litellm/config.yaml".source} --host 127.0.0.1 --port 4000";
+      EnvironmentFile = "%t/agenix/litellm-env";
+      Restart = "always";
+      RestartSec = "2";
+    };
+    Install.WantedBy = [ "default.target" ];
+    Unit = {
+      Requires = [ "agenix.service" ];
+      After = [ "agenix.service" ];
+    };
+  };
+  xdg.configFile."litellm/config.yaml".text = ''
+    model_list:
+      - model_name: kimi-k3
+        litellm_params:
+          model: openai/kimi-k3
+          api_base: https://opencode.ai/inference/v1
+          api_key: os.environ/OPENCODE_ZEN_API_KEY
+      - model_name: mimo-v2.6-pro
+        litellm_params:
+          model: openai/mimo-v2.6-pro
+          api_base: https://opencode.ai/inference/go/v1
+          api_key: os.environ/OPENCODE_GO_API_KEY
+          # Go routes on this, not the key: one stable id per
+          # conversation. The proxy has no conversations, so one id
+          # for the whole proxy (see opencode.ai/docs/go, "Where can
+          # I use it"). Not a secret, only affinity.
+          extra_headers:
+            x-opencode-session: 5c310b3d-1693-4ad7-99d2-eab7bb6b206c
+    general_settings:
+      master_key: os.environ/LITELLM_MASTER_KEY
+  '';
+  # The proxy reads the file above once at startup: after changing it,
+  # rebuild and then `systemctl --user restart litellm` to pick it up.
+
   # Spotify playback and control in a terminal. Scoped to this host rather
   # than shared: it plays through this machine's system-wide PipeWire.
   programs.spotify-player = {
