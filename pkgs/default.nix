@@ -69,6 +69,22 @@ let
     pkgs = final;
     inherit (final.stdenv.hostPlatform) system;
   };
+
+  # pydd builds a third-party project from its own lock file: one node per
+  # package, planned in the build. Recursive mode on released Nix, because
+  # the daemon here has `recursive-nix` and no `builder-rpc-v0`. huggorm is
+  # only evaluated, never built: the `cli` writer shells out to `nix`.
+  pydd =
+    let
+      sources = import "${inputs.nixidae}/pydd/nix/sources.nix";
+      huggormSet = import sources.huggorm { inherit sources; };
+    in
+    final.callPackage "${inputs.nixidae}/pydd/lib" {
+      huggorm = huggormSet.lanes.nix_2_35.huggorm;
+      nix = final.nixVersions.nix_2_35;
+      writer = "cli";
+      plannerProtocol = "recursive";
+    };
 in
 {
   # The kernel module. `patches = [ ]` drops the Alpine kernel-6.18 patch
@@ -141,8 +157,7 @@ in
   # npm lane straight from the lock: one node per package, placed where the
   # lock says, so npm's own placement fights stay out of it. Tracks upstream
   # releases rather than the nixpkgs pin, which sits two majors behind.
-  # Takes `inputs` for the nixidae tree pydd lives in.
-  claude-code-router = final.callPackage ./claude-code-router.nix { inherit inputs; };
+  claude-code-router = final.callPackage ./claude-code-router.nix { inherit pydd; };
 
   toad = final.python314.pkgs.callPackage ./toad.nix { };
 

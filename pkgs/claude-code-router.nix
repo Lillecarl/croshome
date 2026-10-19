@@ -1,22 +1,7 @@
 {
-  callPackage,
   fetchFromGitHub,
-  inputs,
-  nixVersions,
+  pydd,
 }:
-let
-  # pydd's own wire, for the huggorm lane the library takes as an argument.
-  # Only evaluated, never built: the `cli` writer shells out to `nix`, and
-  # the planner runs on this package set's Python.
-  pyddSources = import "${inputs.nixidae}/pydd/nix/sources.nix";
-  huggormSet = import pyddSources.huggorm { sources = pyddSources; };
-  pydd = callPackage "${inputs.nixidae}/pydd/lib" {
-    huggorm = huggormSet.lanes.nix_2_35.huggorm;
-    nix = nixVersions.nix_2_35;
-    writer = "cli";
-    plannerProtocol = "recursive";
-  };
-in
 pydd.node.npm {
   project = fetchFromGitHub {
     owner = "musistudio";
