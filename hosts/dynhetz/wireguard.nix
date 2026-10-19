@@ -227,13 +227,15 @@ assert noCollision "IPv6" userV6;
         wg genkey > server.key
         wg pubkey < server.key > server.pub
       fi
-      # Two peers, each with its own keypair and its own `wg set ... peer`
+      # Three peers, each with its own keypair and its own `wg set ... peer`
       # line -- WireGuard has no equivalent of a certificate CN multiple
       # peers can share. client.* is lillecarl's MacBook, generated once
       # with its whole client config handed out. mikrotik.* is the
       # MikroTik router: an exit-node client, so it may send from any
-      # address -- the NAT and forwarding on this host that make that
-      # reachable are a later change.
+      # address. oobtik.* is a second MikroTik, reachable from here. It
+      # holds only its own two addresses: an
+      # interface routes each destination to one peer, and 0.0.0.0/0,::/0
+      # already belongs to mikrotik.
       if [ ! -f client.key ]; then
         wg genkey > client.key
         wg pubkey < client.key > client.pub
@@ -241,6 +243,10 @@ assert noCollision "IPv6" userV6;
       if [ ! -f mikrotik.key ]; then
         wg genkey > mikrotik.key
         wg pubkey < mikrotik.key > mikrotik.pub
+      fi
+      if [ ! -f oobtik.key ]; then
+        wg genkey > oobtik.key
+        wg pubkey < oobtik.key > oobtik.pub
       fi
 
       ip link show wg-dynhetz >/dev/null 2>&1 || ip link add wg-dynhetz type wireguard
@@ -250,7 +256,9 @@ assert noCollision "IPv6" userV6;
         peer "$(cat client.pub)" \
         allowed-ips 10.100.0.2/32,2a01:4f9:3071:11d7:90::2/128 \
         peer "$(cat mikrotik.pub)" \
-        allowed-ips 0.0.0.0/0,::/0
+        allowed-ips 0.0.0.0/0,::/0 \
+        peer "$(cat oobtik.pub)" \
+        allowed-ips 10.100.0.4/32,2a01:4f9:3071:11d7:90::4/128
 
       ip addr replace 10.100.0.1/24 dev wg-dynhetz
       ip -6 addr replace 2a01:4f9:3071:11d7:90::1/112 dev wg-dynhetz
@@ -544,6 +552,25 @@ assert noCollision "IPv6" userV6;
       # /ipv6/route add dst-address=::/0 gateway=wg-dynhetz
       EOF
       chmod 600 mikrotik.rsc
+
+      # oobtik routes only dynhetz's networks into the tunnel. Its LAN can
+      # still leave through dynhetz behind a masquerade onto wg-dynhetz,
+      # because the server accepts only oobtik's own addresses.
+      cat <<EOF > oobtik.rsc
+      /interface/wireguard
+      add name=wg-dynhetz mtu=1420 private-key="$(cat oobtik.key)"
+      /interface/wireguard/peers
+      add interface=wg-dynhetz name=dynhetz \
+          public-key="$(cat server.pub)" \
+          endpoint-address=37.27.129.237 endpoint-port=51820 \
+          allowed-address=10.100.0.0/24,2a01:4f9:3071:11d7::/64 \
+          persistent-keepalive=25s
+      /ip/address
+      add interface=wg-dynhetz address=10.100.0.4/24
+      /ipv6/address
+      add interface=wg-dynhetz address=2a01:4f9:3071:11d7:90::4/112
+      EOF
+      chmod 600 oobtik.rsc
     '';
   };
 
