@@ -61,9 +61,7 @@ let
   # and ../flake.nix does state nixosConfigurations. Nothing forces it today,
   # so this keeps a trap out rather than fixing a break.
   #
-  # Take named attributes from this, never the whole set. Its `jj` reaches into
-  # jj-vcs's own flake and instantiates a nixpkgs of its own on whatever
-  # release that flake pins; `jujutsu` below takes it on purpose.
+  # Take named attributes from this, never the whole set.
   pyjj = import inputs.pyjj {
     pkgs = final;
     inherit (final.stdenv.hostPlatform) system;
