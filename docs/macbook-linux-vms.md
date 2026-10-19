@@ -25,6 +25,12 @@ in the same edit.** The guest is an aarch64-linux system, so building a changed
 one needs a Linux builder: that is the deadlock, and it is not hypothetical.
 See the commit that added the activation check.
 
+The fallback image comes from the `nixpkgs-stable` pin (nixos-25.11), not the
+main nixpkgs: only the release channels carry substitutes for the whole guest
+closure. The pin stays dormant until the fallback is revived -- nothing
+fetches it or instantiates the package set while `enable = false` -- so
+keeping it costs nothing.
+
 Using the VZ builder: build anything. Connecting to 127.0.0.1:31122 starts it.
 
 `hosts/macbook/vz-builder/` holds three files. `default.nix` is the nix-darwin

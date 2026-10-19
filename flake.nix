@@ -26,10 +26,16 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
     # Only ./hosts/macbook/linux-builder.nix reads this, and it deliberately
-    # does not follow nixpkgs. Hydra builds darwin.linux-builder for the
-    # release channels and not for unstable, so taking the VM from unstable
-    # leaves 21 aarch64-linux derivations that nothing has built and that a Mac
-    # cannot build -- which is the exact bootstrap the builder exists to break.
+    # does not follow nixpkgs. Hydra (the official build farm) builds
+    # darwin.linux-builder for the release channels and not for unstable, so
+    # taking the VM from unstable leaves 21 aarch64-linux derivations that
+    # nothing has built and that a Mac cannot build -- which is the exact
+    # bootstrap the builder exists to break.
+    #
+    # Dormant while the fallback stays off: the import sits behind a lazy
+    # binding forced only by nix.linux-builder.package, so nothing fetches
+    # this source or instantiates the package set until the builder is
+    # revived. Keeping the pin costs nothing.
     nixpkgs-stable.url = "https://channels.nixos.org/nixos-25.11/nixexprs.tar.xz";
     disko = {
       url = "github:nix-community/disko";
@@ -37,12 +43,11 @@
     };
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
-      # No nixpkgs follows: their 2026-10-12 tree needs the installAgentSkills
-      # helper (nixpkgs late Sep 2026) for agent-slack, and our pin
-      # (2026-09-10) predates it -- with the follows, every llm-agents
-      # package fails evaluation. Leaf CLI binaries only, so a second
-      # nixpkgs beside the system's is harmless. Restore the follows at the
-      # next routine nixpkgs bump, once it carries the helper.
+      # Follows nixpkgs. This needs the installAgentSkills helper (nixpkgs
+      # late Sep 2026, for agent-slack); a nixpkgs pin older than that fails
+      # every llm-agents package at evaluation. The pin carries it, verified
+      # by `hasAttr installAgentSkills` before restoring the follows.
+      inputs.nixpkgs.follows = "nixpkgs";
     };
     crane.url = "github:ipetkov/crane";
     bun2nix = {
@@ -52,6 +57,8 @@
     acpcli = {
       url = "github:lillecarl/acpcli";
       inputs.nixpkgs.follows = "nixpkgs";
+      inputs.flake-compatish.follows = "flake-compatish";
+      inputs.pyproject-nix.follows = "pyproject-nix";
     };
     # The `develop` branch. The packaging used to live only on a `nix` branch,
     # which is what this tracked; that branch has since been merged into
