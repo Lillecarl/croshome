@@ -61,10 +61,9 @@ let
   # and ../flake.nix does state nixosConfigurations. Nothing forces it today,
   # so this keeps a trap out rather than fixing a break.
   #
-  # Take named attributes from this, never the whole set. It also carries `jj`,
-  # which reaches into jj-vcs's own flake and instantiates a nixpkgs of its own
-  # on whatever release that flake pins. Laziness is the only thing keeping
-  # that unevaluated.
+  # Take named attributes from this, never the whole set. Its `jj` reaches into
+  # jj-vcs's own flake and instantiates a nixpkgs of its own on whatever
+  # release that flake pins; `jujutsu` below takes it on purpose.
   pyjj = import inputs.pyjj {
     pkgs = final;
     inherit (final.stdenv.hostPlatform) system;
@@ -490,6 +489,10 @@ in
   # compiles jj-lib and the crate tree under it from source -- so the first
   # build of either is a long Rust build, and the second is free.
   inherit (pyjj) pyjj-cli pyjjui;
+
+  # The jj release that pyjj-bindings' jj-lib pins and pyjj's parity tests
+  # run against, so the CLI and the library read one repository format.
+  jujutsu = pyjj.jj;
 
   # The T3 Code server, built from latest main at every rebuild -- see the
   # file. Server workspace only: the CLI bundle plus the web client it
