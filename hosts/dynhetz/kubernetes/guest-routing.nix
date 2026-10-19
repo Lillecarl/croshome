@@ -154,6 +154,13 @@ in
   config = {
     services.frr.bgpd.enable = true;
 
+    # networkd removes nexthops it did not create when it starts, and the
+    # kernel then drops zebra's ECMP groups built on them. zebra re-adds the
+    # single nexthops but not the groups, so each multipath route stays out
+    # of the kernel until FRR restarts. Measured 2026-10-19: a switch that
+    # restarted networkd lost e2::1, e2::2 and e2::4.
+    systemd.network.config.networkConfig.ManageForeignNextHops = false;
+
     # Parse the configuration at build time, because FRR does not fail on a
     # line it cannot parse.
     #
