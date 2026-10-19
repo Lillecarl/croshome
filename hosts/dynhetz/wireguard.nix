@@ -197,6 +197,13 @@ let
       + "Change the salt in `hashOf`."
     );
 
+  # The sg1 lab behind oobtik: VLAN 99 holds the servers and their BMCs, VLAN
+  # 35 the MikroTiks.
+  oobtikNets = [
+    "10.247.99.0/24"
+    "10.247.35.0/24"
+  ];
+
   peerLines = lib.concatMapStrings (p: ''
     wg_user_peer ${p.name} ${userV4 p.name} ${userV6 p.name} ${p.owner} ${p.prefix}
   '') wgPeers;
@@ -233,9 +240,9 @@ assert noCollision "IPv6" userV6;
       # with its whole client config handed out. mikrotik.* is the
       # MikroTik router: an exit-node client, so it may send from any
       # address. oobtik.* is a second MikroTik, reachable from here. It
-      # holds only its own two addresses: an
-      # interface routes each destination to one peer, and 0.0.0.0/0,::/0
-      # already belongs to mikrotik.
+      # holds its own two addresses and the networks behind it. WireGuard
+      # picks the peer by longest prefix, so these win over mikrotik's
+      # 0.0.0.0/0,::/0; oobtik itself cannot also hold a default.
       if [ ! -f client.key ]; then
         wg genkey > client.key
         wg pubkey < client.key > client.pub
@@ -258,10 +265,13 @@ assert noCollision "IPv6" userV6;
         peer "$(cat mikrotik.pub)" \
         allowed-ips 0.0.0.0/0,::/0 \
         peer "$(cat oobtik.pub)" \
-        allowed-ips 10.100.0.4/32,2a01:4f9:3071:11d7:90::4/128
+        allowed-ips 10.100.0.4/32,2a01:4f9:3071:11d7:90::4/128,${lib.concatStringsSep "," oobtikNets}
 
       ip addr replace 10.100.0.1/24 dev wg-dynhetz
       ip -6 addr replace 2a01:4f9:3071:11d7:90::1/112 dev wg-dynhetz
+      ${lib.concatMapStrings (net: ''
+        ip route replace ${net} dev wg-dynhetz
+      '') oobtikNets}
 
       # The per-user network. Both addresses are on the same interface, so the
       # kernel's connected routes carry each range without anything further.
