@@ -76,6 +76,26 @@ for kernel-required workloads. `vzrun` runs a command in the builder.
 touch either: it holds measured facts that are easy to get wrong, including the
 deadlock where fixing the guest needs a Linux builder to build the guest.
 
+## Local overrides: `overrides.nix`
+
+Gitignored, machine-local. flake-compatish reads it on impure evaluation
+(`ai-rebuild`, `nix build --file .`): a path there replaces that input's lock
+entry with a local checkout.
+
+- Permanent by design, not drift. Any agent edits a checkout under `~/Code`
+  (`nixidae`, `pyjj`, `pyedit`, ...) and runs `ai-rebuild` to live-test it, with
+  no lock bump. Never propose removing an override, or "locking to the pushed
+  revision", as cleanup.
+- So a rebuild builds what every overridden checkout holds now, including other
+  agents' uncommitted work. Read the diff before activating (next section).
+- Exception: `nixidae-pynixd`. Same repository as `nixidae`, a separate input,
+  normally not overridden. pynixd replaces the system nix daemon, and a rebuild
+  that changes it restarts the daemon and cancels every running build on the
+  machine. Overridden, any agent's rebuild would ship another agent's half-done
+  pynixd edits and kill everyone's builds. It moves only on a deliberate
+  `nix flake update nixidae-pynixd`. An agent working on pynixd may override it
+  for the duration, marked `# TEMP`, and removes the line when done.
+
 ## Reading a change before activating it
 
 Never activate without reading the diff first.
