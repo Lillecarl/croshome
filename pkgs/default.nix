@@ -266,6 +266,12 @@ in
 
   jj-hunk = final.callPackage ./jj-hunk.nix { inherit pydd; };
 
+  # A pydd exercise across two lanes: the bun frontend from bun.lock, and the
+  # Tauri desktop app and the headless server from Cargo.lock, which embed
+  # it. An attribute set: `desktop`, `server`, and the frontends `native`
+  # and `web`. No host installs it.
+  kubecove = final.callPackage ./kubecove.nix { inherit pydd; };
+
   # vfkit with the memory balloon reachable over its REST API. Darwin only: it
   # wraps Apple's Virtualization.framework and does not exist elsewhere, so
   # naming prev.vfkit unconditionally would break evaluation on the Linux hosts.
