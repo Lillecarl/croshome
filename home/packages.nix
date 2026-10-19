@@ -265,6 +265,9 @@
     # The rest
     asciinema # record a terminal session to a .cast file, replay or share it
     fish-lsp
+    # Serial console for MikroTik and other gear: 115200 8N1 no flow
+    # by default, auto-reconnect, `tio -l` lists ports. Exit with Ctrl-T Q.
+    tio
     wireguard-tools
     fzf
     just
