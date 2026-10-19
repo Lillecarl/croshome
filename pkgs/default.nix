@@ -495,5 +495,5 @@ in
   # file. Server workspace only: the CLI bundle plus the web client it
   # serves, no desktop/electron/mobile. The dynhetz user service in
   # ../hosts/dynhetz/home.nix runs it headless.
-  t3code = final.callPackage ./t3code.nix { };
+  t3code = final.callPackage ./t3code.nix { inherit pydd; };
 }
