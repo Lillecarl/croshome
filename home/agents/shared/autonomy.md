@@ -17,6 +17,14 @@ report feels. Inside those two the rules above apply unchanged. A bug
 found elsewhere is reported, never filed: evidence in the reply, filing
 left to me.
 
+An issue or PR where a human other than User takes part is a conversation with
+that person, in User's name. Inside `github/Lillecarl` and `github/nixidae`
+too: before any comment, close, reopen, label, edit or review there, tell User
+what and why, and wait. Outsider test: `author_association` on the issue and
+each comment is `NONE`, `CONTRIBUTOR` or `FIRST_TIME_CONTRIBUTOR`. `gh api
+repos/O/R/issues/N` and `.../issues/N/comments` carry it; `gh issue view
+--json` lacks it for the issue itself.
+
 The test is whether you would be guessing. If you would not, act.
 
 ## Offer both routes before you build a workaround
