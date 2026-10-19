@@ -55,7 +55,11 @@
   # against the running server, `t3 --help` lists the rest. Scoped to this
   # host rather than shared in ../../home/packages.nix -- the service it
   # talks to lives here.
-  home.packages = [ pkgs.t3code ];
+  home.packages = [
+    pkgs.t3code
+    pkgs.kubecove.desktop
+    pkgs.kubecove.server
+  ];
 
   # T3 Code, headless: the server workspace from pkgs/t3code (`t3 serve`,
   # no browser, pairing URL in the logs). Loopback only -- reach it over
