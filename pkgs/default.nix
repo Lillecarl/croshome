@@ -270,7 +270,7 @@ in
   # ocahub entries removed: cross-agent messaging is off. The source
   # stays in ./ocahub, unevaluated.
 
-  jj-hunk = final.callPackage ./jj-hunk.nix { };
+  jj-hunk = final.callPackage ./jj-hunk.nix { inherit pydd; };
 
   # vfkit with the memory balloon reachable over its REST API. Darwin only: it
   # wraps Apple's Virtualization.framework and does not exist elsewhere, so

@@ -1,35 +1,20 @@
 {
-  pkgs ? import <nixpkgs> { },
+  lib,
+  fetchFromGitHub,
+  pydd,
 }:
-let
-  version = "0.4.1";
-  src = pkgs.fetchFromGitHub {
+(pydd.rust.cargo {
+  project = fetchFromGitHub {
     owner = "laulauland";
     repo = "jj-hunk";
-    tag = "v${version}";
+    tag = "v0.4.1";
     hash = "sha256-lFuYTg6TW/Lsz4wwaaWFi37F2aGKpLwQgq40VTdDUKE=";
   };
-in
-pkgs.rustPlatform.buildRustPackage {
-  pname = "jj-hunk";
-  inherit version src;
-  cargoLock.lockFile = "${src}/Cargo.lock";
-
-  nativeCheckInputs = with pkgs; [
-    jujutsu
-    git
-  ];
-
-  # Skip integration tests - they require jj-hunk in PATH when invoked as a tool
-  # by jj's diff editor, which child processes don't inherit from preCheck PATH.
-  # Unit tests pass, build succeeds. Integration tests work in dev environments
-  # with jj-hunk installed in PATH.
-  doCheck = false;
-
-  meta = with pkgs.lib; {
-    description = "Programmatic hunk selection for jj (Jujutsu)";
-    homepage = "https://github.com/laulauland/jj-hunk";
-    license = licenses.mit;
-    platforms = platforms.all;
-  };
-}
+}).overrideAttrs
+  (old: {
+    meta = (old.meta or { }) // {
+      description = "Programmatic hunk selection for jj (Jujutsu)";
+      homepage = "https://github.com/laulauland/jj-hunk";
+      license = lib.licenses.mit;
+    };
+  })
