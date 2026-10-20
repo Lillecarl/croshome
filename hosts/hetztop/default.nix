@@ -8,7 +8,6 @@
     ../../profiles/nixos/base.nix
     (modulesPath + "/profiles/qemu-guest.nix")
     ./disko.nix
-    ./installscript.nix
     ./pynixd.nix
     ./nix-gc.nix
   ];

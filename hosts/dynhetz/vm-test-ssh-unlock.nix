@@ -75,7 +75,7 @@ in
         };
 
         # Throwaway keys, checked in alongside this file: the real ones are
-        # ../installscript.nix's staged host key and the operator's own
+        # ../../modules/nixos/installscript.nix's staged host key and the operator's own
         # ../../lillecarl.pub, neither of which belongs in a disposable test.
         #
         # hostKeys is a plain string, matching the real config's convention

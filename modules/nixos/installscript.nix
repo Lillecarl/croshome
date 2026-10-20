@@ -1,10 +1,35 @@
+# Install and remote-deploy scripts for a host, as config.lib attributes:
+# nothing in the system closure reads them, so they cost nothing until run.
+#
+#   nix build --file . <host>x.config.lib.anywhereScript && HIP=<ip> ./result/bin/imageinstall
 {
   config,
   pkgs,
   lib,
   ...
 }:
+let
+  cfg = config.system.installScript;
+in
 {
+  options.system.installScript = {
+    attr = lib.mkOption {
+      type = lib.types.str;
+      default = "${config.networking.hostName}x";
+      description = "Attribute of the repository root that builds this host for x86_64-linux.";
+    };
+    flakeAttr = lib.mkOption {
+      type = lib.types.str;
+      default = config.networking.hostName;
+      description = "nixosConfigurations attribute imagedeploy switches the target to.";
+    };
+    builderJobs = lib.mkOption {
+      type = lib.types.ints.positive;
+      default = 16;
+      description = "Jobs the install build runs on the target.";
+    };
+  };
+
   config =
     let
       IP = builtins.getEnv "HIP";
@@ -46,15 +71,15 @@
             # instead. `--file .` (../../default.nix's non-flake
             # entrypoint) rather than the flake: it evaluates impurely by
             # default, so none of this needs `--option pure-eval false`
-            # either. `dynhetzx`, not `dynhetz`: this file's own `dynhetz`
+            # either. `<host>x`, not `<host>`: the root's plain host
             # attribute is `system = currentSystem` (aarch64-darwin, native
-            # to whoever runs this script) -- `dynhetzx` is the real
+            # to whoever runs this script) -- `<host>x` is the real
             # x86_64-linux target.
             #
-            # Built on the target dedi itself (its own Ryzen 7700, already
-            # reachable as the nixos-anywhere-kexec'd installer), not
-            # nix-community: this is personal configuration, and
-            # nix-community's builders are not for that.
+            # Built on the target itself (already reachable as the
+            # nixos-anywhere-kexec'd installer), not nix-community: this is
+            # personal configuration, and nix-community's builders are not
+            # for that.
             #
             # The installer's ssh host key is ephemeral (regenerated each
             # kexec boot, unrelated to the final system's), so it's fetched
@@ -68,7 +93,7 @@
             # corrupts the base64 below into two lines instead of one.
             hostKey=$(ssh-keyscan -t ed25519 ${IP} 2>/dev/null | grep "^${IP} " | tail -1 | awk '{print $2, $3}')
             hostKeyB64=$(printf '%s' "$hostKey" | base64 | tr -d '\n')
-            builder="ssh://root@${IP} ${system} - 16 1 - - $hostKeyB64"
+            builder="ssh://root@${IP} ${system} - ${toString cfg.builderJobs} 1 - - $hostKeyB64"
 
             nixBuild() {
               nix build --file . --print-out-paths --no-link \
@@ -78,17 +103,13 @@
                 "$2"
             }
 
-            diskoScript=$(nixBuild disko dynhetzx.config.system.build.diskoScript)
-            nixosSystem=$(nixBuild toplevel dynhetzx.config.system.build.toplevel)
+            diskoScript=$(nixBuild disko ${cfg.attr}.config.system.build.diskoScript)
+            nixosSystem=$(nixBuild toplevel ${cfg.attr}.config.system.build.toplevel)
 
-            # ../initrd-ssh.nix bakes its host key into the closure directly
-            # (./initrd_ssh_host_ed25519_key, checked into the repo), so
-            # there's nothing left to stage onto the installer here -- the
-            # key nixos-anywhere builds and installs already has it.
-            #
-            # ../disko.nix's cryptroot has no keyFile: disko's own install
-            # step prompts for the LUKS passphrase interactively, right here
-            # in this terminal, the moment it formats the array.
+            # Nothing is staged onto the installer. dynhetz's initrd ssh host
+            # key is checked into the repo and baked into the closure, and its
+            # LUKS cryptroot has no keyFile: disko's install step prompts for
+            # the passphrase in this terminal when it formats the array.
             #
             # "$@": lets a caller pass e.g. `--phases kexec` to stop short
             # of disko -- useful for re-testing the build/kexec path
@@ -108,7 +129,7 @@
             set -x
             nixos-rebuild switch \
               --use-substitutes \
-              --flake .#dynhetz \
+              --flake .#${cfg.flakeAttr} \
               --target-host root@${IP} \
               --build-host root@${IP}
           '';

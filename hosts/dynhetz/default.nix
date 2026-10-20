@@ -28,7 +28,6 @@
     ./disko.nix
     ./boot-mirror.nix
     ./initrd-ssh.nix
-    ./installscript.nix
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix
