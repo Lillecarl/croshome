@@ -570,9 +570,11 @@ assert noCollision "IPv6" userV6;
       EOF
       chmod 600 mikrotik.rsc
 
-      # oobtik routes only dynhetz's networks into the tunnel. Its LAN can
-      # still leave through dynhetz behind a masquerade onto wg-dynhetz,
-      # because the server accepts only oobtik's own addresses.
+      # oobtik routes dynhetz's IPv4 networks into the tunnel, and all IPv6:
+      # dynhetz is the SG1 lab's IPv6 uplink (operator decision 2026-10-20),
+      # so the peer allows ::/0 and oobtik's IPv6 default points here. Its
+      # LAN can still leave through dynhetz behind a masquerade onto
+      # wg-dynhetz, because the server accepts only oobtik's own addresses.
       cat <<EOF > oobtik.rsc
       /interface/wireguard
       add name=wg-dynhetz mtu=1420 private-key="$(cat oobtik.key)"
@@ -580,7 +582,7 @@ assert noCollision "IPv6" userV6;
       add interface=wg-dynhetz name=dynhetz \
           public-key="$(cat server.pub)" \
           endpoint-address=37.27.129.237 endpoint-port=51820 \
-          allowed-address=10.100.0.0/24,2a01:4f9:3071:11d7::/64 \
+          allowed-address=10.100.0.0/24,::/0 \
           persistent-keepalive=25s
       /ip/address
       add interface=wg-dynhetz address=10.100.0.4/24
