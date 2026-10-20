@@ -70,6 +70,19 @@ area, and assuming `jj commit` behaves like `git commit`. Neither is true:
 a new `@` — further edits silently land back in the commit you just described. Use
 `jj describe -r @-` only to rename an already-finished parent commit.
 
+## Workspaces are branches; the default workspace follows `main`
+
+- The default workspace (`~/Code/<repo>`) is tied to the `main` bookmark: its `@`
+  sits on the latest `main`. User and other configurations build from it. Committing
+  there is normal; quick fixes land straight from it.
+- A secondary workspace is a checked-out branch for one larger task that must not
+  block those fixes. Commit there.
+- Ready = merged into `main`, after which the default workspace is advanced onto the
+  new `main`. Never land by checking the work out in the default workspace.
+- Who merges, the three allowed shapes, and the advance command:
+  [workspaces.md](references/workspaces.md#landing-a-workspace). Those steps are
+  User-approved; the ask-first rule under Safety does not apply to them.
+
 ## Passing commit messages safely
 
 One pattern covers every command that takes `-m`: pass the message through a quoted

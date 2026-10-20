@@ -117,6 +117,53 @@ status` in that workspace first if you're not sure it's done.
 jj --no-pager workspace rename new-name
 ```
 
+## Landing a workspace
+
+The default workspace is tied to `main`. A secondary workspace is a branch off it.
+Landing = the branch's commits enter `main`, and the default workspace ends on the
+new `main`. Every step below is User-approved for landing; rewrite only mutable
+(unpushed) commits, never `main@origin` or its ancestors.
+
+**Who merges.** `ListAgents` first.
+
+- A session works in the default workspace → ask User. User decides whether that
+  session merges or the workspace agent does.
+- No such session → the workspace agent merges.
+
+**How.** Any one of these, with `<tip>` the workspace's last finished commit
+(usually `<ws>@-`):
+
+```bash
+# 1. Rebase onto main, fast-forward main.
+jj rebase --branch <tip> --onto main
+jj bookmark set main --revision <tip>
+
+# 2. Merge commit. --no-edit keeps this workspace's @ where it is.
+jj new --no-edit main <tip> --message 'merge: <task>'
+jj bookmark set main --revision <that merge commit>
+
+# 3. Rebase main's unpushed commits onto the workspace; main follows them.
+jj rebase --source 'roots(main@origin..main)' --onto <tip>
+```
+
+Then push `main` if the repository lands by pushing (its own `AGENTS.md` or
+`CLAUDE.md` says).
+
+**Advance the default workspace.** Moving `main` does not move `default@`. One
+command covers every case: `@` empty, `@` with uncommitted changes, and local commits
+in the default workspace that are not in `main` yet:
+
+```bash
+jj -R ~/Code/<repo> rebase --source 'roots(main..default@)' --onto main
+```
+
+`-R` runs it as the default workspace, so its files on disk update too. Already on
+`main` → "Skipped rebase ... already in place", no change. A conflict lands in the
+rebased commit: report it, do not resolve someone else's edit. Verified on jj 0.46.0.
+
+Afterwards the secondary workspace's `@` still sits on the old branch. `jj new main`
+there to keep working, or `jj workspace forget` it when the task is over.
+
 ## Practical pattern for agents: one workspace per parallel task
 
 ```bash
