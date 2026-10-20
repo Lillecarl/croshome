@@ -112,6 +112,13 @@ read the log. A long timeout blocks the session; a background job does not.
 
 ## Building with Nix
 
+**`pynix` first.** User's own Nix CLI, dogfooded here. Load the **pynix**
+skill before the first Nix command of a session; use `pynix` for every command
+it has (eval, build, develop, path-info, log, why-depends, copy, store, search,
+...). Fall back to `nix` only for a command or flag pynix lacks, and say so.
+A pynix gap or bug with no issue gets one in nixidae/nixidae
+(`source: nanopynix`). The rest of this section is the `nix` fallback.
+
 Use the `nix` subcommands, never the older separate binaries. Spell flags
 long: `--file`, not `-f`.
 
