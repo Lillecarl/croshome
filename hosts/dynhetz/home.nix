@@ -15,7 +15,7 @@
 
   # The AI daemon, as a user service. Its agents would otherwise inherit
   # WAPTY_ID from whichever wrapped session a restart runs under; see
-  # ../../home/wrapty.nix.
+  # ../../modules/home/wrapty.nix.
   services.aid = {
     enable = true;
     package = pkgs.aid;
@@ -164,13 +164,13 @@
     };
   };
 
-  # See ../../home/wrapty.nix -- puts wrapty on PATH so ../../home/fish/
+  # See ../../modules/home/wrapty.nix -- puts wrapty on PATH so ../../home/fish/
   # functions/claude.fish routes `claude` through it, and so the Claude Code
   # plugin manifest under ../../home/claude/skills/wrapty can name its
   # binaries bare.
   programs.wrapty.enable = true;
 
-  # See ../../home/agent-machine.nix -- the machine section every harness
+  # See ../../modules/home/agent-machine.nix -- the machine section every harness
   # reads. Only the values that differ per machine live here.
   programs.agentMachine = {
     enable = true;
@@ -178,11 +178,11 @@
     cloneDir = "~/Code";
   };
 
-  # See ../../home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Shared
+  # See ../../modules/home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Shared
   # prose, read live out of the checkout through `@` imports.
   programs.claudeInstructions.enable = true;
 
-  # See ../../home/codex-md.nix -- generates ~/.codex/AGENTS.md. Shared prose
+  # See ../../modules/home/codex-md.nix -- generates ~/.codex/AGENTS.md. Shared prose
   # only, inlined at build time; Codex has no import mechanism.
   programs.codexInstructions.enable = true;
 }

@@ -67,7 +67,7 @@ let
   };
 
   # Merges `mcp.kagi` into ~/.config/opencode/opencode.json through
-  # ./merged-file.nix, alongside ./opencode.nix's `instructions`: both name
+  # ../modules/home/merged-file.nix, alongside ./opencode.nix's `instructions`: both name
   # the same file and their settings merge. The rest of opencode.json stays
   # hand-managed.
 in

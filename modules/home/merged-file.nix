@@ -4,8 +4,8 @@
 # it on first run, or expect a human to edit it. Generating the whole file
 # from Nix (home.file / xdg.configFile) fights that ownership -- the app and
 # Nix each believe they write it. This module is the middle ground the repo
-# already used twice by hand (opencode's `instructions` in ./opencode.nix and
-# `mcp.kagi` in ./kagi-mcp.nix): at activation, the merged-file package
+# already used twice by hand (opencode's `instructions` in ../../home/opencode.nix and
+# `mcp.kagi` in ../../home/kagi-mcp.nix): at activation, the merged-file package
 # deep-merges `settings` into the file on disk. Mappings recurse, everything
 # else (including lists) is replaced, and keys Nix never names are left
 # alone. The file stays hand-editable; the merged keys stay declarative and

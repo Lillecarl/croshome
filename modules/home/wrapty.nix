@@ -4,11 +4,11 @@
 # rather than a store path or the old /Users/lillecarl/Dynamist/wrapty/
 # result/... path from when wrapty was its own standalone repo. Those
 # manifest files are plain, hand-edited JSON in this repository, copied to
-# the store with the rest of the skill (see ./agents.nix), not generated
+# the store with the rest of the skill (see ../../home/agents.nix), not generated
 # here -- nothing in this module writes to them.
 #
 # A rebuild does not reach a session that is already running. wrapty is the
-# long-lived process wrapping `claude` (see ../home/fish/functions/claude.fish)
+# long-lived process wrapping `claude` (see ../../home/fish/functions/claude.fish)
 # and it owns the control socket the MCP server and hooks talk to, so a switch
 # repoints the profile for the *next* session and leaves live ones on the old
 # binary. Restart the session to pick a wrapty change up; /reload-plugins is
@@ -24,7 +24,7 @@
 # a restart.
 #
 # This is worth knowing because the hooks behave the opposite way and the
-# difference is invisible: ./agents.nix installs the git-write hook as a bare
+# difference is invisible: ../../home/agents.nix installs the git-write hook as a bare
 # command that hooks.json names, so PATH is re-resolved on every invocation
 # and a rebuild takes effect at once. Changing the hook needs no restart;
 # changing wrapty does. Confirmed by an MCP call against a stale session
@@ -45,7 +45,7 @@
 #
 # This comment used to say `enabledPlugins` had to be set by hand before the
 # plugin would load. It does not: a plugin discovered under ~/.claude/skills
-# -- the directory ./agents.nix symlinks -- is enabled by default, under the
+# -- the directory ../../home/agents.nix symlinks -- is enabled by default, under the
 # marketplace name `skills-dir`. Checked on hetztop with no `enabledPlugins`
 # key present at all: `pluginUsage` in ~/.claude.json listed both
 # `wrapty@skills-dir` and `jj-worktrees@skills-dir` with a few hundred uses

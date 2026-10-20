@@ -1,16 +1,16 @@
 # pyedit as an MCP server, for OpenCode and Claude Code. No secrets: the
 # server only stages edits the caller could already make through the CLI.
 #
-# OpenCode takes it through ./merged-file.nix into opencode.json; Claude
+# OpenCode takes it through ../modules/home/merged-file.nix into opencode.json; Claude
 # Code takes it through the skill plugin:
 # a directory under ~/.claude/skills carrying .claude-plugin/plugin.json
-# naming ./.mcp.json is enabled by default (see ./wrapty.nix), so this
+# naming ./.mcp.json is enabled by default (see ../modules/home/wrapty.nix), so this
 # module links the store SKILL.md together with both generated manifests.
 # .gemini keeps the plain skill link in ./agents.nix; only Claude reads the
 # plugin wrapper.
 #
 # The manifests name bare `pyedit`, not a store path, for the reason
-# ./wrapty.nix gives: PATH re-resolves on every invocation, so a rebuild
+# ../modules/home/wrapty.nix gives: PATH re-resolves on every invocation, so a rebuild
 # reaches running sessions at once.
 {
   config,

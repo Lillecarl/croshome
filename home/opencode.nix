@@ -1,5 +1,5 @@
 # Builds opencode's global config from this checkout, mirroring the split
-# ./claude-md.nix makes for Claude Code but adapted to what opencode actually
+# ../modules/home/claude-md.nix makes for Claude Code but adapted to what opencode actually
 # supports.
 #
 # opencode does not splice `@` imports the way Claude Code does, so the shared
@@ -12,9 +12,9 @@
 #   the same trade ./agents.nix makes for the skills directory.
 # - The shared prose in ./agents/shared is loaded through opencode's
 #   `instructions` field, which takes an explicit list of files. That list is
-#   merged into ~/.config/opencode/opencode.json through ./merged-file.nix,
+#   merged into ~/.config/opencode/opencode.json through ../modules/home/merged-file.nix,
 #   which leaves the rest of that hand-managed file alone, for the same reason
-#   ./wrapty.nix merges `statusLine` into ~/.claude/settings.json: opencode
+#   ../modules/home/wrapty.nix merges `statusLine` into ~/.claude/settings.json: opencode
 #   writes nothing to it, but the paths below are machine-specific (selfStr)
 #   and belong in the config rather than in prose.
 {
@@ -29,9 +29,9 @@
 let
   sharedDir = ./agents/shared;
 
-  # The same four files ./claude-md.nix imports, in the same order. Two lists
+  # The same four files ../modules/home/claude-md.nix imports, in the same order. Two lists
   # must agree with the directory, or one of them silently does nothing -- the
-  # same eval-time check ./claude-md.nix makes.
+  # same eval-time check ../modules/home/claude-md.nix makes.
   shared = [
     "autonomy.md"
     "next-thing.md"
@@ -55,7 +55,7 @@ let
   # The machine section leads, because opencode never reads ~/.claude/CLAUDE.md
   # where the other harnesses get it: it takes the FIRST existing file out of
   # ~/.config/opencode/AGENTS.md then ~/.claude/CLAUDE.md, and the AGENTS.md
-  # above shadows CLAUDE.md completely. See ./agent-machine.nix.
+  # above shadows CLAUDE.md completely. See ../modules/home/agent-machine.nix.
   instructions =
     [ "${config.home.homeDirectory}/${config.programs.agentMachine.relPath}" ]
     ++ map (f: "${selfStr}/home/agents/shared/${f}") shared;

@@ -17,11 +17,11 @@
   imports = [
     inputs.catppuccin.homeModules.catppuccin
     ./agenix.nix
-    ./agent-machine.nix
+    ../modules/home/agent-machine.nix
     ./agents.nix
     ./ask.nix
-    ./claude-md.nix
-    ./codex-md.nix
+    ../modules/home/claude-md.nix
+    ../modules/home/codex-md.nix
     ./fish.nix
     ./fonts.nix
     ./git-bug.nix
@@ -31,7 +31,7 @@
     ./k9s.nix
     ./kagi-mcp.nix
     ./mail.nix
-    ./merged-file.nix
+    ../modules/home/merged-file.nix
     ./opencode.nix
     ./packages.nix
     ./pyedit-mcp.nix
@@ -39,7 +39,7 @@
     ./sieve.nix
     ./tmux.nix
     ./vcs.nix
-    ./wrapty.nix
+    ../modules/home/wrapty.nix
     ./yazi.nix
   ]
   ++ lib.optional platform.isDarwin ./darwin

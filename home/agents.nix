@@ -40,7 +40,7 @@ let
   # in general.
   #
   # ./claude/skills/jj-worktrees/hooks/hooks.json names both by bare command,
-  # the same arrangement ./wrapty.nix uses for wrapty's hooks. That was forced
+  # the same arrangement ../modules/home/wrapty.nix uses for wrapty's hooks. That was forced
   # while the skills directory was one out-of-store symlink and nothing inside
   # it could be nix-generated. It no longer is, so a store path there is now
   # possible and is the better answer: hooks.json would name an exact build
@@ -290,7 +290,7 @@ in
       };
 
     # Single keys merged into each Claude settings.json. Every other key stays
-    # as Claude Code wrote it; ./wrapty.nix explains why the file is not
+    # as Claude Code wrote it; ../modules/home/wrapty.nix explains why the file is not
     # generated whole.
     home.mergedFile = forClaudeDirs (dir: {
       "${dir}/settings.json" = {

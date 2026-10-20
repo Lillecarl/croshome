@@ -1,7 +1,7 @@
 # Builds ~/.codex/AGENTS.md, the global instruction file the Codex CLI reads
 # before every session on this machine.
 #
-# Same job as ./claude-md.nix does for Claude Code and ./opencode.nix for
+# Same job as ./claude-md.nix does for Claude Code and ../../home/opencode.nix for
 # opencode, with one structural difference: Codex has no import mechanism.
 # Claude Code splices `@` lines and opencode takes an `instructions` list, so
 # those two read the shared prose straight out of the checkout and an edit
@@ -23,10 +23,10 @@
 let
   cfg = config.programs.codexInstructions;
 
-  sharedDir = ./agents/shared;
+  sharedDir = ../../home/agents/shared;
 
-  # Must agree with the `shared` lists in ./claude-md.nix and ./opencode.nix:
-  # together, `shared` and `skip` name every file in ./agents/shared.
+  # Must agree with the `shared` lists in ./claude-md.nix and ../../home/opencode.nix:
+  # together, `shared` and `skip` name every file in ../../home/agents/shared.
   shared = [
     "autonomy.md"
     "next-thing.md"
@@ -42,7 +42,7 @@ let
   # stop, and "not for Codex" has to be said rather than left out.
   #
   # Codex has no compaction tool. Claude Code gets one from wrapty and opencode
-  # from ./agents/opencode/plugins/self-compact.ts, both named `compact`; there
+  # from ../../home/agents/opencode/plugins/self-compact.ts, both named `compact`; there
   # is no Codex equivalent to point the rule at.
   skip = [
     "compaction.md"
@@ -63,11 +63,11 @@ let
 
   prose =
     assert lib.assertMsg (check.missing == [ ]) (
-      "home/codex-md.nix: `shared` or `skip` names ${toString check.missing}, "
+      "modules/home/codex-md.nix: `shared` or `skip` names ${toString check.missing}, "
       + "which does not exist in home/agents/shared."
     );
     assert lib.assertMsg (check.unlisted == [ ]) (
-      "home/codex-md.nix: home/agents/shared holds ${toString check.unlisted}, "
+      "modules/home/codex-md.nix: home/agents/shared holds ${toString check.unlisted}, "
       + "which neither `shared` nor `skip` names, so it is never inlined and "
       + "nobody decided that."
     );
