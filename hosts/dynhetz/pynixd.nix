@@ -11,6 +11,9 @@
   # key, shared with this machine's user. A missing file fails the daemon
   # at startup, never silently.
   environment.etc."pynixd/builders/macbook.pub".source = ../../lillecarl.pub;
+  # SSH host keys of the SG1 nodes (Dynamist lab, sg1-nix nix/modules/lab.nix).
+  # They register as x86_64-linux builders until the cluster goes to production.
+  environment.etc."pynixd/builders/sg1.pub".source = ./sg1-builders.pub;
 
   # The acceptor below faces the internet. Same shape as services that
   # open their own port (../ttyd.nix): the rule lives with the service.
@@ -106,7 +109,10 @@
         enabled = true;
         # Default host (every interface, v4 and v6) on purpose.
         port = 2235;
-        authorized_builder_keys = [ "/etc/pynixd/builders/macbook.pub" ];
+        authorized_builder_keys = [
+          "/etc/pynixd/builders/macbook.pub"
+          "/etc/pynixd/builders/sg1.pub"
+        ];
       };
 
       # HTTP binary cache for this machine's own daemons, first in their
