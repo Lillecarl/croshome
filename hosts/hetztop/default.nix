@@ -1,13 +1,11 @@
 {
-  pkgs,
-  lib,
   modulesPath,
   inputs,
-  homeArgs,
   ...
 }:
 {
   imports = [
+    ../../profiles/nixos/base.nix
     inputs.disko.nixosModules.disko
     inputs.home-manager.nixosModules.home-manager
     (modulesPath + "/profiles/qemu-guest.nix")
@@ -26,31 +24,11 @@
     ../../secrets
   ];
   config = {
-    # The account and the home-manager wiring used to live in ../home, next to
-    # the modules it pulls in. It is host state -- a password hash, a uid, the
-    # groups this machine has -- so it belongs to the host now that ../../home
-    # is shared with the MacBook and ChromeOS.
-    programs.fish.enable = true;
-    users.users.lillecarl = {
-      extraGroups = [
-        "wheel"
-        "podman"
-      ];
-      hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
-      isNormalUser = true;
-      openssh.authorizedKeys.keyFiles = [ ../../lillecarl.pub ];
-      shell = pkgs.fish;
-    };
-    home-manager = {
-      useGlobalPkgs = true;
-      extraSpecialArgs = homeArgs;
-      users.lillecarl = import ./home.nix;
-      # Move aside any unmanaged file home-manager is about to replace,
-      # instead of failing activation on it. Same collision as dynhetz:
-      # anything that writes ~/.config/user-dirs.dirs before home-manager
-      # links its managed copy breaks the switch without this.
-      backupFileExtension = "hm-backup";
-    };
+    users.users.lillecarl.extraGroups = [
+      "wheel"
+      "podman"
+    ];
+    home-manager.users.lillecarl = import ./home.nix;
 
     boot.loader.grub.enable = true;
     boot.initrd.availableKernelModules = [
@@ -58,63 +36,19 @@
       "xhci_pci"
       "virtio_scsi"
     ];
-    boot.kernelPackages = pkgs.linuxPackages_latest;
-    # Support building crossPlatform with QEMU
-    boot.binfmt.emulatedSystems = [
-      {
-        "x86_64-linux" = "aarch64-linux";
-        "aarch64-linux" = "x86_64-linux";
-      }
-      .${pkgs.stdenv.hostPlatform.system}
-    ];
-    time.timeZone = "Europe/Stockholm";
-    # Terminfo packages for terminals we're using
-    environment.systemPackages = with pkgs.pkgsBuildBuild; [
-      foot.terminfo
-    ];
-    # reference catppuccin whiskers so it doesn't get garbage collected every time you collect garbage.
-    environment.etc.catppucin-whiskers.source =
-      inputs.catppuccin.packages.${pkgs.stdenv.hostPlatform.system}.whiskers;
     networking.hostName = "hetztop";
     networking.firewall.allowedTCPPorts = [
       4321
       8080
     ];
-    environment.etc.nixpkgs.source = inputs.nixpkgs.outPath;
-    # environment.etc."profile.d/claude.sh".text = ''
-    programs.bash.shellInit = lib.mkBefore ''
-      if [ -n "$CLAUDECODE" ]; then
-        eval "$(DIRENV_LOG_FORMAT= ${lib.getExe pkgs.direnv} hook bash)"
-        unset HTTPS_PROXY
-      fi
-    '';
-    nix = {
-      settings = {
-        trusted-users = [ "lillecarl" ];
-        experimental-features = [
-          "nix-command"
-          "flakes"
-          "read-only-local-store"
-          "ca-derivations"
-          "dynamic-derivations"
-          "recursive-nix"
-        ];
-        trusted-public-keys = [
-          "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
-          "lillecarl.cachix.org-1:NN/LLMg7mbyvZCu32Qlo8LpSHqNw7Rr3VBCEYQvRpT0="
-        ];
-        substituters = [
-          "https://lillecarl.cachix.org"
-        ];
-        sandbox = "relaxed";
-      };
-      nixPath = [
-        "nixpkgs=/etc/nixpkgs"
+    nix.settings = {
+      trusted-public-keys = [
+        "hydra.nixos.org-1:CNHJZBh9K4tP3EKF6FkkgeVYsS3ohTl+oS0Qa8bezVs="
+        "lillecarl.cachix.org-1:NN/LLMg7mbyvZCu32Qlo8LpSHqNw7Rr3VBCEYQvRpT0="
       ];
-      registry = {
-        nixpkgs.flake = inputs.nixpkgs;
-        n.flake = inputs.nixpkgs;
-      };
+      substituters = [
+        "https://lillecarl.cachix.org"
+      ];
     };
     programs.ai-rebuild = {
       enable = true;
@@ -124,32 +58,6 @@
     services.btrfs-housekeeping = {
       enable = true;
       sudoUsers = [ "lillecarl" ];
-    };
-    services.btrfs.autoScrub = {
-      enable = true;
-      interval = "monthly";
-    };
-    # Weekly discard: btrfs mounts without discard=async, so nothing trims
-    # until this runs. Also releases space on the host's thin provisioning.
-    services.fstrim.enable = true;
-
-    programs.mosh = {
-      enable = true;
-      openFirewall = true;
-    };
-    # Ban hammer with a light touch: ten failures in ten minutes earns ten
-    # minutes offline. A typo costs a coffee break, not an afternoon, and
-    # localhost never counts. The default sshd jail applies; the module
-    # raises sshd LogLevel to VERBOSE itself so failures are observable.
-    services.fail2ban = {
-      enable = true;
-      maxretry = 10;
-      bantime = "10m";
-      ignoreIP = [ "127.0.0.1/8" ];
-    };
-    services.openssh = {
-      enable = true;
-      openFirewall = true;
     };
     system.stateVersion = "25.11";
   };

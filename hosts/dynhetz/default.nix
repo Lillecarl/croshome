@@ -24,6 +24,7 @@
 }:
 {
   imports = [
+    ../../profiles/nixos/base.nix
     inputs.disko.nixosModules.disko
     inputs.home-manager.nixosModules.home-manager
     ./disko.nix
@@ -52,11 +53,6 @@
     ../../secrets
   ];
   config = {
-    # The account and the home-manager wiring used to live in ../home, next to
-    # the modules it pulls in. It is host state -- a password hash, a uid, the
-    # groups this machine has -- so it belongs to the host now that ../../home
-    # is shared with the MacBook and ChromeOS.
-    programs.fish.enable = true;
     users.users.lillecarl = {
       # frrvty is what `vtysh` needs, and the only thing it needs: the daemons
       # listen on /run/frr/*.vty, which are srwxrwx--- frr:frrvty, while
@@ -77,26 +73,14 @@
         "podman"
       ]
       ++ lib.optional config.services.frr.bgpd.enable "frrvty";
-      hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
-      isNormalUser = true;
-      openssh.authorizedKeys.keyFiles = [ ../../lillecarl.pub ];
-      shell = pkgs.fish;
       # Without this the user manager -- and the aid user service with
       # it -- stops at the last logout. The daemons must
       # survive a reboot nobody logs into afterwards.
       linger = true;
     };
-    home-manager = {
-      useGlobalPkgs = true;
-      extraSpecialArgs = homeArgs;
-      users.lillecarl = import ./home.nix;
-      # Move aside any unmanaged file home-manager is about to replace,
-      # instead of failing activation on it. The collision this covers:
-      # xdg-user-dirs-update (./xdg-user-dirs.nix) writes
-      # ~/.config/user-dirs.dirs before home-manager links its own
-      # managed copy on the same switch.
-      backupFileExtension = "hm-backup";
-    };
+    # xdg-user-dirs-update (./xdg-user-dirs.nix) is the writer that makes
+    # ../../profiles/nixos/base.nix set home-manager.backupFileExtension.
+    home-manager.users.lillecarl = import ./home.nix;
 
     boot.loader.systemd-boot.enable = true;
     # Each ESP (nvme0's and, mirrored, nvme1's -- ./boot-mirror.nix) is 1 GiB.
@@ -130,7 +114,6 @@
       "igb"
       "kvm-amd"
     ];
-    boot.kernelPackages = pkgs.linuxPackages_latest;
     boot.kernel.sysctl."kernel.task_delayacct" = 1;
 
     # A physical CPU ships microcode revisions the board's firmware may not
@@ -152,21 +135,6 @@
     ];
     hardware.ksm.enable = true;
 
-    # Support building crossPlatform with QEMU
-    boot.binfmt.emulatedSystems = [
-      {
-        "x86_64-linux" = "aarch64-linux";
-        "aarch64-linux" = "x86_64-linux";
-      }.${pkgs.stdenv.hostPlatform.system}
-    ];
-    time.timeZone = "Europe/Stockholm";
-    # Terminfo packages for terminals we're using
-    environment.systemPackages = with pkgs.pkgsBuildBuild; [
-      foot.terminfo
-    ];
-    # reference catppuccin whiskers so it doesn't get garbage collected every time you collect garbage.
-    environment.etc.catppucin-whiskers.source =
-      inputs.catppuccin.packages.${pkgs.stdenv.hostPlatform.system}.whiskers;
     networking.hostName = "dynhetz";
     networking.usePredictableInterfaceNames = false;
     networking.useDHCP = false;
@@ -204,24 +172,10 @@
       "2a01:4ff:ff00::add:1"
       "2a01:4ff:ff00::add:2"
     ];
-    environment.etc.nixpkgs.source = inputs.nixpkgs.outPath;
     environment.etc.home-manager.source = inputs.home-manager.outPath;
-    programs.bash.shellInit = lib.mkBefore ''
-      if [ -n "$CLAUDECODE" ]; then
-        eval "$(DIRENV_LOG_FORMAT= ${lib.getExe pkgs.direnv} hook bash)"
-        unset HTTPS_PROXY
-      fi
-    '';
     nix = {
       settings = {
-        trusted-users = [ "lillecarl" ];
         experimental-features = [
-          "nix-command"
-          "flakes"
-          "read-only-local-store"
-          "ca-derivations"
-          "dynamic-derivations"
-          "recursive-nix"
           "auto-allocate-uids"
           "cgroups"
         ];
@@ -271,16 +225,10 @@
           "https://cache.cyberus-linux.com"
           "https://kubernetes4nix.cachix.org"
         ];
-        sandbox = "relaxed";
       };
       nixPath = [
-        "nixpkgs=/etc/nixpkgs"
         "home-manager=/etc/home-manager"
       ];
-      registry = {
-        nixpkgs.flake = inputs.nixpkgs;
-        n.flake = inputs.nixpkgs;
-      };
     };
     programs.ai-rebuild = {
       enable = true;
@@ -296,31 +244,7 @@
       headroomGuard.enable = true;
       sudoUsers = [ "lillecarl" ];
     };
-    services.btrfs.autoScrub = {
-      enable = true;
-      interval = "monthly";
-    };
-    # Weekly discard: btrfs mounts without discard=async, so nothing trims
-    # until this runs. The block layer already discards (see ./disko.nix).
-    services.fstrim.enable = true;
-
-    programs.mosh = {
-      enable = true;
-      openFirewall = true;
-    };
-    # Ban hammer with a light touch: ten failures in ten minutes earns ten
-    # minutes offline. A typo costs a coffee break, not an afternoon, and
-    # localhost never counts. The default sshd jail applies; the module
-    # raises sshd LogLevel to VERBOSE itself so failures are observable.
-    services.fail2ban = {
-      enable = true;
-      maxretry = 10;
-      bantime = "10m";
-      ignoreIP = [ "127.0.0.1/8" ];
-    };
     services.openssh = {
-      enable = true;
-      openFirewall = true;
       settings = {
         # What pymux asks of this sshd when a client attaches over
         # `ssh://`. All three are openssh's own defaults, so this
