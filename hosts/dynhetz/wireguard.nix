@@ -37,9 +37,9 @@
 #   2a01:4f9:3071:11d7:00a0::/76  -- the SG1 cluster in the Dynamist lab
 #                                    (sg1-nix, docs/networking.md): pods
 #                                    :a0::/80, Services :a1::/112,
-#                                    LoadBalancers :a2::/112; a0 to af.
-#                                    Not routed to the lab yet: the lab has
-#                                    no IPv6 on its fabric (T3830).
+#                                    LoadBalancers :a2::/112, fabric
+#                                    :a3::/80; a0 to af. Routed to oobtik
+#                                    over wg-dynhetz (oobtikNets below).
 #   2a01:4f9:3071:11d7:00b0::/80  -- pods of the single-node Kubernetes
 #                                    cluster on this host, on cni0. In
 #                                    use: ../dynhetz/kubernetes. That
@@ -206,6 +206,9 @@ let
     "10.247.35.0/24"
     "10.247.100.0/24"
     "10.248.0.0/16"
+    # SG1's IPv6 block: fabric, pods, Services, LoadBalancers. oobtik
+    # passes it to 100gtik and sends the lab's IPv6 default back in here.
+    "2a01:4f9:3071:11d7:a0::/76"
   ];
 
   peerLines = lib.concatMapStrings (p: ''
