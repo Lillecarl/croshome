@@ -106,7 +106,7 @@ let
     name = "ai-rebuild";
     runtimeInputs = [
       pkgs.coreutils
-      pkgs.nixos-rebuild
+      config.nix.package
     ];
     text = ''
       # --upstream: build against nix-daemon behind pynixd, for when pynixd
@@ -126,8 +126,12 @@ let
 
       ${umbrellaBlock}# Build as this user. stdout carries nothing but the store path; every
       # other line goes to stderr.
-      toplevel=$(nixos-rebuild build \
-        --file ${lib.escapeShellArg selfStr} --attr ${lib.escapeShellArg cfg.attr})
+      #
+      # `nix build`, not `nixos-rebuild build`: that runs nix-build, which
+      # aborts on a floating content-addressed toplevel (Nix 2.35.3,
+      # assertion 'maybeOutputPath', nix-build.cc:730).
+      toplevel=$(nix build --no-link --print-out-paths \
+        --file ${lib.escapeShellArg selfStr} ${lib.escapeShellArg "${cfg.attr}.config.system.build.toplevel"})
 
       # sudo comes from PATH on purpose: only the setuid wrapper in
       # /run/wrappers can elevate, a store-path sudo cannot.
@@ -138,13 +142,13 @@ let
     name = "ai-rebuild-pynixd";
     runtimeInputs = [
       pkgs.coreutils
-      pkgs.nixos-rebuild
+      config.nix.package
     ];
     text = ''
-      toplevel=$(nixos-rebuild build \
+      toplevel=$(nix build --no-link --print-out-paths \
         --option eval-store unix:///nix/var/nix/daemon-socket/socket \
         --option store unix:///run/pynixd/pynixd.sock \
-        --file ${lib.escapeShellArg selfStr} --attr ${lib.escapeShellArg cfg.attr})
+        --file ${lib.escapeShellArg selfStr} ${lib.escapeShellArg "${cfg.attr}.config.system.build.toplevel"})
 
       exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
     '';
