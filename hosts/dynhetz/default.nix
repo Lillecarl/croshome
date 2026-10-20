@@ -48,6 +48,7 @@
     ./ai-rebuild.nix
     ../../modules/nixos/btrfs.nix
     ./nix-gc.nix
+    ../../modules/nixos/nix-gc-sudo.nix
     ../../profiles/nixos/terminfo.nix
     ./pipewire.nix
     ./xdg-user-dirs.nix
