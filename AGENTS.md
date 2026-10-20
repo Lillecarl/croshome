@@ -134,7 +134,8 @@ claude-code move in an otherwise unrelated diff is expected, not a leak.
 Then activate with `ai-rebuild`, no sudo in front of it. It evaluates and builds
 as the calling user, sharing that user's fetcher cache, and elevates once at the
 end for the profile flip and the switch. NOPASSWD for `lillecarl` on macbook,
-hetztop and dynhetz — see each `hosts/*/ai-rebuild.nix`, and read the grant as
+hetztop and dynhetz — see `modules/nixos/ai-rebuild.nix` and
+`hosts/macbook/ai-rebuild.nix`, and read the grant as
 full root, not narrow root. `ai-rebuild-pynixd` (hetztop only) is the same
 switch routed through the pynixd store.
 

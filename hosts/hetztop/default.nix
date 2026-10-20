@@ -18,7 +18,7 @@
     ../../profiles/nixos/ttyd.nix
     ../../modules/nixos/pynixd.nix
     ./pynixd.nix
-    ./ai-rebuild.nix
+    ../../modules/nixos/ai-rebuild.nix
     ../../modules/nixos/btrfs.nix
     ./nix-gc.nix
     ../../modules/nixos/nix-gc-sudo.nix
@@ -115,6 +115,11 @@
         nixpkgs.flake = inputs.nixpkgs;
         n.flake = inputs.nixpkgs;
       };
+    };
+    programs.ai-rebuild = {
+      enable = true;
+      pynixdVariant.enable = true;
+      sudo.users = [ "lillecarl" ];
     };
     services.btrfs-housekeeping = {
       enable = true;

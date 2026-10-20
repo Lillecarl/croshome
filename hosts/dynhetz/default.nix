@@ -40,7 +40,7 @@
     ../../profiles/nixos/ttyd.nix
     ../../modules/nixos/pynixd.nix
     ./pynixd.nix
-    ./ai-rebuild.nix
+    ../../modules/nixos/ai-rebuild.nix
     ../../modules/nixos/btrfs.nix
     ./nix-gc.nix
     ../../modules/nixos/nix-gc-sudo.nix
@@ -281,6 +281,15 @@
         nixpkgs.flake = inputs.nixpkgs;
         n.flake = inputs.nixpkgs;
       };
+    };
+    programs.ai-rebuild = {
+      enable = true;
+      umbrellaDev = "all";
+      # The grant is group-based on wheel, not user-based: the colleague
+      # accounts (./dynusers.nix) are unprivileged and not in wheel, so they
+      # stay outside it however many join, and nothing about the rule has to
+      # grow with them.
+      sudo.groups = [ "wheel" ];
     };
     services.btrfs-housekeeping = {
       enable = true;

@@ -7,8 +7,10 @@
 }:
 
 let
-  # Named ai-rebuild here and on the MacBook and on hetztop, so an agent runs
-  # one command whichever machine it is on.
+  cfg = config.programs.ai-rebuild;
+
+  # Named ai-rebuild on every host, so an agent runs one command whichever
+  # machine it is on.
   #
   # Only two steps of a switch need root: pointing the system profile at the
   # new toplevel, and running switch-to-configuration. Everything before that
@@ -23,6 +25,18 @@ let
   # Read the grant as full root, not narrow root: the helper activates
   # whatever path it is given, and the caller chooses that path by evaluating
   # arbitrary Nix.
+
+  umbrellaBlock = lib.optionalString (cfg.umbrellaDev != null) ''
+    # Read the umbrella's working copies live, the way ./overrides.nix
+    # reads this repository's own inputs live. resolve.nix answers a source
+    # with a checkout beside the umbrella as that directory when the
+    # variable names it, and `all` names every one that is on disk; a
+    # source with no checkout still comes from its lock. The pinned
+    # `nixidae-pynixd` umbrella is a store path with no checkouts beside
+    # it, so pynixd stays on its lock whatever this says.
+    export UMBRELLA_DEV=${lib.escapeShellArg cfg.umbrellaDev}
+
+  '';
 
   ai-rebuild-activate = pkgs.writeShellApplication {
     name = "ai-rebuild-activate";
@@ -95,51 +109,83 @@ let
       pkgs.nixos-rebuild
     ];
     text = ''
-      # Read the umbrella's working copies live, the way ./overrides.nix
-      # reads this repository's own inputs live. resolve.nix answers a source
-      # with a checkout beside the umbrella as that directory when the
-      # variable names it, and `all` names every one that is on disk; a
-      # source with no checkout still comes from its lock. The pinned
-      # `nixidae-pynixd` umbrella is a store path with no checkouts beside
-      # it, so pynixd stays on its lock whatever this says.
-      export UMBRELLA_DEV=all
-
-      # Build as this user. stdout carries nothing but the store path; every
+      ${umbrellaBlock}# Build as this user. stdout carries nothing but the store path; every
       # other line goes to stderr.
       toplevel=$(nixos-rebuild build \
-        --file ${lib.escapeShellArg selfStr} --attr dynhetz)
+        --file ${lib.escapeShellArg selfStr} --attr ${lib.escapeShellArg cfg.attr})
 
       # sudo comes from PATH on purpose: only the setuid wrapper in
       # /run/wrappers can elevate, a store-path sudo cannot.
       exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
     '';
   };
+  ai-rebuild-pynixd = pkgs.writeShellApplication {
+    name = "ai-rebuild-pynixd";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.nixos-rebuild
+    ];
+    text = ''
+      toplevel=$(nixos-rebuild build \
+        --option eval-store unix:///nix/var/nix/daemon-socket/socket \
+        --option store unix:///run/pynixd/pynixd.sock \
+        --file ${lib.escapeShellArg selfStr} --attr ${lib.escapeShellArg cfg.attr})
+
+      exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
+    '';
+  };
 in
 {
-  environment.systemPackages = [
-    ai-rebuild
-    ai-rebuild-activate
-  ];
+  options.programs.ai-rebuild = {
+    enable = lib.mkEnableOption "ai-rebuild, a user build plus one NOPASSWD activation step";
+    attr = lib.mkOption {
+      type = lib.types.str;
+      default = config.networking.hostName;
+      description = "Attribute of the repository root that ai-rebuild builds.";
+    };
+    umbrellaDev = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = null;
+      description = "UMBRELLA_DEV for the build: which nixidae umbrella sources come from checkouts beside it.";
+    };
+    pynixdVariant.enable = lib.mkEnableOption "ai-rebuild-pynixd, the same switch built through the pynixd store";
+    sudo = {
+      users = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Users that may run ai-rebuild-activate without a password.";
+      };
+      groups = lib.mkOption {
+        type = lib.types.listOf lib.types.str;
+        default = [ ];
+        description = "Groups that may run ai-rebuild-activate without a password.";
+      };
+    };
+  };
 
-  # The stable path, not the store path: sudo compares the command as the
-  # caller wrote it, so a rule naming a store path is only matched by someone
-  # who typed that store path. `ai-rebuild` calls the helper by its absolute
-  # /run/current-system/sw/bin path, which is where the rule looks.
-  #
-  # The grant is group-based on wheel, not user-based: the colleague
-  # accounts (./dynusers.nix) are unprivileged and not in wheel, so they
-  # stay outside it however many join, and nothing about the rule has to
-  # grow with them. Still NOPASSWD -- it runs activation with no terminal.
-  security.sudo.extraRules = [
-    {
-      users = [ ];
-      groups = [ "wheel" ];
-      commands = [
-        {
-          command = "/run/current-system/sw/bin/ai-rebuild-activate";
-          options = [ "NOPASSWD" ];
-        }
-      ];
-    }
-  ];
+  config = lib.mkIf cfg.enable {
+    environment.systemPackages = [
+      ai-rebuild
+      ai-rebuild-activate
+    ]
+    ++ lib.optional cfg.pynixdVariant.enable ai-rebuild-pynixd;
+
+    # The stable path, not the store path: sudo compares the command as the
+    # caller wrote it, so a rule naming a store path is only matched by someone
+    # who typed that store path. `ai-rebuild` calls the helper by its absolute
+    # /run/current-system/sw/bin path, which is where the rule looks.
+    #
+    security.sudo.extraRules = [
+      {
+        users = cfg.sudo.users;
+        groups = cfg.sudo.groups;
+        commands = [
+          {
+            command = "/run/current-system/sw/bin/ai-rebuild-activate";
+            options = [ "NOPASSWD" ];
+          }
+        ];
+      }
+    ];
+  };
 }
