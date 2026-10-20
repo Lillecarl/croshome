@@ -40,6 +40,8 @@ let
       ip -6 addr replace ${v6}:3::${lib.toHexString k}/127 dev ${dev}
       ip addr replace 10.247.102.254/32 dev ${dev}
       ip -6 addr replace ${v6}:3::fe/128 dev ${dev} nodad
+      # FRR's IPv6 sessions need a link-local address; WireGuard has none.
+      ip -6 addr replace fe80::1/64 dev ${dev}
       ip link set ${dev} up
     '';
 in
