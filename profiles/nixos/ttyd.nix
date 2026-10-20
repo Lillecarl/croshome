@@ -6,5 +6,7 @@
     writeable = true;
   };
 
-  networking.firewall.allowedTCPPorts = [ config.services.ttyd.port ];
+  networking.firewall.allowedTCPPorts = lib.mkIf config.services.ttyd.enable [
+    config.services.ttyd.port
+  ];
 }
