@@ -4,8 +4,10 @@ status line."""
 
 import asyncio
 import json
+import os
 import sys
 import time
+from pathlib import Path
 
 from wrapty.client import call, session_id
 
@@ -60,7 +62,21 @@ def _window(data, label, now):
     return text
 
 
-def _render(payload, now=None):
+def _account_domain():
+    """The logged-in account's email domain, which tells the personal profile
+    from the work one. The statusline payload carries no account, so this
+    reads the state file Claude Code keeps: $CLAUDE_CONFIG_DIR/.claude.json
+    when that is set, ~/.claude.json otherwise."""
+    config_dir = os.environ.get("CLAUDE_CONFIG_DIR")
+    path = Path(config_dir) / ".claude.json" if config_dir else Path.home() / ".claude.json"
+    try:
+        email = json.loads(path.read_text())["oauthAccount"]["emailAddress"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return None
+    return email.rpartition("@")[2] or None
+
+
+def _render(payload, now=None, account=None):
     model = payload.get("model", {}).get("display_name", "?")
     ctx = payload.get("context_window", {})
     used_pct = ctx.get("used_percentage")
@@ -68,7 +84,8 @@ def _render(payload, now=None):
     cost = payload.get("cost", {}).get("total_cost_usd")
     now = time.time() if now is None else now
 
-    parts = [model]
+    parts = [account] if account else []
+    parts.append(model)
     if used_pct is not None:
         parts.append(f"ctx {used_pct:.0f}%")
     # An API key has no plan windows, and an older Claude Code does not report
@@ -95,7 +112,7 @@ async def _report(payload):
 def main():
     payload = json.load(sys.stdin)
     asyncio.run(_report(payload))
-    print(_render(payload))
+    print(_render(payload, account=_account_domain()))
 
 
 if __name__ == "__main__":

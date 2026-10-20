@@ -5,6 +5,8 @@ and an older Claude Code reports neither them nor the cost. The line has to
 render whatever it gets.
 """
 
+import json
+
 import pytest
 
 from wrapty import statusline as sl
@@ -95,6 +97,30 @@ def test_a_full_payload_renders_every_part_in_order():
 
 def test_an_empty_payload_still_renders():
     assert sl._render({}, NOW) == "?"
+
+
+def test_the_account_leads_the_line():
+    payload = {"model": {"display_name": "Opus 5"}}
+    assert sl._render(payload, NOW, account="dynamist.se") == "dynamist.se · Opus 5"
+
+
+@pytest.mark.parametrize(
+    "state, expected",
+    [
+        ({"oauthAccount": {"emailAddress": "carl@dynamist.se"}}, "dynamist.se"),
+        ({"oauthAccount": {}}, None),  # an API key has no account
+        ({}, None),
+    ],
+)
+def test_account_domain_reads_the_config_dir(tmp_path, monkeypatch, state, expected):
+    (tmp_path / ".claude.json").write_text(json.dumps(state))
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    assert sl._account_domain() == expected
+
+
+def test_account_domain_without_a_state_file(tmp_path, monkeypatch):
+    monkeypatch.setenv("CLAUDE_CONFIG_DIR", str(tmp_path))
+    assert sl._account_domain() is None
 
 
 def test_missing_plan_windows_are_skipped():
