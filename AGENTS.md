@@ -145,7 +145,8 @@ end for the profile flip and the switch. NOPASSWD for `lillecarl` on macbook,
 hetztop and dynhetz — see `modules/nixos/ai-rebuild.nix` and
 `hosts/macbook/ai-rebuild.nix`, and read the grant as
 full root, not narrow root. `ai-rebuild-pynixd` (hetztop only) is the same
-switch routed through the pynixd store.
+switch routed through the pynixd store. `ai-rebuild --upstream` builds against
+nix-daemon behind pynixd, for when pynixd misbehaves.
 
 ## Dogfood pystemctl for long runs
 

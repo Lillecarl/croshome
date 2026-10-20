@@ -109,6 +109,21 @@ let
       pkgs.nixos-rebuild
     ];
     text = ''
+      # --upstream: build against nix-daemon behind pynixd, for when pynixd
+      # misbehaves. The default socket is pynixd's on a replace host. The
+      # activation step already prefers the upstream socket when it exists.
+      # An exported NIX_REMOTE also passes through, so this is a shorthand.
+      case "''${1:-}" in
+        --upstream)
+          export NIX_REMOTE=unix:///nix/var/nix/daemon-socket/upstream
+          ;;
+        "") ;;
+        *)
+          echo "usage: ai-rebuild [--upstream]" >&2
+          exit 2
+          ;;
+      esac
+
       ${umbrellaBlock}# Build as this user. stdout carries nothing but the store path; every
       # other line goes to stderr.
       toplevel=$(nixos-rebuild build \
