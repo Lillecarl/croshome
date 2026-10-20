@@ -164,25 +164,10 @@
     };
   };
 
-  # See ../../modules/home/wrapty.nix -- puts wrapty on PATH so ../../home/fish/
-  # functions/claude.fish routes `claude` through it, and so the Claude Code
-  # plugin manifest under ../../home/claude/skills/wrapty can name its
-  # binaries bare.
-  programs.wrapty.enable = true;
-
   # See ../../modules/home/agent-machine.nix -- the machine section every harness
   # reads. Only the values that differ per machine live here.
   programs.agentMachine = {
-    enable = true;
     hostName = "dynhetz";
     cloneDir = "~/Code";
   };
-
-  # See ../../modules/home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Shared
-  # prose, read live out of the checkout through `@` imports.
-  programs.claudeInstructions.enable = true;
-
-  # See ../../modules/home/codex-md.nix -- generates ~/.codex/AGENTS.md. Shared prose
-  # only, inlined at build time; Codex has no import mechanism.
-  programs.codexInstructions.enable = true;
 }

@@ -21,26 +21,12 @@ in
   home.file.".homebrew/trust.json".source = brewTrust;
   xdg.configFile."homebrew/trust.json".source = brewTrust;
 
-  # See ../../modules/home/wrapty.nix -- puts wrapty on PATH for the Claude Code
-  # plugin under home/claude/skills/wrapty. Also on hetztop; not on cros,
-  # which does not import ../../home at all.
-  programs.wrapty.enable = true;
-
   # See ../../modules/home/agent-machine.nix -- the machine section every harness
   # reads. Only the values that differ per machine live here.
   programs.agentMachine = {
-    enable = true;
     hostName = "macbook";
     cloneDir = "~/Dynamist";
   };
-
-  # See ../../modules/home/claude-md.nix -- generates ~/.claude/CLAUDE.md. Shared
-  # prose, read live out of the checkout through `@` imports.
-  programs.claudeInstructions.enable = true;
-
-  # See ../../modules/home/codex-md.nix -- generates ~/.codex/AGENTS.md. Shared prose
-  # only, inlined at build time; Codex has no import mechanism.
-  programs.codexInstructions.enable = true;
 
   home.packages = [
     pkgs.autossh

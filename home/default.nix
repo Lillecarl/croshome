@@ -54,6 +54,13 @@
 
   programs.home-manager.enable = true;
 
+  # The agent harness modules in ../modules/home. Each host's home.nix sets
+  # only what differs per machine: agentMachine's hostName and cloneDir.
+  programs.wrapty.enable = true;
+  programs.agentMachine.enable = true;
+  programs.claudeInstructions.enable = true;
+  programs.codexInstructions.enable = true;
+
   # Exports XDG_{CONFIG,CACHE,DATA,STATE}_HOME as session variables. macOS has
   # no XDG layout of its own, and this config expects one on every machine.
   xdg.enable = true;
