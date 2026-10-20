@@ -77,11 +77,13 @@ a new `@` — further edits silently land back in the commit you just described.
   there is normal; quick fixes land straight from it.
 - A secondary workspace is a checked-out branch for one larger task that must not
   block those fixes. Commit there.
-- Ready = merged into `main`, after which the default workspace is advanced onto the
-  new `main`. Never land by checking the work out in the default workspace.
-- Who merges, the three allowed shapes, and the advance command:
-  [workspaces.md](references/workspaces.md#landing-a-workspace). Those steps are
-  User-approved; the ask-first rule under Safety does not apply to them.
+- A secondary workspace never moves, sets, deletes or rewrites a bookmark another
+  workspace holds (`main` always, held by `default`), nor another workspace's `@`.
+  It commits on its own `@` and moves only bookmarks it created for its own task.
+- Landing (moving `main`, advancing `default@`) happens only from the default
+  workspace, by its session or by User. A secondary workspace ends with
+  `ready to land: <change-id>` and waits. Details and the traps:
+  [workspaces.md](references/workspaces.md#landing-a-workspace).
 
 ## Passing commit messages safely
 
