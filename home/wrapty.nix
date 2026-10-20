@@ -70,7 +70,7 @@
 let
   cfg = config.programs.wrapty;
 
-  # Merges `statusLine` into ~/.claude/settings.json, touching nothing else
+  # Merges `statusLine` into each Claude settings.json, touching nothing else
   # in the file -- see the module comment for why the rest of it stays
   # hand-managed. Read-modify-write via a .tmp file plus os.replace() rather
   # than editing in place, so a crash mid-write can never leave
@@ -82,8 +82,8 @@ let
 
 
     def main() -> None:
-        settings_path = os.path.expanduser("~/.claude/settings.json")
-        command = sys.argv[1]
+        settings_path = sys.argv[1]
+        command = sys.argv[2]
 
         try:
             with open(settings_path) as f:
@@ -115,9 +115,11 @@ in
   config = lib.mkIf cfg.enable {
     home.packages = [ pkgs.wrapty ];
 
-    home.activation.wraptyStatusLine = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      run mkdir -p "$HOME/.claude"
-      run ${lib.getExe patchStatusLine} "${lib.getExe' pkgs.wrapty "wrapty-statusline"}"
-    '';
+    home.activation.wraptyStatusLine = lib.hm.dag.entryAfter [ "writeBoundary" ] (
+      lib.concatMapStrings (dir: ''
+        run mkdir -p "$HOME/${dir}"
+        run ${lib.getExe patchStatusLine} "$HOME/${dir}/settings.json" "${lib.getExe' pkgs.wrapty "wrapty-statusline"}"
+      '') config.programs.claudeCode.configDirs
+    );
   };
 }

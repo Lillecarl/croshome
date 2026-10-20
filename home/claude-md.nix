@@ -107,6 +107,8 @@ in
   };
 
   config = lib.mkIf cfg.enable {
-    home.file.".claude/CLAUDE.md".text = header + "\n" + imports' + "\n";
+    home.file = lib.genAttrs (map (dir: "${dir}/CLAUDE.md") config.programs.claudeCode.configDirs) (_: {
+      text = header + "\n" + imports' + "\n";
+    });
   };
 }

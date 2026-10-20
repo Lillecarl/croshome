@@ -142,6 +142,9 @@ let
     )
   );
 
+  claudeDirs = config.programs.claudeCode.configDirs;
+  forClaudeDirs = f: lib.mergeAttrsList (map f claudeDirs);
+
   repoSkillLinks =
     agentDir:
     lib.listToAttrs (
@@ -223,162 +226,179 @@ let
     });
 in
 {
-  # One store path per skill. Both agents read the same set: a skill is
-  # prose, and nothing in it is Claude-specific.
-  #
-  # Editing a skill needs `ai-rebuild` before the next session sees it. That
-  # is the trade for a skill being content-addressed like everything else
-  # here, and for a package being able to ship one: the directory holds
-  # exactly what the configuration says it holds.
-  #
-  # One entry per skill rather than one for the directory, and the directory
-  # itself stays real and writable. Claude Code writes its claude.ai skill
-  # sync into ~/.claude/skills/synced, so a store-owned directory there would
-  # break that sync outright.
-  #
-  # A host still on the old shape needs one manual step. home-manager does
-  # not replace a managed symlink with a managed directory: it leaves
-  # ~/.claude/skills and ~/.gemini/skills pointing at the old generation, and
-  # the per-skill links never appear. Delete both symlinks, then activate.
-  #
-  # Put them back if that switch fails. Deleting costs nothing by itself --
-  # they are links into the store -- but until an activation succeeds the
-  # host has no skills at all, and a switch can abort in that window for
-  # reasons that have nothing to do with this. Measured on macbook, where
-  # darwin-rebuild stopped on a macOS App Management grant.
-  home.file =
-    repoSkillLinks ".claude"
-    // repoSkillLinks ".gemini"
-    # No .claude link here: ./pyedit-mcp.nix owns ~/.claude/skills/pyedit,
-    # wrapping the same store skill with the Claude plugin manifests.
-    // pyeditSkillLink ".gemini"
-    // pyjjSkillLink ".claude"
-    // pyjjSkillLink ".gemini"
-    // phabfiveSkillLink ".claude"
-    // phabfiveSkillLink ".gemini"
-    // pynixSkillLink ".claude"
-    // pynixSkillLink ".gemini"
-    // {
-      # v2's isolated roots (see the `opencode2` binding above). Out-of-store
-      # links so they track the live files, the same trade ./opencode.nix
-      # makes for AGENTS.md.
-      ".config-opencode2/opencode/skills".source =
-        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/opencode/skills";
-      ".config-opencode2/opencode/AGENTS.md".source =
-        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/opencode/AGENTS.md";
-      ".local/share-opencode2/opencode/auth.json".source =
-        config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/opencode/auth.json";
-      ".config-opencode2/opencode/opencode.jsonc".source =
-        config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/agents/opencode2/opencode.jsonc";
-    };
-
-  # Single keys merged into ~/.claude/settings.json. Every other key stays as
-  # Claude Code wrote it; ./wrapty.nix explains why the file is not generated
-  # whole.
-  home.mergedFile.".claude/settings.json" = {
-    format = "json";
-    settings = {
-      # Starts the Remote Control bridge in every session. Without it the
-      # bridge waits for `claude remote-control` or the /config toggle.
-      remoteControlAtStartup = true;
-
-      # The alt-screen renderer. A mature install otherwise resolves the
-      # renderer to `default`, which draws inline: no alternate screen, no
-      # mouse reporting, and a wheel over the pane opens pymux copy mode
-      # instead of scrolling Claude Code. `fullscreen` is the flicker-free
-      # one, and it is what the wheel and Claude Code's own scroll expect.
-      tui = "fullscreen";
-
-      # Compacts a long idle session before its one-hour prompt cache
-      # expires. On by default; set explicitly so a default flip upstream
-      # does not turn it off.
-      idleCompaction = true;
-
-      # Replaces the Co-Authored-By and Claude-Session lines Claude Code
-      # injects by default, which ./agents/shared/commits.md then has to
-      # argue with every session.
-      #
-      # Claude Code does no substitution here, so `$model` reaches the
-      # reminder literally and the reading model resolves it. That is the
-      # whole point: one trailer, named per model, without this file
-      # knowing which model runs.
-      #
-      # `commit` must stay non-empty. Set it to "" and the reminder inverts
-      # into "do not add attribution lines ... applies even if a CLAUDE.md
-      # or memory rule asks for attribution lines", which fights
-      # ./agents/shared/commits.md instead of agreeing with it.
-      attribution = {
-        commit = "Assisted-By: Claude $model";
-        pr = "";
-        sessionUrl = false;
-      };
-
-      # Auto mode otherwise adds a paragraph telling the model to edit files
-      # with sed and heredocs, against ./agents/shared/tools.md. The steer
-      # has no settings key of its own, only this environment variable, read
-      # as 1/true/yes/on against 0/false/no/off. Auto mode itself stays on.
-      env.CLAUDE_CODE_THRIFTY_SONIC = "0";
-    };
+  /**
+    Claude Code config directories, relative to $HOME. Every file this
+    configuration writes into one goes into each. `.dclaude` is the work
+    profile that `dclaude` selects through CLAUDE_CONFIG_DIR.
+  */
+  options.programs.claudeCode.configDirs = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [
+      ".claude"
+      ".dclaude"
+    ];
   };
 
-  home.packages = [
-    agentHooks
-
-    # The overlay in ../pkgs tracks upstream releases rather than the nixpkgs
-    # pin, and picks the build for the host platform, so this one attribute
-    # works on macOS and Linux alike.
-    pkgs.claude-code
-    pkgs.codex # OpenAI
-    pkgs.fabric-ai
-
-    # MCP servers
-    pkgs.context7-mcp
-    pkgs.mcp-gateway
-    pkgs.mcp-nixos
-    pkgs.playwright-mcp
-
-    # Every agent CLI here runs on macOS and Linux alike. Each was built for
-    # aarch64-darwin and then run, because meta.platforms says only that a
-    # package is allowed on a platform, and a green build says only that it
-    # compiled -- neither says the binary works.
-    inputs.acpcli.packages.${system}.acpcli
-    inputs.llm-agents.packages.${system}.antigravity-cli
-    inputs.llm-agents.packages.${system}.reasonix
-    (runsOnDarwinButFailsTheCheck inputs.llm-agents.packages.${system}.kilocode-cli)
-
-    # Upstream ships a plain CLI for both platforms -- opencode-linux-*.tar.gz
-    # and opencode-darwin-*.zip -- so this is one package with two asset names.
-    # The opencode-desktop-* assets are the desktop application and are a
-    # different thing entirely.
+  config = {
+    # One store path per skill. Both agents read the same set: a skill is
+    # prose, and nothing in it is Claude-specific.
     #
-    # Tracks the latest release rather than the llm-agents pin, which lags far
-    # enough behind that its own versionCheckPhase fails against it.
-    (
-      let
-        release = builtins.fromJSON (
-          builtins.readFile (
-            builtins.fetchurl {
-              url = "https://api.github.com/repos/anomalyco/opencode/releases/latest";
-              name = "opencode-latest-release.json";
-            }
-          )
-        );
-        tag = release.tag_name;
-        arch = if hostPlatform.isx86_64 then "x64" else "arm64";
-        os = if hostPlatform.isDarwin then "darwin" else "linux";
-        ext = if hostPlatform.isDarwin then "zip" else "tar.gz";
-      in
-      (runsOnDarwinButFailsTheCheck inputs.llm-agents.packages.${system}.opencode).overrideAttrs {
-        version = lib.strings.removePrefix "v" tag;
-        src = builtins.fetchurl {
-          url = "https://github.com/anomalyco/opencode/releases/download/${tag}/opencode-${os}-${arch}.${ext}";
-          name = "opencode-${tag}.${ext}";
-        };
-      }
-    )
+    # Editing a skill needs `ai-rebuild` before the next session sees it. That
+    # is the trade for a skill being content-addressed like everything else
+    # here, and for a package being able to ship one: the directory holds
+    # exactly what the configuration says it holds.
+    #
+    # One entry per skill rather than one for the directory, and the directory
+    # itself stays real and writable. Claude Code writes its claude.ai skill
+    # sync into ~/.claude/skills/synced, so a store-owned directory there would
+    # break that sync outright.
+    #
+    # A host still on the old shape needs one manual step. home-manager does
+    # not replace a managed symlink with a managed directory: it leaves
+    # ~/.claude/skills and ~/.gemini/skills pointing at the old generation, and
+    # the per-skill links never appear. Delete both symlinks, then activate.
+    #
+    # Put them back if that switch fails. Deleting costs nothing by itself --
+    # they are links into the store -- but until an activation succeeds the
+    # host has no skills at all, and a switch can abort in that window for
+    # reasons that have nothing to do with this. Measured on macbook, where
+    # darwin-rebuild stopped on a macOS App Management grant.
+    home.file =
+      forClaudeDirs repoSkillLinks
+      // repoSkillLinks ".gemini"
+      # No Claude link here: ./pyedit-mcp.nix owns <claude dir>/skills/pyedit,
+      # wrapping the same store skill with the Claude plugin manifests.
+      // pyeditSkillLink ".gemini"
+      // forClaudeDirs pyjjSkillLink
+      // pyjjSkillLink ".gemini"
+      // forClaudeDirs phabfiveSkillLink
+      // phabfiveSkillLink ".gemini"
+      // forClaudeDirs pynixSkillLink
+      // pynixSkillLink ".gemini"
+      // {
+        # v2's isolated roots (see the `opencode2` binding above). Out-of-store
+        # links so they track the live files, the same trade ./opencode.nix
+        # makes for AGENTS.md.
+        ".config-opencode2/opencode/skills".source =
+          config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/opencode/skills";
+        ".config-opencode2/opencode/AGENTS.md".source =
+          config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.config/opencode/AGENTS.md";
+        ".local/share-opencode2/opencode/auth.json".source =
+          config.lib.file.mkOutOfStoreSymlink "${config.home.homeDirectory}/.local/share/opencode/auth.json";
+        ".config-opencode2/opencode/opencode.jsonc".source =
+          config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/agents/opencode2/opencode.jsonc";
+      };
 
-    # The v2 beta, wrapped with its own XDG roots (see the `opencode2`
-    # binding above). v1 above stays exactly as it is.
-    opencode2
-  ];
+    # Single keys merged into each Claude settings.json. Every other key stays
+    # as Claude Code wrote it; ./wrapty.nix explains why the file is not
+    # generated whole.
+    home.mergedFile = forClaudeDirs (dir: {
+      "${dir}/settings.json" = {
+        format = "json";
+        settings = {
+          # Starts the Remote Control bridge in every session. Without it the
+          # bridge waits for `claude remote-control` or the /config toggle.
+          remoteControlAtStartup = true;
+
+          # The alt-screen renderer. A mature install otherwise resolves the
+          # renderer to `default`, which draws inline: no alternate screen, no
+          # mouse reporting, and a wheel over the pane opens pymux copy mode
+          # instead of scrolling Claude Code. `fullscreen` is the flicker-free
+          # one, and it is what the wheel and Claude Code's own scroll expect.
+          tui = "fullscreen";
+
+          # Compacts a long idle session before its one-hour prompt cache
+          # expires. On by default; set explicitly so a default flip upstream
+          # does not turn it off.
+          idleCompaction = true;
+
+          # Replaces the Co-Authored-By and Claude-Session lines Claude Code
+          # injects by default, which ./agents/shared/commits.md then has to
+          # argue with every session.
+          #
+          # Claude Code does no substitution here, so `$model` reaches the
+          # reminder literally and the reading model resolves it. That is the
+          # whole point: one trailer, named per model, without this file
+          # knowing which model runs.
+          #
+          # `commit` must stay non-empty. Set it to "" and the reminder inverts
+          # into "do not add attribution lines ... applies even if a CLAUDE.md
+          # or memory rule asks for attribution lines", which fights
+          # ./agents/shared/commits.md instead of agreeing with it.
+          attribution = {
+            commit = "Assisted-By: Claude $model";
+            pr = "";
+            sessionUrl = false;
+          };
+
+          # Auto mode otherwise adds a paragraph telling the model to edit files
+          # with sed and heredocs, against ./agents/shared/tools.md. The steer
+          # has no settings key of its own, only this environment variable, read
+          # as 1/true/yes/on against 0/false/no/off. Auto mode itself stays on.
+          env.CLAUDE_CODE_THRIFTY_SONIC = "0";
+        };
+      };
+    });
+
+    home.packages = [
+      agentHooks
+
+      # The overlay in ../pkgs tracks upstream releases rather than the nixpkgs
+      # pin, and picks the build for the host platform, so this one attribute
+      # works on macOS and Linux alike.
+      pkgs.claude-code
+      pkgs.codex # OpenAI
+      pkgs.fabric-ai
+
+      # MCP servers
+      pkgs.context7-mcp
+      pkgs.mcp-gateway
+      pkgs.mcp-nixos
+      pkgs.playwright-mcp
+
+      # Every agent CLI here runs on macOS and Linux alike. Each was built for
+      # aarch64-darwin and then run, because meta.platforms says only that a
+      # package is allowed on a platform, and a green build says only that it
+      # compiled -- neither says the binary works.
+      inputs.acpcli.packages.${system}.acpcli
+      inputs.llm-agents.packages.${system}.antigravity-cli
+      inputs.llm-agents.packages.${system}.reasonix
+      (runsOnDarwinButFailsTheCheck inputs.llm-agents.packages.${system}.kilocode-cli)
+
+      # Upstream ships a plain CLI for both platforms -- opencode-linux-*.tar.gz
+      # and opencode-darwin-*.zip -- so this is one package with two asset names.
+      # The opencode-desktop-* assets are the desktop application and are a
+      # different thing entirely.
+      #
+      # Tracks the latest release rather than the llm-agents pin, which lags far
+      # enough behind that its own versionCheckPhase fails against it.
+      (
+        let
+          release = builtins.fromJSON (
+            builtins.readFile (
+              builtins.fetchurl {
+                url = "https://api.github.com/repos/anomalyco/opencode/releases/latest";
+                name = "opencode-latest-release.json";
+              }
+            )
+          );
+          tag = release.tag_name;
+          arch = if hostPlatform.isx86_64 then "x64" else "arm64";
+          os = if hostPlatform.isDarwin then "darwin" else "linux";
+          ext = if hostPlatform.isDarwin then "zip" else "tar.gz";
+        in
+        (runsOnDarwinButFailsTheCheck inputs.llm-agents.packages.${system}.opencode).overrideAttrs {
+          version = lib.strings.removePrefix "v" tag;
+          src = builtins.fetchurl {
+            url = "https://github.com/anomalyco/opencode/releases/download/${tag}/opencode-${os}-${arch}.${ext}";
+            name = "opencode-${tag}.${ext}";
+          };
+        }
+      )
+
+      # The v2 beta, wrapped with its own XDG roots (see the `opencode2`
+      # binding above). v1 above stays exactly as it is.
+      opencode2
+    ];
+  };
 }

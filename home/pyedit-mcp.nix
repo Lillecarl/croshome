@@ -13,6 +13,7 @@
 # ./wrapty.nix gives: PATH re-resolves on every invocation, so a rebuild
 # reaches running sessions at once.
 {
+  config,
   lib,
   pkgs,
   ...
@@ -48,7 +49,9 @@ let
   '';
 in
 {
-  home.file.".claude/skills/pyedit".source = claudePlugin;
+  home.file = lib.genAttrs (map (dir: "${dir}/skills/pyedit") config.programs.claudeCode.configDirs) (_: {
+    source = claudePlugin;
+  });
 
   home.mergedFile.".config/opencode/opencode.json" = {
     format = "json";
