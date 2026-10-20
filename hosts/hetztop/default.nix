@@ -23,7 +23,7 @@
     ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/nixos")
     ./pynixd.nix
     ./ai-rebuild.nix
-    ./btrfs.nix
+    ../../modules/nixos/btrfs.nix
     ./nix-gc.nix
     ../../profiles/nixos/terminfo.nix
     ../../secrets
@@ -118,6 +118,10 @@
         nixpkgs.flake = inputs.nixpkgs;
         n.flake = inputs.nixpkgs;
       };
+    };
+    services.btrfs-housekeeping = {
+      enable = true;
+      sudoUsers = [ "lillecarl" ];
     };
     services.btrfs.autoScrub = {
       enable = true;

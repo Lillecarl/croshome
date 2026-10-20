@@ -1,5 +1,12 @@
-{ pkgs, lib, ... }:
+{
+  config,
+  pkgs,
+  lib,
+  ...
+}:
 let
+  cfg = config.services.btrfs-housekeeping;
+
   # sudo matches the command as it resolves it on PATH, and does not follow the
   # symlink, so this is the path `sudo btrfs` actually presents. It is also the
   # one that survives an update: a `${pkgs.btrfs-progs}/bin/btrfs` store path
@@ -108,80 +115,100 @@ let
   };
 in
 {
-  # This machine builds Nix packages more or less constantly, and a store of
-  # millions of small files turns that into extent and csum churn. The result is
-  # that data chunks end up allocated but only part full, and once the device is
-  # fully allocated, metadata -- which is the part that grows under that churn --
-  # cannot get another chunk. That state reports as ENOSPC with plenty of free
-  # space in df, and it is also the state in which balance itself starts failing
-  # with -28, because relocation has nowhere to relocate to (this happened on
-  # 2026-08-05 and 2026-08-10; on 2026-08-15 the device was 100% allocated with
-  # metadata at 92%, and one -dusage=20 pass took 13 seconds and gave back 7GiB).
-  #
-  # 2026-10-08: weekly lost the race. Metadata hit 97.5% with 1MiB
-  # unallocated, `nix-collect-garbage -d` stalled on a generation, and df
-  # still showed 71G free. Clearing /tmp cruft and vacuuming the journal
-  # moved metadata to 92%; one manual -dusage=20 pass then freed 34GiB of
-  # unallocated and metadata grew 24G -> 27G on its own. So weekly is now
-  # "at latest": btrfs-ensure-headroom above balances on threshold.
-  #
-  # So: reclaim the mostly-empty data chunks every week, before allocation
-  # reaches the point where the fix no longer runs. Data only. A metadata
-  # balance on a nearly-full metadata allocation is the one that gets stuck.
-  systemd.services.btrfs-balance = {
-    description = "btrfs balance of / (reclaim mostly-empty data chunks)";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = "${lib.getExe pkgs.btrfs-progs} balance start -dusage=20 /";
-      # Losing to anything that actually wants the disk is fine; this is
-      # housekeeping and it has all week.
-      Nice = 19;
-      IOSchedulingClass = "idle";
-    };
-    # A failure here is worth seeing rather than swallowing: `btrfs balance`
-    # exits non-zero on ENOSPC, and that is the early warning that allocation
-    # got away from us again.
-  };
-
-  systemd.timers.btrfs-balance = {
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "weekly";
-      # The machine is not always up, and a missed week is exactly when
-      # allocation has been left alone the longest.
-      Persistent = true;
-      RandomizedDelaySec = "1h";
+  options.services.btrfs-housekeeping = {
+    enable = lib.mkEnableOption "the weekly data balance of / and the btrfs sudo rules";
+    headroomGuard.enable = lib.mkEnableOption "a balance whenever metadata or unallocated space crosses its threshold";
+    sudoUsers = lib.mkOption {
+      type = lib.types.listOf lib.types.str;
+      default = [ ];
+      description = "Users that may run the allowed btrfs subcommands through sudo without a password.";
     };
   };
 
-  systemd.services.btrfs-ensure-headroom = {
-    description = "btrfs headroom check of / (balance on threshold, not calendar)";
-    serviceConfig = {
-      Type = "oneshot";
-      ExecStart = lib.getExe ensure-headroom;
-      Nice = 19;
-      IOSchedulingClass = "idle";
-      RuntimeDirectory = "btrfs-ensure-headroom";
-    };
-    # Same reasoning as btrfs-balance: a non-zero exit here is the alert.
-  };
+  config = lib.mkIf cfg.enable (
+    lib.mkMerge [
+      {
+        # This machine builds Nix packages more or less constantly, and a store of
+        # millions of small files turns that into extent and csum churn. The result is
+        # that data chunks end up allocated but only part full, and once the device is
+        # fully allocated, metadata -- which is the part that grows under that churn --
+        # cannot get another chunk. That state reports as ENOSPC with plenty of free
+        # space in df, and it is also the state in which balance itself starts failing
+        # with -28, because relocation has nowhere to relocate to (this happened on
+        # 2026-08-05 and 2026-08-10; on 2026-08-15 the device was 100% allocated with
+        # metadata at 92%, and one -dusage=20 pass took 13 seconds and gave back 7GiB).
+        #
+        # 2026-10-08: weekly lost the race. Metadata hit 97.5% with 1MiB
+        # unallocated, `nix-collect-garbage -d` stalled on a generation, and df
+        # still showed 71G free. Clearing /tmp cruft and vacuuming the journal
+        # moved metadata to 92%; one manual -dusage=20 pass then freed 34GiB of
+        # unallocated and metadata grew 24G -> 27G on its own. So weekly is now
+        # "at latest": btrfs-ensure-headroom above balances on threshold.
+        #
+        # So: reclaim the mostly-empty data chunks every week, before allocation
+        # reaches the point where the fix no longer runs. Data only. A metadata
+        # balance on a nearly-full metadata allocation is the one that gets stuck.
+        systemd.services.btrfs-balance = {
+          description = "btrfs balance of / (reclaim mostly-empty data chunks)";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${lib.getExe pkgs.btrfs-progs} balance start -dusage=20 /";
+            # Losing to anything that actually wants the disk is fine; this is
+            # housekeeping and it has all week.
+            Nice = 19;
+            IOSchedulingClass = "idle";
+          };
+          # A failure here is worth seeing rather than swallowing: `btrfs balance`
+          # exits non-zero on ENOSPC, and that is the early warning that allocation
+          # got away from us again.
+        };
 
-  systemd.timers.btrfs-ensure-headroom = {
-    wantedBy = [ "timers.target" ];
-    timerConfig = {
-      OnCalendar = "*:0/15";
-      Persistent = true;
-      RandomizedDelaySec = "2min";
-    };
-  };
+        systemd.timers.btrfs-balance = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnCalendar = "weekly";
+            # The machine is not always up, and a missed week is exactly when
+            # allocation has been left alone the longest.
+            Persistent = true;
+            RandomizedDelaySec = "1h";
+          };
+        };
 
-  security.sudo.extraRules = [
-    {
-      users = [ "lillecarl" ];
-      commands = map (args: {
-        command = "${btrfs} ${args}";
-        options = [ "NOPASSWD" ];
-      }) allowed;
-    }
-  ];
+      }
+      (lib.mkIf cfg.headroomGuard.enable {
+        systemd.services.btrfs-ensure-headroom = {
+          description = "btrfs headroom check of / (balance on threshold, not calendar)";
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = lib.getExe ensure-headroom;
+            Nice = 19;
+            IOSchedulingClass = "idle";
+            RuntimeDirectory = "btrfs-ensure-headroom";
+          };
+          # Same reasoning as btrfs-balance: a non-zero exit here is the alert.
+        };
+
+        systemd.timers.btrfs-ensure-headroom = {
+          wantedBy = [ "timers.target" ];
+          timerConfig = {
+            OnCalendar = "*:0/15";
+            Persistent = true;
+            RandomizedDelaySec = "2min";
+          };
+        };
+
+      })
+      {
+        security.sudo.extraRules = [
+          {
+            users = cfg.sudoUsers;
+            commands = map (args: {
+              command = "${btrfs} ${args}";
+              options = [ "NOPASSWD" ];
+            }) allowed;
+          }
+        ];
+      }
+    ]
+  );
 }
