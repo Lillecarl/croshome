@@ -77,6 +77,19 @@ the error that matters; the line above it usually is.
 Same for a monitor or a background command: its output file already holds
 everything, so read that file instead of re-running the command.
 
+## Writing a CLI: stdout is the result
+
+In any program written for User:
+
+- stdout: the result only, parseable (JSON where structured).
+- stderr: everything else -- progress, warnings, errors, logs -- so a caller
+  can filter it.
+- stderr quiet by default: an unchanged run prints nothing there. Progress
+  and debug events wait for a verbosity flag. Noise teaches callers to discard
+  stderr, and the error goes with it.
+- Consuming one: do not habitually discard stderr (`2>/dev/null`). Noise there
+  is a bug in that program; report it.
+
 ## Waiting on a process
 
 Never `pgrep -f`, `pkill -f` or `ps | grep`. Your command runs inside a wrapper
