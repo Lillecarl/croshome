@@ -282,6 +282,11 @@ in
       # one, and it is what the wheel and Claude Code's own scroll expect.
       tui = "fullscreen";
 
+      # Compacts a long idle session before its one-hour prompt cache
+      # expires. On by default; set explicitly so a default flip upstream
+      # does not turn it off.
+      idleCompaction = true;
+
       # Replaces the Co-Authored-By and Claude-Session lines Claude Code
       # injects by default, which ./agents/shared/commits.md then has to
       # argue with every session.
