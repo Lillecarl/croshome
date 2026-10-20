@@ -34,12 +34,12 @@
 #
 #   2a01:4f9:3071:11d7:0090::/80  -- wg-dynhetz (this file). Only the
 #                                    /112 at ::90:: is actually in use.
-#   2a01:4f9:3071:11d7:00a0::/80  -- FREE. Was the libvirt lab bridge
-#                                    (virbr-nixlab2), for IPv6-only lab VMs.
-#                                    That lab is replaced by KubeVirt: the
-#                                    bridge is gone, its storage pools are
-#                                    undefined and its volume is removed.
-#                                    Reuse it before taking a new one.
+#   2a01:4f9:3071:11d7:00a0::/76  -- the SG1 cluster in the Dynamist lab
+#                                    (sg1-nix, docs/networking.md): pods
+#                                    :a0::/80, Services :a1::/112,
+#                                    LoadBalancers :a2::/112; a0 to af.
+#                                    Not routed to the lab yet: the lab has
+#                                    no IPv6 on its fabric (T3830).
 #   2a01:4f9:3071:11d7:00b0::/80  -- pods of the single-node Kubernetes
 #                                    cluster on this host, on cni0. In
 #                                    use: ../dynhetz/kubernetes. That
@@ -198,10 +198,14 @@ let
     );
 
   # The sg1 lab behind oobtik: VLAN 99 holds the servers and their BMCs, VLAN
-  # 35 the MikroTiks.
+  # 35 the MikroTiks. 10.247.100.0/24 holds the SG1 fabric loopbacks and the
+  # Kubernetes API VIP, 10.248.0.0/16 its pods; oobtik passes both to 100gtik
+  # (10.247.35.68), and the nodes answer through oobtik.
   oobtikNets = [
     "10.247.99.0/24"
     "10.247.35.0/24"
+    "10.247.100.0/24"
+    "10.248.0.0/16"
   ];
 
   peerLines = lib.concatMapStrings (p: ''
