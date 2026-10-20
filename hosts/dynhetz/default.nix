@@ -25,32 +25,21 @@
 {
   imports = [
     ../../profiles/nixos/base.nix
-    inputs.disko.nixosModules.disko
-    inputs.home-manager.nixosModules.home-manager
     ./disko.nix
     ./boot-mirror.nix
     ./initrd-ssh.nix
     ./installscript.nix
-    ../../profiles/nixos/podman.nix
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix
     ./scan-access.nix
-    ../../profiles/nixos/ollama.nix
     ./aiscalate.nix
-    ../../profiles/nixos/ttyd.nix
-    ../../modules/nixos/pynixd.nix
     ./pynixd.nix
-    ../../modules/nixos/ai-rebuild.nix
-    ../../modules/nixos/btrfs.nix
     ./nix-gc.nix
-    ../../modules/nixos/nix-gc-sudo.nix
-    ../../profiles/nixos/terminfo.nix
     ./pipewire.nix
     ./xdg-user-dirs.nix
     ./mdmonitor-mail.nix
     ./dynusers.nix
-    ../../secrets
   ];
   config = {
     users.users.lillecarl = {

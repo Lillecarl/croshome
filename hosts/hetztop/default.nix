@@ -6,22 +6,11 @@
 {
   imports = [
     ../../profiles/nixos/base.nix
-    inputs.disko.nixosModules.disko
-    inputs.home-manager.nixosModules.home-manager
     (modulesPath + "/profiles/qemu-guest.nix")
     ./disko.nix
     ./installscript.nix
-    ../../profiles/nixos/podman.nix
-    ../../profiles/nixos/ollama.nix
-    ../../profiles/nixos/ttyd.nix
-    ../../modules/nixos/pynixd.nix
     ./pynixd.nix
-    ../../modules/nixos/ai-rebuild.nix
-    ../../modules/nixos/btrfs.nix
     ./nix-gc.nix
-    ../../modules/nixos/nix-gc-sudo.nix
-    ../../profiles/nixos/terminfo.nix
-    ../../secrets
   ];
   config = {
     users.users.lillecarl.extraGroups = [

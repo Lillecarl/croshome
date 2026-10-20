@@ -16,6 +16,17 @@
   ...
 }:
 {
+  imports = [
+    inputs.disko.nixosModules.disko
+    inputs.home-manager.nixosModules.home-manager
+    ../../modules/nixos
+    ../../secrets
+    ./podman.nix
+    ./ollama.nix
+    ./ttyd.nix
+    ./terminfo.nix
+  ];
+
   programs.fish.enable = true;
   users.users.lillecarl = {
     hashedPassword = "$y$j9T$U4zBBS9RMV9YMttHauO8k0$V.KT/P/AdBTXXT8f6p9EIlCsZV5UnaPDgEVtUvUJU3C";
