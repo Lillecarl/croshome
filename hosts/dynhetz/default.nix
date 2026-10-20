@@ -30,14 +30,14 @@
     ./boot-mirror.nix
     ./initrd-ssh.nix
     ./installscript.nix
-    ./podman.nix
+    ../../profiles/nixos/podman.nix
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix
     ./scan-access.nix
-    ./ollama.nix
+    ../../profiles/nixos/ollama.nix
     ./aiscalate.nix
-    ./ttyd.nix
+    ../../profiles/nixos/ttyd.nix
     # pynixd stays on its own umbrella pin, `nixidae-pynixd` -- see
     # ../flake.nix. That input never names a path in ./overrides.nix, so a
     # local checkout moves nothing here and a rebuild restarts no daemon
@@ -48,7 +48,7 @@
     ./ai-rebuild.nix
     ./btrfs.nix
     ./nix-gc.nix
-    ./terminfo.nix
+    ../../profiles/nixos/terminfo.nix
     ./pipewire.nix
     ./xdg-user-dirs.nix
     ./mdmonitor-mail.nix

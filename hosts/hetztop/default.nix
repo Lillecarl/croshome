@@ -13,9 +13,9 @@
     (modulesPath + "/profiles/qemu-guest.nix")
     ./disko.nix
     ./installscript.nix
-    ./podman.nix
-    ./ollama.nix
-    ./ttyd.nix
+    ../../profiles/nixos/podman.nix
+    ../../profiles/nixos/ollama.nix
+    ../../profiles/nixos/ttyd.nix
     # pynixd comes from the pinned umbrella rather than a monorepo input:
     # `nixidae-pynixd` never names a path in ./overrides.nix, so a local
     # checkout moves nothing here. The umbrella is `flake = false`, so this
@@ -25,7 +25,7 @@
     ./ai-rebuild.nix
     ./btrfs.nix
     ./nix-gc.nix
-    ./terminfo.nix
+    ../../profiles/nixos/terminfo.nix
     ../../secrets
   ];
   config = {
