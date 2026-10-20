@@ -20,6 +20,7 @@
     ../modules/home/agent-machine.nix
     ./agents.nix
     ./ask.nix
+    ../modules/home/claude-code.nix
     ../modules/home/claude-md.nix
     ../modules/home/codex-md.nix
     ./fish.nix
