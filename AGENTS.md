@@ -37,6 +37,9 @@ Four hosts, one configuration.
 | `home/darwin/`  | macOS only.                                                     |
 | `home/linux/`   | Linux only.                                                     |
 | `pkgs/`         | The overlay, applied to every host.                             |
+| `modules/nixos/` | NixOS option modules. Config gated on their own options; `default.nix` imports all. |
+| `modules/home/` | home-manager option modules, imported by `home/default.nix`.     |
+| `profiles/nixos/` | Plain NixOS config shared by hosts. `base.nix` is what every NixOS host imports first. |
 
 `ai-rebuild` is NOPASSWD, for agents, on the three hosts that have it.
 
@@ -50,7 +53,12 @@ nix build --file . cros.activationPackage && ./result/activate
 to build a configuration from, and `hosts/cros/home.nix` is half of one that
 `default.nix` has already assembled.
 
-Three rules when editing:
+Four rules when editing:
+
+- **Module or config.** Reusable behaviour with knobs goes in `modules/` as
+  options plus config gated on them. A host or profile only sets options and
+  plain values. Host-only facts (hardware, addresses, keys) stay in
+  `hosts/<host>`.
 
 - **Never read `pkgs` to decide an `imports` list.** `imports` resolves before
   `config` exists, so reading `pkgs` there makes the module system recurse. Use
