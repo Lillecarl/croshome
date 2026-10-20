@@ -420,6 +420,16 @@ in
   # share/skills/phabfive/phabfive.
   phabfive = (import "${inputs.phabfive}" { pkgs = final; }).phabfive;
 
+  # nanopynix's Nix CLI, from the nixidae umbrella, so `nix flake update
+  # nixidae` moves it together with the easykubenix that ../kube builds. Two
+  # places want it, like pyedit: ../home/packages.nix installs the binary, and
+  # ../home/agents.nix links the SKILL.md it ships at share/skills/pynix/pynix.
+  pynix =
+    (import inputs.nixidae {
+      pkgs = final;
+      inherit (final.stdenv.hostPlatform) system;
+    }).nanopynix.pynix;
+
   # Slack automation CLI for AI agents, from its own nix/package.nix rather
   # than its flake -- and at v0.10.1 rather than the version its
   # nix/sources.json names (0.5.2 at the tag). v0.10.2's release binaries

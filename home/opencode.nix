@@ -118,6 +118,7 @@ in
     # reads ~/.config/opencode/skills and not the other two.
     home.file.".config/opencode/skills/phabfive".source =
       "${pkgs.phabfive}/share/skills/phabfive/phabfive";
+    home.file.".config/opencode/skills/pynix".source = "${pkgs.pynix}/share/skills/pynix/pynix";
 
     home.mergedFile.".config/opencode/tui.json" = {
       format = "json";

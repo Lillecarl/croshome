@@ -123,14 +123,8 @@
     nixfmt
     statix
 
-    # From the nixidae umbrella, so `nix flake update nixidae` moves pynix
-    # together with the easykubenix that ../kube builds. The umbrella hands
-    # nanopynix its own `sources`, and this package set with the overlays of
-    # this configuration, so there is no second nixpkgs.
-    (import inputs.nixidae {
-      inherit pkgs;
-      inherit (pkgs.stdenv.hostPlatform) system;
-    }).nanopynix.pynix
+    # In ../pkgs, because ../home/agents.nix links its skill.
+    pynix
 
     # Scripted multi-file edits with dry-run diffs -- the tool agents reach for
     # before bash. In ../pkgs, because ../home/agents.nix links its skill.

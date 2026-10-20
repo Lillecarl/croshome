@@ -173,6 +173,11 @@ let
     "${agentDir}/skills/phabfive".source = "${pkgs.phabfive}/share/skills/phabfive/phabfive";
   };
 
+  # The skill pynix ships with itself, same convention again.
+  pynixSkillLink = agentDir: {
+    "${agentDir}/skills/pynix".source = "${pkgs.pynix}/share/skills/pynix/pynix";
+  };
+
   # opencode2: the v2 beta beside v1, not instead of it. llm-agents ships it
   # as `opencode2`, so the two binaries share no PATH entry and no session
   # ever starts the wrong one.
@@ -251,6 +256,8 @@ in
     // pyjjSkillLink ".gemini"
     // phabfiveSkillLink ".claude"
     // phabfiveSkillLink ".gemini"
+    // pynixSkillLink ".claude"
+    // pynixSkillLink ".gemini"
     // {
       # v2's isolated roots (see the `opencode2` binding above). Out-of-store
       # links so they track the live files, the same trade ./opencode.nix
