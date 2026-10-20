@@ -31,6 +31,7 @@
     ./kubernetes
     ./nat64.nix
     ./wireguard.nix
+    ./sg1-uplink.nix
     ./scan-access.nix
     ./aiscalate.nix
     ./pynixd.nix
