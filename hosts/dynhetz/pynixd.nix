@@ -5,20 +5,7 @@
   inputs,
   ...
 }:
-let
-  # The pinned umbrella resolves pynixd from its own nix/sources.lock, so
-  # the revision is the one `nixidae-pynixd` pins and no separate pynixd
-  # input exists.
-  nixidaePynixd = import inputs.nixidae-pynixd { inherit pkgs; };
-in
 {
-  # The filter comes from the pynixd source tree, and not from
-  # `services.pynixd.package.src`: the package is an `mkApp` result and
-  # carries no `src`. It drops noisy info events that would otherwise be
-  # written on every store operation.
-  environment.etc."pynixd/filter.py".source =
-    nixidaePynixd.sources.pynixd + "/pynixd/filters/scheduler_focus.py";
-
   # The MacBook builder's public key, pinned by reverse_acceptor below.
   # Public, so it commits like ../../lillecarl.pub itself: it is that same
   # key, shared with this machine's user. A missing file fails the daemon
@@ -46,7 +33,6 @@ in
     # If pynixd misbehaves, the real daemon is still on the upstream socket:
     #   nix --store unix:///nix/var/nix/daemon-socket/upstream ...
     mode = "replace";
-    package = nixidaePynixd.pynixd.package;
     settings = {
       log_level = "INFO";
       plugins = [ "/etc/pynixd/filter.py" ];
@@ -132,29 +118,5 @@ in
       http_host = "127.0.0.1";
       http_port = 8080;
     };
-  };
-
-  # The daemon reads its JSON once at startup, so a settings change that
-  # leaves the unit file untouched never reaches the running process: the
-  # switch activates the file and the old daemon keeps serving. Naming the
-  # rendered config as a restart trigger changes the unit with it, and the
-  # switch restarts the daemon. ai-rebuild then activates end to end, with
-  # no hand step after it.
-  systemd.services.pynixd.restartTriggers = [
-    config.environment.etc."pynixd/pynixd.json".source
-  ];
-
-  # Home-manager activation shells out to nix, which talks to the daemon
-  # socket this module replaces. Its unit orders itself after
-  # nix-daemon.socket, which is masked here, so nothing holds its restart
-  # behind this socket coming back up: every switch bounces pynixd and the
-  # first activation attempt lands on a dead socket ("Connection refused",
-  # failed switch, retry minutes later). Order it behind the real socket
-  # instead; connections then queue in the listen backlog while pynixd
-  # restarts instead of refusing. Only when pynixd is enabled at all: the
-  # `or false` covers hosts where its module is not even imported.
-  systemd.services.home-manager-lillecarl = lib.mkIf (config.services.pynixd.enable or false) {
-    after = [ "pynixd.socket" ];
-    wants = [ "pynixd.socket" ];
   };
 }

@@ -38,12 +38,7 @@
     ../../profiles/nixos/ollama.nix
     ./aiscalate.nix
     ../../profiles/nixos/ttyd.nix
-    # pynixd stays on its own umbrella pin, `nixidae-pynixd` -- see
-    # ../flake.nix. That input never names a path in ./overrides.nix, so a
-    # local checkout moves nothing here and a rebuild restarts no daemon
-    # unless the lock itself moved. `.sources` reads the lock and needs no
-    # package set, which is what keeps it safe to name here in `imports`.
-    ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/nixos")
+    ../../modules/nixos/pynixd.nix
     ./pynixd.nix
     ./ai-rebuild.nix
     ../../modules/nixos/btrfs.nix

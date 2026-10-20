@@ -16,11 +16,7 @@
     ../../profiles/nixos/podman.nix
     ../../profiles/nixos/ollama.nix
     ../../profiles/nixos/ttyd.nix
-    # pynixd comes from the pinned umbrella rather than a monorepo input:
-    # `nixidae-pynixd` never names a path in ./overrides.nix, so a local
-    # checkout moves nothing here. The umbrella is `flake = false`, so this
-    # is a source tree and no second flake is evaluated.
-    ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/nixos")
+    ../../modules/nixos/pynixd.nix
     ./pynixd.nix
     ./ai-rebuild.nix
     ../../modules/nixos/btrfs.nix
