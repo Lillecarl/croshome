@@ -109,6 +109,9 @@ in
      match ipv6 address prefix-list sg1-in6
     !
     router bgp 64512
+     ! Each node announces the VIP from its own ASN; without this FRR keeps
+     ! one path and never spreads over the three.
+     bgp bestpath as-path multipath-relax
      neighbor sg1-node4 peer-group
      neighbor sg1-node4 remote-as external
      neighbor sg1-node6 peer-group
