@@ -59,6 +59,7 @@
     pkgs.t3code
     pkgs.kubecove.desktop
     pkgs.kubecove.server
+    pkgs.awscli2
   ];
 
   # T3 Code, headless: the server workspace from pkgs/t3code (`t3 serve`,
