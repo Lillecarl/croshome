@@ -122,6 +122,12 @@ in
      neighbor sg1-cilium6 peer-group
      neighbor sg1-cilium6 remote-as external
      neighbor sg1-cilium6 ebgp-multihop 2
+     ! Both sides dial in. Without passive, FRR dials a peer that graceful
+     ! restart holds, and Cilium's host firewall drops it as world.
+     neighbor sg1-node4 passive
+     neighbor sg1-node6 passive
+     neighbor sg1-cilium4 passive
+     neighbor sg1-cilium6 passive
      bgp listen range 10.247.102.0/24 peer-group sg1-node4
      bgp listen range ${v6}:3::/112 peer-group sg1-node6
      bgp listen range 10.247.100.0/24 peer-group sg1-cilium4
