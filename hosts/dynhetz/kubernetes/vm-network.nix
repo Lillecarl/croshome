@@ -173,6 +173,17 @@ in
             subnet = vmSubnet;
             interface = vmBridge;
             pools = [ { pool = network.vmDhcpPool; } ];
+            # A clean shutdown RELEASEs the lease, and the next boot gets
+            # the first free address. Measured 2026-10-21: nixlab3's
+            # control plane came back on c0:0:1:0 and its etcd, bound to
+            # c0:0:1:10, could not start. The DUID is the VM's (from its
+            # machine-id), seen in kea's log.
+            reservations = [
+              {
+                duid = "00:02:00:00:ab:11:0d:a2:83:5c:6e:74:7f:d1";
+                ip-addresses = [ "2a01:4f9:3071:11d7:c0:0:1:10" ];
+              }
+            ];
             option-data = [
               {
                 name = "dns-servers";
