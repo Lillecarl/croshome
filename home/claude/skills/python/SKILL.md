@@ -117,6 +117,23 @@ without it you should add the import rather than quote the name.
 circular import or a needless runtime cost. It goes last among the imports,
 and it holds nothing the program needs at runtime.
 
+**Structured data gets a model, not a dict.** A record with known fields is a
+`dataclass` (default; `frozen=True, slots=True` unless it must mutate), an
+`attrs` class where the project uses attrs, or a pydantic model at a
+validation boundary (parsed JSON, config, an API payload). Parse into the
+model at the edge; pass the model inward, never the raw dict.
+
+Untyped needs a justification, written as a comment at the site:
+
+- `dict[str, Any]`, `Any`, `object`, untyped `dict`/`list`, `**kwargs`
+  carrying fields: each one gets a one-line reason, or it is replaced.
+- Accepted reasons: data with no fixed shape (arbitrary user JSON passed
+  through untouched), a third-party API typed that way, a true `object`
+  sink like a logger argument.
+- Not reasons: "quicker", "only used here", "it is just JSON".
+- A dict whose keys are data, not field names (`dict[str, Path]` by
+  package name), is fine and needs no comment.
+
 ## Named values over scattered literals
 
 A value with a meaning gets a name at the point that owns the meaning, and
