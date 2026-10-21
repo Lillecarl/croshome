@@ -403,11 +403,11 @@
     "pyjj": {
       "flake": false,
       "locked": {
-        "lastModified": 1792558518,
-        "narHash": "sha256-Cdm2rui/uWJ2SL4Pi7jFOX6n1I67BEvhQcLlesGK3PM=",
+        "lastModified": 1792596746,
+        "narHash": "sha256-jnhBGRRkFLSe+A4xl44Ll3KseDLRa/ilODqrf6ZEAdw=",
         "owner": "Lillecarl",
         "repo": "pyjj",
-        "rev": "61e51c3a694f45c8845a86382418a569fa515ad9",
+        "rev": "8e818c972acf7364fa7ebe5e1806f8504f511131",
         "type": "github"
       },
       "original": {
