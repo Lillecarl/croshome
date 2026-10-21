@@ -18,8 +18,8 @@ alone, without opening anything: what the thing is, the options, each one's
 cost and gain, the recommendation and its reason.
 
 **No bare numbers.** An issue, PR or commit is named in words first; the number
-follows only as a reference. Not "#470 needs your call" but "the pynixd retry
-policy (#470) needs your call". User does not keep numbers in their head.
+follows only as a reference. Not "#894 is filed" but "the bug where pydd
+rebuilds unchanged npm packages (#894) is filed". User does not keep numbers in their head.
 
 Applies at every stop, not only a large one. A bug fix, an investigation that
 came up empty and a question answered all have a next thing. If nothing
