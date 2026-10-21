@@ -191,21 +191,15 @@ in
         # while TCP works, which reads as a routing problem and is not one.
           pool4 =
             [
-              # The static forwards below own these ports: outside the
-              # dynamic range, so outbound masquerading never hands them
-              # out. Both entries must also be said here because a BIB
-              # entry may only name an address already in pool4 -- Jool
-              # refuses the config otherwise (measured: error 22, "does
-              # not belong to pool4"). Neither port serves anything else
-              # on this IPv4 address: 443 answers nowhere on this host
-              # since OpenVPN's removal, and 6443's only other listener
-              # (the host apiserver's *:6443 socket) is firewall-dead on
-              # this address (see the BIB entry below).
-              {
-                protocol = "TCP";
-                prefix = "${nodeIPv4}/32";
-                "port range" = "443-443";
-              }
+              # The static forward below owns this port: outside the
+              # dynamic range, so outbound masquerading never hands it
+              # out. It must also be said here because a BIB entry may
+              # only name an address already in pool4 -- Jool refuses the
+              # config otherwise (measured: error 22, "does not belong to
+              # pool4"). 6443's only other listener (the host apiserver's
+              # *:6443 socket) is firewall-dead on this address (see the
+              # BIB entry below). 443 is not here: ./sni-proxy.nix
+              # listens on it, and a pool4 port never reaches the host.
               {
                 protocol = "TCP";
                 prefix = "${nodeIPv4}/32";
@@ -230,31 +224,24 @@ in
         # DNAT across address families, so this is not a thing a plain
         # iptables rule can do.
         #
-        # grafana.lab3.ch.se.eu.org is AAAA-only: IPv6 people reach it
-        # directly, and this entry gives IPv4-only people the same service
-        # on this host's port 443. The target is nixlab3's traefik
-        # LoadBalancer VIP (first /112 of the e2::/80 in
-        # ./kubernetes/guest-routing.nix) -- a Service address, so it stays
-        # put, unlike a pod address.
+        # The target is a LoadBalancer VIP (the e2::/80 in
+        # ./kubernetes/guest-routing.nix) -- a Service address, so it
+        # stays put, unlike a pod address. Port 443 is not forwarded here:
+        # two clusters share it, which needs the SNI split in
+        # ./sni-proxy.nix.
         #
         # No brackets around the IPv6 address: `#` is the port separator,
         # and a bracketed form is rejected with "Cannot parse '[...]' as
         # an IPv6 address". Checked with `jool file check`, which parses a
         # config without touching the kernel and needs no root.
         #
-        # What traefik sees as the client is a 64:ff9b::/96 synthesis of
-        # the real IPv4 address, not the address itself: L3 translation
-        # carries no PROXY protocol. IP allowlists and rate limits in
-        # traefik match the translator, not the client.
+        # What the target sees as the client is a 64:ff9b::/96 synthesis
+        # of the real IPv4 address: L3 translation carries no PROXY
+        # protocol.
         bib = [
-          {
-            protocol = "TCP";
-            "ipv4 address" = "${nodeIPv4}#443";
-            "ipv6 address" = "2a01:4f9:3071:11d7:e2::1#443";
-          }
           # nixlab3's control-plane VIP (kubernetes.lab3.ch.se.eu.org,
           # AAAA-only): this entry gives IPv4-only clients the API on this
-          # host's port 6443. Same shape as the traefik entry above.
+          # host's port 6443.
           #
           # The host's own apiserver also listens on *:6443, so this looks
           # like a collision and is not: the BIB matches only nodeIPv4,

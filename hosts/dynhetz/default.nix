@@ -30,6 +30,7 @@
     ./initrd-ssh.nix
     ./kubernetes
     ./nat64.nix
+    ./sni-proxy.nix
     ./wireguard.nix
     ./sg1-uplink.nix
     ./scan-access.nix
