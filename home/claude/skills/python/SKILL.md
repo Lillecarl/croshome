@@ -62,6 +62,17 @@ Mixing the two families is where cancellation stops behaving. ruff's `TID251`
 banned-api rule enforces this per project, and a rule in the linter beats a
 rule in prose.
 
+**No polling loops.** Never wait with `while not x: await anyio.sleep(...)`,
+sync or async. Wait on the thing that changes: an `Event` or `Condition`, a
+stream or queue receive, a task group exit, a process `wait()`, an fd reader.
+
+- A bool you own that someone waits on is an `anyio.Event`. Readers call
+  `is_set()`, waiters `await wait()`. `set()` is sync, so a sync `close()`
+  still sets it.
+- Poll only state with no notification: an external file or service with no
+  watch API. Bound it with `fail_after`, and say in a comment why nothing can
+  be awaited.
+
 On bare `asyncio`, where you have no choice:
 
 - `asyncio.TaskGroup` over `gather` or loose `create_task`.
