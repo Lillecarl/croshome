@@ -78,7 +78,12 @@ in
       to = 51823;
     }
   ];
-  networking.firewall.interfaces."wg-sg1+".allowedTCPPorts = [ 179 ];
+  # 179 is BGP. 5000 is nix-serve: nixkube on sg1 substitutes from
+  # dynhetz's store, as nixlab3 does, at the tunnel address a3:3:0:fe.
+  networking.firewall.interfaces."wg-sg1+".allowedTCPPorts = [
+    179
+    5000
+  ];
 
   networking.nat.internalInterfaces = [ "wg-sg1+" ];
 
