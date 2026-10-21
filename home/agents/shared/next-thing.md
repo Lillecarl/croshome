@@ -13,6 +13,14 @@ the user's, name the options, recommend one, and give the reason in a line.
 This beats the brevity above: spend lines on the alternatives, never on
 repetition.
 
+**Explain what needs User's call.** User must be able to decide from the reply
+alone, without opening anything: what the thing is, the options, each one's
+cost and gain, the recommendation and its reason.
+
+**No bare numbers.** An issue, PR or commit is named in words first; the number
+follows only as a reference. Not "#470 needs your call" but "the pynixd retry
+policy (#470) needs your call". User does not keep numbers in their head.
+
 Applies at every stop, not only a large one. A bug fix, an investigation that
 came up empty and a question answered all have a next thing. If nothing
 follows, say that in one line rather than invent a task.
