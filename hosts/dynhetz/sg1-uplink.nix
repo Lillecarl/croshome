@@ -5,8 +5,8 @@
 # dynhetz masquerades SG1's IPv4 egress and will DNAT public IPv4 into it, so
 # the return path must come back through here. Each node dials its own
 # interface over the internet, and its default route points into the tunnel.
-# sg1-nix docs/networking.md has the design; nix/modules/uplink.nix the node
-# side.
+# sg1-nix environments/sg1/nixos/docs/networking.md has the design, and
+# modules/uplink.nix beside it the node side.
 #
 # Per node n, k = 2(n-1): wg-sg1-n<n> listens on 51820+n, dynhetz holds
 # 10.247.102.k/31 and :a3:3::k/127, the node k+1. 10.247.102.254 and
