@@ -223,13 +223,10 @@ Two habits that follow:
 
 ## One-off scripts: `agent-python`
 
-A script outside a project runs on `agent-python`, on PATH on Lillecarl's hosts:
-`#!/usr/bin/env agent-python`, or `agent-python script.py`. It is a real venv
-(`sys.executable` stays inside it) with anyio, trio, httpx, attrs, cattrs,
-pydantic, msgspec, rich, typer, structlog, tenacity, pyyaml, jinja2, lxml,
-bs4, psutil, sqlalchemy, numpy, polars, boto3, pytest, hypothesis and more;
-`agent-python -c 'help("modules")'` lists them. No `pip install`, no ad-hoc venv. A
-missing library goes into `agent-python` in croshome `pkgs/default.nix`.
+A script outside a project runs on `agent-python` (`#!/usr/bin/env
+agent-python`), a loaded venv on Lillecarl's hosts. The global instructions'
+"Python for scripts" section lists every library in it and the path to their
+source. No `pip install`, no ad-hoc venv.
 
 ## A few more that keep coming up
 
