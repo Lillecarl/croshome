@@ -46,6 +46,11 @@
     Requires = [ "agenix.service" ];
     After = [ "agenix.service" ];
   };
+  # Off while aid is developed: an agent runs the daemon from ~/Code/aid on
+  # the same state and runtime directories. Nothing starts the unit, and
+  # aid-web talks to whichever daemon owns the socket.
+  systemd.user.services.aid.Install.WantedBy = lib.mkForce [ ];
+  systemd.user.services.aid-web.Unit.Wants = lib.mkForce [ ];
 
   # There is a NixOS underneath this one, so take its stateVersion rather than
   # keep a second copy that can drift from it.
