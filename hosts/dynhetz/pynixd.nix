@@ -9,9 +9,10 @@ let
   # nix-community's aarch64 builders, for capability only: `last_resort`
   # sends them a derivation only when no other healthy store supports its
   # system and features, never to shed load. Shared machines, so no probe
-  # builds, no monitor agent, and no connection held while idle. Never for
-  # anything that carries a secret: every trusted user there can write to
-  # that store. x86_64 stays off them; that would be offloading. The login is
+  # builds, no monitor agent, and no connection held while idle. Every
+  # trusted user there can write to that store, so an output built there is
+  # only as trustworthy as they are. x86_64 stays off them; that would be
+  # offloading. The login is
   # the user's key, the one nix-community registered; pynixd runs as root
   # and reads it.
   nixCommunity =

@@ -87,9 +87,9 @@ let
     builds, so nothing builds at all if the builder is unreachable. Never add
     the flag speculatively.
 
-    Do not send a build that touches secrets. nix-community documents the
-    reason: every trusted user of a builder can write to its store, so you
-    cannot trust what comes back for anything sensitive.
+    A build never carries a secret: the Nix store is world-readable. The risk
+    is integrity. Every trusted user of a builder can write to its store, so
+    what comes back is only as trustworthy as they are.
 
     A builder's host key must be in `known_hosts` before a build can use it.
     Builds go through the nix daemon, which connects as root. So a "Host key
