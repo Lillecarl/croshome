@@ -109,7 +109,7 @@
     tree
 
     # A venv interpreter loaded with the usual libraries, for one-off scripts:
-    # `#!/usr/bin/env cpython`. See ../pkgs/python-venv.nix.
+    # `#!/usr/bin/env cpython`. See ../pkgs/python-venv.
     cpython
 
     # Nix

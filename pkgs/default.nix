@@ -258,13 +258,13 @@ in
 
   merged-file = final.python3.pkgs.callPackage ./merged-file { };
 
-  pythonVenv = final.callPackage ./python-venv.nix { };
+  pythonVenv = final.callPackage ./python-venv { };
 
   # One interpreter with the libraries agents reach for in a one-off script.
   # Nearly every module is already in some other closure on these hosts.
   cpython = final.pythonVenv {
     python = final.python3;
-    name = "cpython";
+    executables.python = "cpython";
     packages =
       ps: with ps; [
         anyio
