@@ -201,7 +201,12 @@ in
       # `extraPackages` so they become real dependency edges in the venv spec.
       overlays = [
         (final.callPackage ./anyxonsh/nix/extra-packages.nix {
-          ptkhxSrc = "${inputs.pyterm}/ptkhx";
+          # builtins.path, not a string: an ../overrides.nix input is a plain
+          # checkout path, which the build sandbox cannot see.
+          ptkhxSrc = builtins.path {
+            path = /. + "${inputs.pyterm}/ptkhx";
+            name = "ptkhx-source";
+          };
         })
       ];
       extraPackages = [
