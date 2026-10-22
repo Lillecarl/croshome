@@ -199,8 +199,14 @@ in
       ];
       # Packages Nixpkgs doesn't ship, built with pyproject.nix directly. Named in
       # `extraPackages` so they become real dependency edges in the venv spec.
-      overlays = [ (final.callPackage ./anyxonsh/nix/extra-packages.nix { }) ];
+      overlays = [
+        (final.callPackage ./anyxonsh/nix/extra-packages.nix {
+          ptkhxSrc = "${inputs.pyterm}/ptkhx";
+        })
+      ];
       extraPackages = [
+        # The `helix` xontrib's editor, from pyterm.
+        "ptkhx"
         # From PyPI wheels
         "xontrib-term-integrations"
         "xontrib-cmd-durations"

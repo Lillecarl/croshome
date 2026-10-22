@@ -1,33 +1,22 @@
 """Helix-style modal editing for xonsh's prompt_toolkit line editor.
 
 The implementation behind the `helix` xontrib; `xontrib/helix.py` is the entry
-point that loads it. Three layers, deliberately separable:
+point that loads it. The editor and its prompt_toolkit bindings are ptkhx's,
+from pyterm, where real Helix judges the keymap. What is here is xonsh's:
 
-* `chars`, `selection`, `movement` -- ports of the corresponding helix-core
-  modules. Pure functions over `(text, Range)`.
-* `editor` -- modes, registers, undo and the key dispatch state machine. Still
-  pure: it reports anything shell-shaped back as a `ShellRequest`.
-* `integration` -- the only module that imports prompt_toolkit or xonsh.
+* `integration` -- the bindings put on xonsh's prompt, history search on
+  Ctrl-R, the `{helix_mode}` and `{helix_pending}` prompt fields.
+* `search` -- the completer behind history search.
+* `terminal`, `keyboard` -- what is asked of the terminal before
+  prompt_toolkit owns it.
 
-Importing this package pulls in the first two layers and nothing else, so it
-costs nothing at shell startup until a prompt is actually created.
+Importing this package costs nothing at shell startup until a prompt is
+actually created.
 """
 
 from __future__ import annotations
 
-from .editor import Editor, Mode, ShellRequest
-from .keys import parse_keys
-from .selection import Direction, Range
-
-__all__ = [
-    "Direction",
-    "Editor",
-    "Mode",
-    "Range",
-    "ShellRequest",
-    "parse_keys",
-    "setup",
-]
+__all__ = ["setup"]
 
 
 def setup(**kwargs):

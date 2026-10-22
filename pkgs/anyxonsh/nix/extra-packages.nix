@@ -22,7 +22,12 @@
 #
 # An overlay, so entries can refer to each other (and to bridged Nixpkgs
 # packages) through `final`.
-{ lib }:
+{
+  lib,
+  # pyterm's `ptkhx/`: the Helix editor and its prompt_toolkit bindings,
+  # which the `helix` xontrib puts on the prompt.
+  ptkhxSrc,
+}:
 final: _prev:
 let
   # Every package here follows the same shape, so the boilerplate lives in one
@@ -110,6 +115,21 @@ let
     ) { };
 in
 {
+  # Helix's modal editing for a prompt_toolkit buffer. pyterm holds it, and
+  # its oracle check holds the keymap to real Helix. prompt-toolkit is the
+  # bridged nixpkgs one, which is xonsh's.
+  ptkhx = sourcePackage {
+    pname = "ptkhx";
+    version = "0.1";
+    src = ptkhxSrc;
+    buildSystem = {
+      hatchling = [ ];
+    };
+    dependencies = {
+      prompt-toolkit = [ ];
+    };
+  };
+
   # Terminal integration: prompt marks and OSC sequences. The minimal case --
   # one dependency, already in the set.
   xontrib-term-integrations = wheelPackage {
