@@ -114,6 +114,9 @@ in
      match ipv6 address prefix-list sg1-in6
     !
     router bgp 64512
+     ! `frr defaults traditional` leaves this off, so a session that
+     ! drops leaves no trace in the journal.
+     bgp log-neighbor-changes
      ! Each node announces the VIP from its own ASN; without this FRR keeps
      ! one path and never spreads over the three.
      bgp bestpath as-path multipath-relax
