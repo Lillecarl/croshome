@@ -322,6 +322,14 @@ in
         tree-sitter
         boto3
         kubernetes-asyncio
+        # The umbrella's kr8s fork, the client `ekn` uses. Not in nixpkgs.
+        (callPackage "${inputs.nixidae}/nanopynix/nix/kr8s.nix" {
+          src =
+            (import inputs.nixidae {
+              pkgs = final;
+              inherit (final.stdenv.hostPlatform) system;
+            }).sources.kr8s;
+        })
         anthropic
         openai
         pytest
