@@ -448,7 +448,13 @@
 
   # nixpkgs' default `nix` tracks the conservative release; take the newest one
   # nixpkgs ships instead.
-  nix.package = pkgs.nixVersions.latest;
+  #
+  # Patched with NixOS/nix#16617 at a00355e4, `store->` made `store.` for 2.35
+  # where `store` is a reference, for NixOS/nix#16613: since 2.35.3
+  # a build whose inputs exceed ~1000 store paths hits seatbelt's 64 KiB string
+  # limit and fails to start. etc and home-manager-path both do. Drop the patch
+  # once a release carries the fix.
+  nix.package = pkgs.nixVersions.latest.appendPatches [ ./nix-darwin-sandbox-regex.patch ];
 
   nix.settings = {
     experimental-features = [
