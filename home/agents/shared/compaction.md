@@ -7,12 +7,17 @@ comes too early costs an error and nothing else.
 What you are told about usage differs, and you get no say in it. Claude Code
 carries a figure every turn, so the number is always in front of you. opencode
 tells you nothing until 35%, then adds a pressure note as usage climbs past it.
-Below that you are working blind. That is why the boundary below is a
-judgement and not a threshold — you cannot wait for a number that may never
-arrive.
+Below that you are working blind, so a boundary below is a judgement, not a
+number you wait for.
 
-Compact at a **boundary**, not at a threshold — a point where losing the detail
-costs nothing:
+**Target: compact by 50–60%.** Once usage passes 50%, the next boundary is the
+compaction point; do not start a new piece first. Past 60%, keep going only
+with a reason you can name in one line — a debugging chain one or two steps
+from its answer, or a piece that finishes within a few turns — and state it.
+"Still have room" is not a reason. If the blocker is unrecorded state, write it
+down (below) and compact rather than carry it.
+
+Compact at a **boundary**, a point where losing the detail costs nothing:
 
 - The work is committed and pushed, and the next piece starts clean.
 - A new task starts that the context you hold does not serve. Compact before
