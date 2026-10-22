@@ -141,6 +141,7 @@ let
     whatever `main` says today, which is a different question.
 
     ${remoteBuilders}
+    ${cfg.extraSections}
   '';
 in
 {
@@ -169,6 +170,15 @@ in
       description = ''
         Extra markdown for the Rebuilding section, for a machine that has more
         than the one rebuild command.
+      '';
+    };
+
+    extraSections = lib.mkOption {
+      type = lib.types.lines;
+      default = "";
+      description = ''
+        Markdown sections appended to the machine section, for another module
+        that has something every harness should know (see ./agent-python.nix).
       '';
     };
 
