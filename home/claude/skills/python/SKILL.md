@@ -172,6 +172,16 @@ inventing a third spelling of the same value in a second file.
 Tests repeat literals freely; that is what they are for. Promote a constant
 out of test code only when the same literal keeps coming back in many places.
 
+**Attribute names are not strings.** `getattr(obj, "name", default)` to read
+an attribute some types lack is a missing type: a rename or typo silently
+returns the default and the type checker sees nothing. Give the types a common
+base class or `Protocol` declaring the attribute with its default, then read
+`obj.name`. Same for `hasattr` probing and `setattr` with a literal.
+
+- Exception: a table of attribute names read only by reflection and checked
+  both ways by a test (every attribute listed, every listed name exists).
+  A `StrEnum` there would restate each name a second time.
+
 ## Prefer pure functions when feasible
 
 A function that takes what it needs and returns a value, touching no state
