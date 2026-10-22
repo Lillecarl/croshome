@@ -328,6 +328,46 @@ in
         pytest-asyncio
         hypothesis
         respx
+        # What agent-written snippets import unasked: requests over httpx,
+        # pandas over polars. Failing on an import costs more than the bytes.
+        requests
+        aiohttp
+        pandas
+        matplotlib
+        scipy
+        networkx
+        duckdb
+        sqlite-utils
+        psycopg
+        asyncpg
+        redis
+        pillow
+        pypdf
+        openpyxl
+        xmltodict
+        selectolax
+        html2text
+        markdownify
+        charset-normalizer
+        regex
+        tomlkit
+        python-dotenv
+        jsonpatch
+        deepdiff
+        unidiff
+        pathspec
+        semver
+        whenever
+        python-slugify
+        cachetools
+        diskcache
+        tqdm
+        kubernetes
+        docker
+        freezegun
+        pytest-xdist
+        pytest-timeout
+        syrupy
       ];
   };
 
