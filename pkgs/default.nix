@@ -325,7 +325,6 @@ in
         anthropic
         openai
         pytest
-        pytest-asyncio
         hypothesis
         respx
         # What agent-written snippets import unasked: requests over httpx,
@@ -365,8 +364,6 @@ in
         kubernetes
         docker
         freezegun
-        pytest-xdist
-        pytest-timeout
         syrupy
       ];
   };
