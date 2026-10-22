@@ -84,6 +84,9 @@ in
     179
     5000
   ];
+  # BFD for the node sessions.
+  networking.firewall.interfaces."wg-sg1+".allowedUDPPorts = [ 3784 ];
+  services.frr.bfdd.enable = true;
 
   networking.nat.internalInterfaces = [ "wg-sg1+" ];
 
@@ -113,6 +116,15 @@ in
     route-map sg1-in6 permit 10
      match ipv6 address prefix-list sg1-in6
     !
+    ! Must match the nodes' profile (solid-kubernetes
+    ! environments/sg1/nixos/modules/uplink.nix). Slow, because the
+    ! tunnels cross the internet.
+    bfd
+     profile uplink
+      receive-interval 1000
+      transmit-interval 1000
+      detect-multiplier 3
+    !
     router bgp 64512
      ! `frr defaults traditional` leaves this off, so a session that
      ! drops leaves no trace in the journal.
@@ -134,6 +146,8 @@ in
      ! restart holds, and Cilium's host firewall drops it as world.
      neighbor sg1-node4 passive
      neighbor sg1-node6 passive
+     neighbor sg1-node4 bfd profile uplink
+     neighbor sg1-node6 bfd profile uplink
      neighbor sg1-cilium4 passive
      neighbor sg1-cilium6 passive
      bgp listen range 10.247.102.0/24 peer-group sg1-node4
