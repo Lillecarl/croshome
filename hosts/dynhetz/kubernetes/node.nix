@@ -36,8 +36,27 @@ in
     #
     # It is also the whole of the ordering against kubeadm.service. See
     # ./provision.nix for why a Before=/After= pair there deadlocks instead.
+    # Read over kubeadm's config.yaml, which kubeadm writes once at init, so
+    # a change here still reaches a provisioned node. Disk eviction at 90%
+    # used: images and containers share the root filesystem, and the default
+    # imagefs.available<15% evicts pods at 85% on a disk that often runs
+    # near there. Setting one evictionHard key zeroes the unnamed ones, so
+    # all five are named.
+    environment.etc."kubernetes/kubelet.conf.d/50-eviction.conf".text = builtins.toJSON {
+      apiVersion = "kubelet.config.k8s.io/v1beta1";
+      kind = "KubeletConfiguration";
+      evictionHard = {
+        "memory.available" = "100Mi";
+        "nodefs.available" = "10%";
+        "nodefs.inodesFree" = "5%";
+        "imagefs.available" = "10%";
+        "imagefs.inodesFree" = "5%";
+      };
+    };
+
     systemd.services.kubelet = {
       description = "kubelet: the Kubernetes node agent";
+      restartTriggers = [ config.environment.etc."kubernetes/kubelet.conf.d/50-eviction.conf".source ];
       wantedBy = [ "multi-user.target" ];
       after = [
         "containerd.service"
@@ -60,7 +79,9 @@ in
         KUBELET_KUBECONFIG_ARGS =
           "--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf"
           + " --kubeconfig=/etc/kubernetes/kubelet.conf";
-        KUBELET_CONFIG_ARGS = "--config=/var/lib/kubelet/config.yaml";
+        KUBELET_CONFIG_ARGS =
+          "--config=/var/lib/kubelet/config.yaml"
+          + " --config-dir=/etc/kubernetes/kubelet.conf.d";
       };
       serviceConfig = {
         # Written by kubeadm, so absent until it has run -- hence the leading
