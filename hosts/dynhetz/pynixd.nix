@@ -5,7 +5,42 @@
   inputs,
   ...
 }:
+let
+  # nix-community's aarch64 builders, for capability only: `last_resort`
+  # sends them a derivation only when no other healthy store supports its
+  # system and features, never to shed load. Shared machines, so no probe
+  # builds, no monitor agent, and no connection held while idle. Never for
+  # anything that carries a secret: every trusted user there can write to
+  # that store. x86_64 stays off them; that would be offloading. The login is
+  # the user's key, the one nix-community registered; pynixd runs as root
+  # and reads it.
+  nixCommunity =
+    {
+      host,
+      system,
+      features,
+    }:
+    {
+      type = "ssh-subprocess";
+      inherit host;
+      username = "lillecarl";
+      known_hosts = "/etc/pynixd/builders/nix-community.known_hosts";
+      client_keys = [ "/home/lillecarl/.ssh/id_ed25519" ];
+      last_resort = true;
+      monitor = false;
+      probe = false;
+      persistent_connection = false;
+      feature_matrix.${system} = features;
+    };
+in
 {
+  # Host keys as published at https://nix-community.org/community-builders/,
+  # matching ssh-keyscan on 2026-10-22.
+  environment.etc."pynixd/builders/nix-community.known_hosts".text = ''
+    aarch64-build-box.nix-community.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG9uyfhyli+BRtk64y+niqtb+sKquRGGZ87f4YRc8EE1
+    darwin-build-box.nix-community.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKMHhlcn7fUpUuiOFeIhDqBzBNFsbNqq+NpzuGX3e6zv
+  '';
+
   # The MacBook builder's public key, pinned by reverse_acceptor below.
   # Public, so it commits like ../../lillecarl.pub itself: it is that same
   # key, shared with this machine's user. A missing file fails the daemon
@@ -96,6 +131,27 @@
         # under this fraction. 0.70 ends the relief the 0.75 watermark
         # starts; without it a triggered pass is unbounded.
         gc_target_usage = 0.7;
+      };
+
+      stores.nix-community-aarch64-linux = nixCommunity {
+        host = "aarch64-build-box.nix-community.org";
+        system = "aarch64-linux";
+        features = [
+          "kvm"
+          "nixos-test"
+          "big-parallel"
+          "benchmark"
+        ];
+      };
+      stores.nix-community-aarch64-darwin = nixCommunity {
+        host = "darwin-build-box.nix-community.org";
+        system = "aarch64-darwin";
+        features = [
+          "apple-virt"
+          "nixos-test"
+          "big-parallel"
+          "benchmark"
+        ];
       };
 
       # Reverse builder acceptor, for the MacBook as a roaming
