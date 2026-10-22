@@ -327,6 +327,14 @@
         ];
         priority = -100;
       }
+      # dc1's zone, as anslut-till-dc1.md in the Dynamist wiki delegates it.
+      # Pinned so dc1 is asked first even when DHCP or a VPN also serves the
+      # domain; /etc/resolver/dynami.st alone is only discovered.
+      {
+        domain = "dynami.st";
+        nameservers = [ "10.0.250.1" ];
+        priority = -100;
+      }
     ];
   };
 
