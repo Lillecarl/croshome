@@ -29,7 +29,12 @@
 # "default" matters as much as "all" for an interface created after boot. That
 # applies here too, and this file deliberately does not set it again: a sysctl
 # is a unique option, and two plain definitions of the same value conflict.
-{ config, lib, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   network = import ./network.nix;
 
@@ -194,5 +199,14 @@ in
         ];
       };
     };
+
+    # Lease-file cleanup writes its pid file on a timer. Measured 2026-10-19:
+    # the disk filled, the file was created empty, and kea then refused to
+    # start ("Unable to read PID from file") until the file was removed. No
+    # cleanup can be running before kea starts, since a stop kills the
+    # whole cgroup, so any pid file left then is stale.
+    systemd.services.kea-dhcp6-server.serviceConfig.ExecStartPre = [
+      "${lib.getExe' pkgs.coreutils "rm"} -f /var/lib/kea/kea-leases6.csv.pid"
+    ];
   };
 }
