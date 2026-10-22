@@ -258,6 +258,79 @@ in
 
   merged-file = final.python3.pkgs.callPackage ./merged-file { };
 
+  pythonVenv = final.callPackage ./python-venv.nix { };
+
+  # One interpreter with the libraries agents reach for in a one-off script.
+  # Nearly every module is already in some other closure on these hosts.
+  cpython = final.pythonVenv {
+    python = final.python3;
+    name = "cpython";
+    packages =
+      ps: with ps; [
+        anyio
+        trio
+        httpx
+        h2
+        websockets
+        asyncssh
+        uvloop
+        watchfiles
+        attrs
+        cattrs
+        pydantic
+        pydantic-settings
+        msgspec
+        orjson
+        typing-extensions
+        rich
+        typer
+        click
+        structlog
+        tenacity
+        humanize
+        tabulate
+        platformdirs
+        packaging
+        pyyaml
+        ruamel-yaml
+        tomli-w
+        jinja2
+        jsonschema
+        jmespath
+        ijson
+        markdown-it-py
+        beautifulsoup4
+        lxml
+        python-dateutil
+        psutil
+        pexpect
+        sh
+        more-itertools
+        toolz
+        cryptography
+        pyjwt
+        dnspython
+        netaddr
+        paramiko
+        xxhash
+        sqlalchemy
+        aiosqlite
+        numpy
+        polars
+        pygit2
+        libcst
+        tree-sitter
+        boto3
+        kubernetes-asyncio
+        anthropic
+        openai
+        pytest
+        pytest-asyncio
+        hypothesis
+        respx
+      ];
+  };
+
   # ocahub entries removed: cross-agent messaging is off. The source
   # stays in ./ocahub, unevaluated.
 
