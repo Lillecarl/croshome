@@ -38,6 +38,24 @@ let
 
   '';
 
+  # One ai-rebuild at a time per machine: two concurrent switches race on the
+  # system profile, and two builds of one toplevel do the work twice. The lock
+  # is held until activation returns, so sudo runs as a child, not via exec.
+  lockFile = "/run/ai-rebuild.lock";
+  # tmpfiles creates the file at activation, so the first run after enabling
+  # this finds none; it then runs unlocked rather than not at all.
+  takeLock = ''
+    if [ -e ${lockFile} ]; then
+      exec 9<${lockFile}
+      if ! flock --nonblock 9; then
+        echo "ai-rebuild: waiting for another ai-rebuild to finish" >&2
+        flock 9
+      fi
+    else
+      echo "ai-rebuild: ${lockFile} missing, running without the lock" >&2
+    fi
+  '';
+
   ai-rebuild-activate = pkgs.writeShellApplication {
     name = "ai-rebuild-activate";
     text = ''
@@ -106,6 +124,7 @@ let
     name = "ai-rebuild";
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.util-linux
       config.nix.package
     ];
     text = ''
@@ -124,6 +143,7 @@ let
           ;;
       esac
 
+      ${takeLock}
       ${umbrellaBlock}# Build as this user. stdout carries nothing but the store path; every
       # other line goes to stderr.
       #
@@ -135,22 +155,24 @@ let
 
       # sudo comes from PATH on purpose: only the setuid wrapper in
       # /run/wrappers can elevate, a store-path sudo cannot.
-      exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
+      sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
     '';
   };
   ai-rebuild-pynixd = pkgs.writeShellApplication {
     name = "ai-rebuild-pynixd";
     runtimeInputs = [
       pkgs.coreutils
+      pkgs.util-linux
       config.nix.package
     ];
     text = ''
+      ${takeLock}
       toplevel=$(nix build --no-link --print-out-paths \
         --option eval-store unix:///nix/var/nix/daemon-socket/socket \
         --option store unix:///run/pynixd/pynixd.sock \
         --file ${lib.escapeShellArg selfStr} ${lib.escapeShellArg "${cfg.attr}.config.system.build.toplevel"})
 
-      exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
+      sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$toplevel"
     '';
   };
 in
@@ -183,6 +205,9 @@ in
   };
 
   config = lib.mkIf cfg.enable {
+    # Read-only for callers: flock needs only an open descriptor.
+    systemd.tmpfiles.rules = [ "f ${lockFile} 0444 root root -" ];
+
     environment.systemPackages = [
       ai-rebuild
       ai-rebuild-activate

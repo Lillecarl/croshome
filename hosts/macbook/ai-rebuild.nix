@@ -75,10 +75,22 @@ let
     runtimeInputs = [
       config.nix.package
       pkgs.coreutils
+      pkgs.flock
       pkgs.nvd
     ];
     text = ''
       repo=${lib.escapeShellArg selfStr}
+
+      # One ai-rebuild at a time, as on the NixOS hosts, held until
+      # activation returns. No tmpfiles here, so the first caller creates the
+      # file; flock needs only a read descriptor, so any user can share it.
+      lock=/tmp/ai-rebuild.lock
+      [ -e "$lock" ] || touch "$lock"
+      exec 9<"$lock"
+      if ! flock --nonblock 9; then
+        echo "ai-rebuild: waiting for another ai-rebuild to finish" >&2
+        flock 9
+      fi
 
       echo "building macbook from $repo..." >&2
       system=$(nix-build "$repo" --attr macbook.system --no-out-link)
@@ -97,7 +109,7 @@ let
       # helper by its absolute /run/current-system/sw/bin path, which is where
       # the rule looks -- sudo compares the command as the caller wrote it, so
       # a rule naming a store path would only match someone who typed it.
-      exec sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$system"
+      sudo -n /run/current-system/sw/bin/ai-rebuild-activate "$system"
     '';
   };
 in
