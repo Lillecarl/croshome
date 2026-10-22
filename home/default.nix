@@ -18,6 +18,8 @@
     inputs.catppuccin.homeModules.catppuccin
     ./agenix.nix
     ../modules/home/agent-machine.nix
+    ../modules/home/agent-python.nix
+    ./agent-python.nix
     ./agents.nix
     ./ask.nix
     ../modules/home/claude-code.nix
