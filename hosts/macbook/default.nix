@@ -448,6 +448,8 @@
       "flakes"
       "ca-derivations"
       "dynamic-derivations"
+      # pydd builds jj-hunk in recursive mode; without it no machine qualifies.
+      "recursive-nix"
     ];
     trusted-users = [ "@admin" ];
 
