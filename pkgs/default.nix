@@ -201,12 +201,22 @@ in
       # `extraPackages` so they become real dependency edges in the venv spec.
       overlays = [
         (final.callPackage ./anyxonsh/nix/extra-packages.nix {
-          # builtins.path, not a string: an ../overrides.nix input is a plain
-          # checkout path, which the build sandbox cannot see.
-          ptkhxSrc = builtins.path {
-            path = /. + "${inputs.pyterm}/ptkhx";
-            name = "ptkhx-source";
-          };
+          # Two shapes of the same input. The flake pin is a store path, a
+          # string that carries its context and is refused by `/. +`. An
+          # ../overrides.nix input is a plain checkout path, which the
+          # build sandbox cannot see until builtins.path copies it.
+          # pyterm's nix/sources.nix `asPath` makes the same split.
+          ptkhxSrc =
+            let
+              dir = "${inputs.pyterm}/ptkhx";
+            in
+            if final.lib.hasPrefix builtins.storeDir dir then
+              dir
+            else
+              builtins.path {
+                path = /. + dir;
+                name = "ptkhx-source";
+              };
         })
       ];
       extraPackages = [
