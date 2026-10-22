@@ -108,6 +108,10 @@
     shfmt
     tree
 
+    # A venv interpreter loaded with the usual libraries, for one-off scripts:
+    # `#!/usr/bin/env cpython`. See ../pkgs/python-venv.nix.
+    cpython
+
     # Nix
     # The CLI only. Every machine that imports this directory already pulls
     # from lillecarl.cachix.org as a substituter, which its own host file sets
