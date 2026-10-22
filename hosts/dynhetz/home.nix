@@ -27,11 +27,11 @@
     # and not the secret's `path`: that holds a literal ${XDG_RUNTIME_DIR},
     # which EnvironmentFile does not expand.
     environmentFile = "%t/agenix/aid-env";
-    # Where aid finds pydantic-ai agents: modules defining aid.PydanticAgent
-    # subclasses. Your own go in the first; the second is aid's examples, at the
-    # pinned revision. Edits need no restart, only a new listing.
-    agentsPath = [
-      "${config.xdg.configHome}/aid/agents"
+    # Plugin directories (agents, instructions, tools, skills, daemon tasks),
+    # ahead of the bundled ones. Your own go in the first, listed so they win a
+    # name over aid's examples, at the pinned revision.
+    pluginsPath = [
+      "${config.xdg.configHome}/aid/plugins"
       "${inputs.aid}/examples"
     ];
     # Sessions may name their own worker command; a command runs as the daemon
