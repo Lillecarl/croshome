@@ -33,7 +33,7 @@
   pythonVenv {
     python = pkgs.python3;
     packages = ps: [ ps.httpx ps.pytest ];
-    executables = { python = "cpython"; pytest = null; httpx = "httpx-cli"; };
+    executables = { python = "agent-python"; pytest = null; httpx = "httpx-cli"; };
   }
   ```
 */

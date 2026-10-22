@@ -221,15 +221,15 @@ Two habits that follow:
   that takes a list and returns nothing is a function whose contract you have
   to read the body to learn.
 
-## One-off scripts: `cpython`
+## One-off scripts: `agent-python`
 
-A script outside a project runs on `cpython`, on PATH on Lillecarl's hosts:
-`#!/usr/bin/env cpython`, or `cpython script.py`. It is a real venv
+A script outside a project runs on `agent-python`, on PATH on Lillecarl's hosts:
+`#!/usr/bin/env agent-python`, or `agent-python script.py`. It is a real venv
 (`sys.executable` stays inside it) with anyio, trio, httpx, attrs, cattrs,
 pydantic, msgspec, rich, typer, structlog, tenacity, pyyaml, jinja2, lxml,
 bs4, psutil, sqlalchemy, numpy, polars, boto3, pytest, hypothesis and more;
-`cpython -c 'help("modules")'` lists them. No `pip install`, no ad-hoc venv. A
-missing library goes into `cpython` in croshome `pkgs/default.nix`.
+`agent-python -c 'help("modules")'` lists them. No `pip install`, no ad-hoc venv. A
+missing library goes into `agent-python` in croshome `pkgs/default.nix`.
 
 ## A few more that keep coming up
 

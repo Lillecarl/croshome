@@ -109,8 +109,8 @@
     tree
 
     # A venv interpreter loaded with the usual libraries, for one-off scripts:
-    # `#!/usr/bin/env cpython`. See ../pkgs/python-venv.
-    cpython
+    # `#!/usr/bin/env agent-python`. See ../pkgs/python-venv.
+    agent-python
 
     # Nix
     # The CLI only. Every machine that imports this directory already pulls

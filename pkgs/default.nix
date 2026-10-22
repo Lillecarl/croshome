@@ -262,9 +262,9 @@ in
 
   # One interpreter with the libraries agents reach for in a one-off script.
   # Nearly every module is already in some other closure on these hosts.
-  cpython = final.pythonVenv {
+  agent-python = final.pythonVenv {
     python = final.python3;
-    executables.python = "cpython";
+    executables.python = "agent-python";
     packages =
       ps: with ps; [
         anyio
