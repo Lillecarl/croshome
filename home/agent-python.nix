@@ -62,7 +62,7 @@
       boto3
       kubernetes-asyncio
       # The umbrella's kr8s fork, the client `ekn` uses. Not in nixpkgs.
-      (callPackage "${inputs.nixidae}/nanopynix/nix/kr8s.nix" {
+      (callPackage (inputs.nixidae.outPath + "/nanopynix/nix/kr8s.nix") {
         src =
           (import inputs.nixidae {
             inherit pkgs;

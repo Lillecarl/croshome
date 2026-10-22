@@ -9,7 +9,7 @@
 {
   imports = [
     ../../home
-    "${inputs.aid}/nix/home-manager.nix"
+    (inputs.aid.outPath + "/nix/home-manager.nix")
     ./aid-web.nix
   ];
 
@@ -32,7 +32,7 @@
     # name over aid's examples, at the pinned revision.
     pluginsPath = [
       "${config.xdg.configHome}/aid/plugins"
-      "${inputs.aid}/examples"
+      "${inputs.aid.outPath + "/examples"}"
     ];
     # Sessions may name their own worker command; a command runs as the daemon
     # with the session's worker credentials. Needs the aid input at 8913f929+.

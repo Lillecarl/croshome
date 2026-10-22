@@ -9,7 +9,7 @@
   # branches on that for the parts that cannot be shared: launchd against
   # systemd, an hdiutil ramdisk against a ramfs mount, group `admin` against
   # group `keys`.
-  imports = [ "${inputs.agenix}/modules/age.nix" ];
+  imports = [ (inputs.agenix.outPath + "/modules/age.nix") ];
 
   # The CLI, for `agenix -e` and `agenix -r`. Defined in ../pkgs so that
   # `nix run --file . pkgs.agenix` reaches it on a machine this configuration

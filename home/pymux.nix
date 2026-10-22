@@ -12,7 +12,7 @@
   # The module is a plain path inside the pyterm tree, so this needs no flake
   # output. `package` is left at its default, which builds pymux out of the
   # same tree with this configuration's `pkgs`.
-  imports = [ "${inputs.pyterm}/nix/home-manager.nix" ];
+  imports = [ (inputs.pyterm.outPath + "/nix/home-manager.nix") ];
 
   programs.pymux = {
     enable = true;

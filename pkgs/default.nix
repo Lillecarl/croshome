@@ -73,10 +73,10 @@ let
   # only evaluated, never built: the `cli` writer shells out to `nix`.
   pydd =
     let
-      sources = import "${inputs.nixidae}/pydd/nix/sources.nix";
+      sources = import (inputs.nixidae.outPath + "/pydd/nix/sources.nix");
       huggormSet = import sources.huggorm { inherit sources; };
     in
-    final.callPackage "${inputs.nixidae}/pydd/lib" {
+    final.callPackage (inputs.nixidae.outPath + "/pydd/lib") {
       huggorm = huggormSet.lanes.nix_2_35.huggorm;
       nix = final.nixVersions.nix_2_35;
       writer = "cli";
@@ -119,7 +119,7 @@ in
   # is what makes it reachable on a machine this configuration has never
   # activated. It is the same derivation either way: `callPackage` against
   # this package set, so it links the same `age` the module runs.
-  agenix = final.callPackage "${inputs.agenix}/pkgs/agenix.nix" { };
+  agenix = final.callPackage (inputs.agenix.outPath + "/pkgs/agenix.nix") { };
 
   claude-code =
     let
@@ -201,22 +201,7 @@ in
       # `extraPackages` so they become real dependency edges in the venv spec.
       overlays = [
         (final.callPackage ./anyxonsh/nix/extra-packages.nix {
-          # Two shapes of the same input. The flake pin is a store path, a
-          # string that carries its context and is refused by `/. +`. An
-          # ../overrides.nix input is a plain checkout path, which the
-          # build sandbox cannot see until builtins.path copies it.
-          # pyterm's nix/sources.nix `asPath` makes the same split.
-          ptkhxSrc =
-            let
-              dir = "${inputs.pyterm}/ptkhx";
-            in
-            if final.lib.hasPrefix builtins.storeDir dir then
-              dir
-            else
-              builtins.path {
-                path = /. + dir;
-                name = "ptkhx-source";
-              };
+          ptkhxSrc = inputs.pyterm.outPath + "/ptkhx";
         })
       ];
       extraPackages = [
@@ -427,7 +412,7 @@ in
   # pyjj in pyedit's closure would enable `pyedit -r`, but the pinned
   # pyedit takes only `pkgs` today; passing `pyjj` breaks evaluation.
   # Re-add the argument when pyedit grows the parameter.
-  pyedit = (import "${inputs.pyedit}" { pkgs = final; }).pyedit;
+  pyedit = (import inputs.pyedit.outPath { pkgs = final; }).pyedit;
 
   # Timeboxed shell-command tokens for AI agents, plus its NixOS module
   # (./hosts/dynhetz/aiscalate.nix imports it by input path). Same shape
@@ -435,13 +420,13 @@ in
   # Staged while github:Lillecarl/aiscalate does not exist yet: nothing
   # references pkgs.aiscalate until the flake input lands, and Nix is
   # lazy, so this costs nothing meanwhile.
-  aiscalate = (import "${inputs.aiscalate}" { pkgs = final; }).aiscalate;
+  aiscalate = (import inputs.aiscalate.outPath { pkgs = final; }).aiscalate;
 
   # Phabricator and Phorge from the shell. Here rather than imported at each
   # use because two places want it: ../home/packages.nix installs the binary,
   # and ../home/agents.nix links the SKILL.md it ships at
   # share/skills/phabfive/phabfive.
-  phabfive = (import "${inputs.phabfive}" { pkgs = final; }).phabfive;
+  phabfive = (import inputs.phabfive.outPath { pkgs = final; }).phabfive;
 
   # nanopynix's Nix CLI, from the nixidae umbrella, so `nix flake update
   # nixidae` moves it together with the easykubenix that ../kube builds. Two
@@ -488,7 +473,7 @@ in
       system = final.stdenv.hostPlatform.system;
       onLinux = final.stdenv.hostPlatform.isLinux;
     in
-    (final.callPackage "${inputs.agent-slack}/nix/package.nix" { }).overrideAttrs (old: {
+    (final.callPackage (inputs.agent-slack.outPath + "/nix/package.nix") { }).overrideAttrs (old: {
       inherit version;
       src = final.fetchurl {
         url = "https://github.com/stablyai/agent-slack/releases/download/v${version}/${assetBySystem.${system}}";
@@ -514,7 +499,7 @@ in
 
   # Built on this configuration's pyterm, so its libpymux and the pymux in
   # `pyterm` above come from one revision: their wire protocol still moves.
-  aid = (import "${inputs.aid}" { pkgs = final; inherit (inputs) pyterm; }).aid;
+  aid = (import inputs.aid.outPath { pkgs = final; inherit (inputs) pyterm; }).aid;
 
   # `pyjj`, the CLI, and `pyjjui`, the TUI. Both rest on pyjj-bindings, which
   # compiles jj-lib and the crate tree under it from source -- so the first

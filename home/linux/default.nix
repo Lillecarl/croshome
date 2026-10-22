@@ -40,7 +40,7 @@
     # same name. It speaks to systemd over D-Bus and reads the journal, so
     # macOS has nothing for it to talk to -- which is why it is here and not
     # in ../packages.nix.
-    (import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl
+    (import inputs.pystemctl.outPath { inherit pkgs; }).pystemctl
 
     # net-tools, minus the programs that would shadow something better.
     #

@@ -53,7 +53,7 @@
           # Several packages can carry the same binary. Prefer the one whose
           # attribute *is* the program name, then the shortest -- `sqlite3` should
           # find `sqlite`, not something that happens to bundle a copy.
-          attr=$(sqlite3 -readonly "${inputs.nixpkgs}/programs.sqlite" "
+          attr=$(sqlite3 -readonly "${inputs.nixpkgs.outPath + "/programs.sqlite"}" "
             select package from Programs
             where name = '$prog' and system = '${indexSystem}'
             order by package = '$prog' desc, length(package) asc

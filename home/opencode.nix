@@ -110,7 +110,7 @@ in
     # not evaluate on darwin at all.
     home.file.".config/opencode/skills/pystemctl" = lib.mkIf platform.isLinux {
       source =
-        "${(import "${inputs.pystemctl}" { inherit pkgs; }).pystemctl}/share/skills/pystemctl/pystemctl";
+        "${(import inputs.pystemctl.outPath { inherit pkgs; }).pystemctl}/share/skills/pystemctl/pystemctl";
     };
 
     # phabfive ships its own skill too. ./agents.nix links the same store path

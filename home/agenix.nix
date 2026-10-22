@@ -18,7 +18,7 @@
   ...
 }:
 {
-  imports = [ "${inputs.agenix}/modules/age-home.nix" ];
+  imports = [ (inputs.agenix.outPath + "/modules/age-home.nix") ];
 
   # Keep the default identityPaths ( ~/.ssh/id_ed25519, ~/.ssh/id_rsa ).
   # Nothing to set unless a host uses a different key location.
