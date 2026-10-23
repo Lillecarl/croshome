@@ -24,6 +24,8 @@ let
     "1" = "t6rrhXxLJV0XX/RX1sPKxIomKTN5M6RCIX7hccg2Wig=";
     "2" = "yZUrMTeZio2zVkyeyp7yrsw8vRJPgasncknhHXg4F1c=";
     "3" = "xPzI+dJ75sEeEF3IPeALv8RPPSM4Hk+IVyVN4JqLrik=";
+    # gx10-1759, the first GX10 (solid-kubernetes environments/sg1/nixos).
+    "4" = "L2jgy/vDwifd++ciAsR/k0hIapxCKsq8AGZ7M9tBkkc=";
   };
   tunnel =
     n: pub:
@@ -75,7 +77,7 @@ in
   networking.firewall.allowedUDPPortRanges = [
     {
       from = 51821;
-      to = 51823;
+      to = 51820 + lib.length (lib.attrNames nodes);
     }
   ];
   # 179 is BGP. 5000 is nix-serve: nixkube on sg1 substitutes from
