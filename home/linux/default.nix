@@ -17,6 +17,10 @@
   # left below is a kernel API, the administration tools that read /proc and
   # /sys, and two Wayland tools.
   home.packages = with pkgs; [
+    # Unprivileged file redirection via a mount namespace: dclaude2 bind-mounts
+    # one credentials file over another with nothing else isolated.
+    bubblewrap
+
     # inotify is a Linux kernel API with no macOS equivalent in this package.
     inotify-tools
 
