@@ -174,7 +174,7 @@
       flake = false;
     };
 
-    # The AI daemon: persistent ACP and pydantic-ai agents. A source tree like
+    # The AI daemon: persistent ACP and native agents. A source tree like
     # pyedit; its default.nix also exports the home-manager module that
     # ./hosts/dynhetz/home.nix imports.
     aid = {

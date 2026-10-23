@@ -222,7 +222,7 @@ in
     armor = true;
   };
 
-  # aid's environment: API keys for the model providers its pydantic-ai agents
+  # aid's environment: API keys for the model providers its native agents
   # use, one KEY=value per line (DEEPSEEK_API_KEY so far). ../hosts/dynhetz/home.nix
   # decrypts it with home agenix and hands it to aid.service as its
   # EnvironmentFile, so every agent inherits it. Same recipients as
