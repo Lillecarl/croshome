@@ -19,6 +19,7 @@
     ./agenix.nix
     ../modules/home/agent-machine.nix
     ../modules/home/agent-python.nix
+    ../modules/home/devprofiles.nix
     ./agent-python.nix
     ./agents.nix
     ./ask.nix
