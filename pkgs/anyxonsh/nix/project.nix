@@ -27,13 +27,6 @@ let
 
       dependencies = [
         "xonsh"
-        # Behind the `pai` xontrib. `pydantic-ai-slim` would arrive anyway as a
-        # dependency of the harness, and `openai` as its DeepSeek/OpenRouter
-        # transport -- both are named here anyway because `xontrib_pai` imports
-        # them directly, and this file's own rule is that nothing propagates.
-        "pydantic-ai-harness"
-        "pydantic-ai-slim"
-        "openai"
         # Behind the `catppuccin` xontrib. Catppuccin's own Python package: it
         # carries the four flavour palettes and registers a pygments style per
         # flavour as a `pygments.styles` entry point, so the colours are
@@ -46,12 +39,6 @@ let
       # `{ anyxonsh = [ ]; }`, so nothing here is pulled in unless something
       # asks for the extra by name. `passthru.devVenv` does, which is what the
       # development shell (and therefore `direnv exec . pytest`) exposes.
-      # `pyte` is a terminal emulator: it turns the escape sequences a shell
-      # writes into the grid of characters a user would actually see. The pai
-      # prompt tests need it because their subject *is* the layout -- whether
-      # the prompt ends up back at the bottom after something writes over it --
-      # and that question cannot be answered from the raw byte stream, where a
-      # redrawn line and a stranded one look much the same.
       # `pytest-timeout` because a good half of these tests drive a real shell
       # through a pty and wait on threads, futures and child processes. Every
       # one of those can wait for ever, and a suite that hangs tells you less
@@ -65,7 +52,6 @@ let
       optional-dependencies.test = [
         "pytest"
         "pytest-timeout"
-        "pyte"
         "pyinstrument"
       ];
 

@@ -253,15 +253,6 @@ in
       # `--set-default`, so an explicit value from the caller's environment wins.
       defaultEnv = {
         PYTHONNOUSERSITE = "1";
-        # xonsh's own prose documentation, for the `pai` xontrib to read. Taken
-        # from the Nixpkgs xonsh's `src`, so it documents the xonsh actually
-        # being run rather than whatever is current upstream.
-        #
-        # Referencing a subdirectory pulls the whole source into the closure --
-        # store paths are atomic, so there is no way to depend on `docs/` alone.
-        # Filtering it to the 50 text files first would cost ~700 KB instead,
-        # and is a `runCommand` away if the closure ever matters.
-        XONTRIB_PAI_XONSH_DOCS = "${pkgs.python3Packages.xonsh.src}/docs";
       }
       // env;
 

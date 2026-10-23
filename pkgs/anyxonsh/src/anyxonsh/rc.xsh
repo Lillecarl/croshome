@@ -201,26 +201,6 @@ elif $ANYXONSH_EDITING_MODE == "helix" and _interactive:
         + $RIGHT_PROMPT
     )
 
-# --- The model at the prompt --------------------------------------------
-# `: what is this repo about?` asks; `:help` lists the rest. See
-# src/xontrib/pai.py, src/xontrib_pai/ and the README.
-#
-# On by default, at a measured ~50ms of the shell's ~630ms startup. Almost none
-# of that is this code -- `xontrib_pai` is three small modules whose stdlib
-# imports (typing, pathlib, dataclasses) xonsh has already loaded by then -- it
-# is what `xontrib load` itself costs. What is *not* paid here is pydantic-ai,
-# about half a second on its own, which nothing imports until a `:` line is
-# actually typed.
-#
-# `$ANYXONSH_AI = False` skips the load entirely for anyone who wants those
-# 50ms back.
-if ${...}.get("ANYXONSH_AI", True) and _interactive:
-    xontrib load pai
-
-    # On by default: commands the overseer considers safe run without asking
-    # you first. Set $XONTRIB_PAI_OVERSEER to False to turn it off.
-    $XONTRIB_PAI_OVERSEER = ${...}.get("XONTRIB_PAI_OVERSEER", True)
-
 # --- Colour scheme ------------------------------------------------------
 # Catppuccin Mocha, shipped as the `catppuccin` xontrib -- see
 # src/xontrib/catppuccin.py, src/xontrib_catppuccin/ and the README.
