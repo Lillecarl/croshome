@@ -10,7 +10,9 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 import sys
+from contextvars import ContextVar
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
@@ -25,6 +27,9 @@ NIX: Final = "@nix@"
 NIX_ENV: Final = "@nixEnv@"
 SYSTEMCTL: Final = "@systemctl@"
 JOURNALCTL: Final = "@journalctl@"
+
+# Off: nix's stderr (evaluation warnings, build log) shows only when a step fails.
+VERBOSE: ContextVar[bool] = ContextVar("verbose", default=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -47,6 +52,8 @@ class Outcome:
     previous: str | None
     current: str | None
     changed: bool
+    pinned: bool
+    """Whether the profile now runs the build the system configuration pins."""
     units: dict[str, str] = field(default_factory=dict)
 
 
@@ -71,13 +78,16 @@ def load() -> dict[str, Profile]:
 
 
 async def run(argv: Sequence[str], *, capture: bool = False) -> str:
+    verbose = VERBOSE.get()
     proc = await anyio.run_process(
         argv,
         check=False,
-        stdout=None if not capture else -1,
-        stderr=sys.stderr.buffer,
+        stdout=subprocess.PIPE if capture else None,
+        stderr=None if verbose else subprocess.PIPE,
     )
     if proc.returncode != 0:
+        if not verbose and proc.stderr:
+            sys.stderr.buffer.write(proc.stderr)
         raise StepError(f"{argv[0]} exited {proc.returncode}: {' '.join(argv[1:])}")
     return proc.stdout.decode() if capture and proc.stdout else ""
 
@@ -152,14 +162,22 @@ async def deploy(profile: Profile, *, restart_units: bool) -> Outcome:
     if changed:
         await switch(profile, target)
     states = await restart(profile) if restart_units and changed else {}
-    return Outcome(profile.name, previous, target, changed, states)
+    return Outcome(
+        profile.name, previous, target, changed, target == profile.pinned, states
+    )
 
 
 async def rollback(profile: Profile) -> Outcome:
     previous = profile.current()
     await run([NIX_ENV, "--profile", str(profile.path), "--rollback"])
+    current = profile.current()
     return Outcome(
-        profile.name, previous, profile.current(), True, await restart(profile)
+        profile.name,
+        previous,
+        current,
+        True,
+        current == profile.pinned,
+        await restart(profile),
     )
 
 
@@ -169,7 +187,7 @@ async def reset(profile: Profile) -> Outcome:
     if changed:
         await switch(profile, profile.pinned)
     states = await restart(profile) if changed else {}
-    return Outcome(profile.name, previous, profile.pinned, changed, states)
+    return Outcome(profile.name, previous, profile.pinned, changed, True, states)
 
 
 def listing(profiles: dict[str, Profile]) -> list[dict[str, object]]:
@@ -191,6 +209,12 @@ def listing(profiles: dict[str, Profile]) -> list[dict[str, object]]:
 def parse(argv: Sequence[str], names: Sequence[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="devprofile", description=__doc__.splitlines()[0]
+    )
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="pass nix's stderr through as it runs",
     )
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser(
@@ -215,6 +239,7 @@ def parse(argv: Sequence[str], names: Sequence[str]) -> argparse.Namespace:
 async def main(argv: Sequence[str]) -> int:
     profiles = load()
     args = parse(argv, sorted(profiles))
+    VERBOSE.set(args.verbose)
     if args.command == "list":
         sys.stdout.write(json.dumps(listing(profiles), indent=2) + "\n")
         return 0
