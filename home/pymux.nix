@@ -61,16 +61,20 @@
       # A jinja2 template, drawn for each client with its own facts. A
       # phone, under 100 columns, gets the bytes down and up and no frame
       # rate: every number that moves costs it a redraw. A desktop gets
-      # the frame rates (a window pane's own while one draws), the rate
-      # down and the time.
+      # all of it: the frame rates (a window pane's own while one draws),
+      # the bytes down and up, the rate down and the time.
       status-right = builtins.concatStringsSep "" [
         " {% if client_width|int < 100 %}"
         "↓{{ client_bytes_down|int|filesizeformat }} ↑{{ client_bytes_up|int|filesizeformat }}"
         "{% else %}"
         "{{ client_fps }}{% if client_window_fps %} · {{ client_window_fps|replace(' fps', '') }} wl{% endif %}"
+        " ↓{{ client_bytes_down|int|filesizeformat }} ↑{{ client_bytes_up|int|filesizeformat }}"
         " {{ client_rate_down }} {{ now.strftime('%H:%M') }}"
         "{% endif %} "
       ];
+      # The desktop line runs to about 47 cells; the default 40 cut the
+      # time off its end.
+      status-right-length = 60;
       default-shell = lib.getExe config.programs.fish.package;
     };
 
