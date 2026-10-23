@@ -21,7 +21,6 @@
     units = [
       "aid.service"
       "aid-web.service"
-      "aid-telegram.service"
     ];
   };
 
