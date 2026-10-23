@@ -39,6 +39,9 @@ in
             "aarch64-darwin"
             "aarch64-linux"
           ];
+          # Through this machine's own scheduler, which sends aarch64-linux
+          # to vz-builder. `proxy` would hand every build to the darwin store.
+          schedule_mode = "scheduler";
           server_host_key_paths = [ "/Users/lillecarl/.ssh/id_ed25519" ];
         };
 
