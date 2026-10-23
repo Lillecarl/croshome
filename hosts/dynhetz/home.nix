@@ -13,12 +13,24 @@
     ./aid-web.nix
   ];
 
+  # aid runs from a dev profile: `devprofile deploy aid` builds croshome's
+  # pkgs.aid against ~/Code/aid and restarts it, with no ai-rebuild. dex is
+  # pkgs.dex-oidc and stays pinned. See ../../modules/home/devprofiles.nix.
+  programs.devProfiles.profiles.aid = {
+    package = pkgs.aid;
+    units = [
+      "aid.service"
+      "aid-web.service"
+      "aid-telegram.service"
+    ];
+  };
+
   # The AI daemon, as a user service. Its agents would otherwise inherit
   # WAPTY_ID from whichever wrapped session a restart runs under; see
   # ../../modules/home/wrapty.nix.
   services.aid = {
     enable = true;
-    package = pkgs.aid;
+    package = config.programs.devProfiles.profiles.aid.shim;
     # aid's claude-tty sessions run in a pymux server aid starts with this.
     pymuxPackage = (import inputs.pyterm { inherit pkgs; }).pymux;
     extraPackages = [ pkgs.claude-agent-acp ];
