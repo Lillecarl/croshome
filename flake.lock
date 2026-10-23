@@ -312,11 +312,11 @@
     "nixidae": {
       "flake": false,
       "locked": {
-        "lastModified": 1792771937,
-        "narHash": "sha256-2n2kdWzCwPfaqci7x2bGAlKBXutYDdGXQ5IuYKmSrQg=",
+        "lastModified": 1792775064,
+        "narHash": "sha256-OdEGcPQibh8E+0T5aU+rbXGFUWljOcskINQfV9n7XGM=",
         "owner": "nixidae",
         "repo": "nixidae",
-        "rev": "6710f95e49a518c44848d4c5b81504e2754a10e7",
+        "rev": "9ad1d303b764226f973a0860949fa3f38ad7508a",
         "type": "github"
       },
       "original": {
@@ -328,11 +328,11 @@
     "nixidae-pynixd": {
       "flake": false,
       "locked": {
-        "lastModified": 1792771937,
-        "narHash": "sha256-2n2kdWzCwPfaqci7x2bGAlKBXutYDdGXQ5IuYKmSrQg=",
+        "lastModified": 1792775064,
+        "narHash": "sha256-OdEGcPQibh8E+0T5aU+rbXGFUWljOcskINQfV9n7XGM=",
         "owner": "nixidae",
         "repo": "nixidae",
-        "rev": "6710f95e49a518c44848d4c5b81504e2754a10e7",
+        "rev": "9ad1d303b764226f973a0860949fa3f38ad7508a",
         "type": "github"
       },
       "original": {
