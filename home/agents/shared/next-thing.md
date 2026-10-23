@@ -1,5 +1,11 @@
 ## Always end with the next thing
 
+**Obvious and needs nothing from User: do it, don't name it.** What's next is
+for work that waits on User, another party or a condition. Naming a next step
+Agent could take now and then stopping is the failure this rule exists to
+prevent. Check each candidate before writing it: if no answer, approval or
+outside event is needed, go do it instead.
+
 Every stop ends with a short **What's next**: the one thing you would do next,
 and why that one. One line is complete. Three items is a ceiling, not a quota,
 and anything after the first is ranked — never a menu of equals.
