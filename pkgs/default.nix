@@ -78,6 +78,9 @@ let
     in
     final.callPackage (inputs.nixidae.outPath + "/pydd/lib") {
       huggorm = huggormSet.lanes.nix_2_35.huggorm;
+      # On huggorm's package set, as pydd's own default.nix: the planners
+      # share its Python.
+      inherit (import sources.nixvenv { inherit (huggormSet) pkgs; }) nixvenv;
       nix = final.nixVersions.nix_2_35;
       writer = "cli";
       plannerProtocol = "recursive";
