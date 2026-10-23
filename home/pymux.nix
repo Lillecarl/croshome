@@ -58,6 +58,10 @@
       # ./tmux-linked.conf sets it too: renumber after a window closes, so
       # numbers stay low.
       renumber-windows = true;
+      # What the wire carried to this client, in a unit that fits, and no
+      # clock or date. A template because of the `{{`: jinja2's
+      # `filesizeformat` sizes the plain count `-F` reads.
+      status-right = " {{ client_bytes_down | int | filesizeformat }} ";
       default-shell = lib.getExe config.programs.fish.package;
     };
 
