@@ -33,7 +33,12 @@ in
           acceptor_host = "dynhetz.ch.se.eu.org";
           acceptor_port = 2235;
           store_id = "macbook";
-          systems = [ "aarch64-darwin" ];
+          # aarch64-linux through ./vz-builder, so dynhetz sends its
+          # aarch64-linux builds here before nix-community's last-resort box.
+          systems = [
+            "aarch64-darwin"
+            "aarch64-linux"
+          ];
           server_host_key_paths = [ "/Users/lillecarl/.ssh/id_ed25519" ];
         };
 
