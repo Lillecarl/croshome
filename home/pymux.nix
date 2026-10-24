@@ -76,6 +76,10 @@
       # time off its end.
       status-right-length = 60;
       default-shell = lib.getExe config.programs.fish.package;
+      # Write each command and click to ~/.local/state/pymux/actions.db,
+      # with what started it, for finding the bindings and features worth
+      # learning. Never what a pane shows or what is typed into one.
+      action-log = true;
     };
 
     # The theme is a client option, not a server one: it belongs to the
