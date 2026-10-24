@@ -59,7 +59,7 @@
 # virtualization for a nested Linux guest, so the run falls back to qemu's
 # software emulation (nixos' own qemu-common.nix already requests
 # `accel=kvm:tcg`, so this is a scheduling constraint, not a runtime one).
-{ lib, ... }:
+{ lib, pkgs, ... }:
 {
   disko.testMode = true;
 
@@ -106,6 +106,17 @@
   boot.initrd.network.ssh.hostKeys = lib.mkForce [ ];
   boot.initrd.network.ssh.ignoreEmptyHostKeys = lib.mkForce true;
 
+  # test-instrumentation.nix sets 300 at the same priority as
+  # ./initrd-ssh.nix's value; the test runs the real machine's.
+  boot.initrd.systemd.settings.Manager.DefaultDeviceTimeoutSec = lib.mkForce "45min";
+
+  # disko's harness hands a systemd initrd the key through
+  # `boot.initrd.secrets`, which the bootloader install appends; on this
+  # harness's direct install it never reaches the initrd, and boot stops at
+  # "key file '/tmp/secret.key' missing". In the image itself instead, which
+  # is fine for a throwaway test key.
+  boot.initrd.systemd.contents."/tmp/secret.key".source = pkgs.writeText "secret.key" "secretsecret";
+
   disko.tests.extraChecks = ''
     machine.wait_for_unit("multi-user.target")
     print(machine.succeed("cryptsetup status cryptnvme0"))
@@ -121,8 +132,12 @@
     # bind-mounts in for speed ("changing ownership of path ... Invalid
     # argument"). A real install has a normal local writable store, so this
     # is a known artifact of the test, not of the host config.
+    # kubeadm.service provisions a Kubernetes node, and
+    # wireguard-dynhetz.service reads the host's private key: both need the
+    # real machine. btrfs-ensure-headroom.service fails rightly on the 4G test
+    # root, below its absolute floor of unallocated space.
     failed = machine.succeed(
-        "systemctl --failed --no-legend | grep -v home-manager-lillecarl.service || true"
+        "systemctl --failed --no-legend | grep -v -e home-manager-lillecarl.service -e kubeadm.service -e wireguard-dynhetz.service -e btrfs-ensure-headroom.service || true"
     )
     assert failed.strip() == "", f"failed units after boot: {failed}"
   '';
