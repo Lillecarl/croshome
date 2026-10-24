@@ -96,7 +96,23 @@
   };
 
   # Shared by every package that builds with `ccacheStdenv`; none does yet.
-  programs.ccache.enable = true;
+  #
+  # The module makes the cache 0770 root:nixbld, which no build can write
+  # under `auto-allocate-uids`: each build's group is its own allocated id,
+  # with no supplementary groups. Those ids span a range no group or ACL can
+  # name, so the cache itself is 0777. The parent keeps local users out:
+  # Nix opens the mount source as root and makes its own parents inside
+  # the sandbox, so builds reach the cache through a parent they cannot
+  # enter on the host. Group nixbld can, for the setgid `nix-ccache`.
+  programs.ccache = {
+    enable = true;
+    cacheDir = "/var/cache/ccache/cache";
+  };
+  systemd.tmpfiles.rules = lib.mkAfter [
+    "d /var/cache/ccache 0750 root nixbld -"
+    # After the module's `d` line, which would set 0770 back on every boot.
+    "z ${config.programs.ccache.cacheDir} 0777 root nixbld -"
+  ];
 
   services.btrfs.autoScrub = {
     enable = true;
