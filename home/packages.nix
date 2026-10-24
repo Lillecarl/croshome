@@ -179,6 +179,9 @@
     # Google Cloud. `gcloud` for GKE and the rest of GCP.
     google-cloud-sdk
 
+    # Hugging Face Hub CLI as `hf` (`huggingface-cli` is a deprecated shim).
+    python3Packages.huggingface-hub
+
     # Shell and text tooling an agent can actually drive: non-interactive,
     # parseable output, and interfaces stable enough to be known rather than
     # guessed at. The TUIs above -- yazi, gitui, lazygit, k9s -- are the
