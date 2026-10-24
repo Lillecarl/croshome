@@ -28,6 +28,23 @@ let
     "4" = "L2jgy/vDwifd++ciAsR/k0hIapxCKsq8AGZ7M9tBkkc=";
     "5" = "Lqt9qN9MPXZbueD+ky+uxW5W0o5l8gxCrgI6JmRR91c=";
   };
+  names = {
+    "1" = "sg1-n1";
+    "2" = "sg1-n2";
+    "3" = "sg1-n3";
+    "4" = "gx10-1759";
+    "5" = "gx10-1a5f";
+  };
+  # The host keys pynixd pins, by host name ("<type> <key> root@<name>").
+  hostKeys = lib.listToAttrs (
+    map (
+      line:
+      let
+        f = lib.splitString " " line;
+      in
+      lib.nameValuePair (lib.removePrefix "root@" (lib.elemAt f 2)) "${lib.elemAt f 0} ${lib.elemAt f 1}"
+    ) (lib.filter (l: l != "") (lib.splitString "\n" (builtins.readFile ./sg1-builders.pub)))
+  );
   tunnel =
     n: pub:
     let
@@ -207,4 +224,25 @@ in
      exit-address-family
     !
   '';
+
+  # SSH straight to each node's loopback over its tunnel. The management
+  # addresses (10.247.101.x on the GX10s) answer only via oobtik and a jump.
+  programs.ssh.knownHosts = lib.mapAttrs' (
+    n: name:
+    lib.nameValuePair name {
+      hostNames = [
+        name
+        "10.247.100.${n}"
+        "${v6}::${n}"
+      ];
+      publicKey = hostKeys.${name};
+    }
+  ) names;
+  programs.ssh.extraConfig = lib.concatStrings (
+    lib.mapAttrsToList (n: name: ''
+      Host ${name}
+        HostName 10.247.100.${n}
+        User root
+    '') names
+  );
 }
