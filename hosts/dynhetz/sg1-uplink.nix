@@ -24,8 +24,9 @@ let
     "1" = "t6rrhXxLJV0XX/RX1sPKxIomKTN5M6RCIX7hccg2Wig=";
     "2" = "yZUrMTeZio2zVkyeyp7yrsw8vRJPgasncknhHXg4F1c=";
     "3" = "xPzI+dJ75sEeEF3IPeALv8RPPSM4Hk+IVyVN4JqLrik=";
-    # gx10-1759, the first GX10 (solid-kubernetes environments/sg1/nixos).
+    # The GX10s (solid-kubernetes environments/sg1/nixos): gx10-1759, gx10-1a5f.
     "4" = "L2jgy/vDwifd++ciAsR/k0hIapxCKsq8AGZ7M9tBkkc=";
+    "5" = "Lqt9qN9MPXZbueD+ky+uxW5W0o5l8gxCrgI6JmRR91c=";
   };
   tunnel =
     n: pub:
