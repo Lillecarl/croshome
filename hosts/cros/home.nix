@@ -77,6 +77,7 @@
       "ca-derivations"
       "dynamic-derivations"
       "recursive-nix"
+      "configurable-impure-env"
     ];
     nixPath = [ "nixpkgs=${inputs.nixpkgs.outPath}" ];
     registry = {

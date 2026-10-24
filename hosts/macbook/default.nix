@@ -464,6 +464,7 @@
       "dynamic-derivations"
       # pydd builds jj-hunk in recursive mode; without it no machine qualifies.
       "recursive-nix"
+      "configurable-impure-env"
     ];
     trusted-users = [ "@admin" ];
 

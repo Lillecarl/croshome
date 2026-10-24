@@ -78,6 +78,7 @@
         "ca-derivations"
         "dynamic-derivations"
         "recursive-nix"
+        "configurable-impure-env"
       ];
       sandbox = "relaxed";
     };
