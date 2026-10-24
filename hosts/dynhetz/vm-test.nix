@@ -83,7 +83,7 @@
   # is additive, not an override -- ./disko.nix sets `settings.allowDiscards`
   # only, so there is no existing `keyFile` definition to conflict with.
   disko.devices.mdadm.root.content.settings.keyFile = "/tmp/secret.key";
-  disko.devices.disk.nvme0.content.partitions.root.content.settings.keyFile = "/tmp/secret.key";
+  disko.devices.disk.nvme1.content.partitions.root.content.settings.keyFile = "/tmp/secret.key";
 
   # ./disko.nix's root LV is a fixed 500G per leg, sized for the real disks.
   # The 10G test disks hold nowhere near that.

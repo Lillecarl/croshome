@@ -11,9 +11,13 @@
 #    disk rather than one install onto a mirrored block device.
 #
 #  - Data: LVM over two LUKS2 volumes, one per drive, one passphrase.
-#    nvme0's partition is `cryptdata`; nvme1's is `cryptroot`, on a one-disk
-#    mdadm RAID1. The one-disk array mirrors nothing and costs nothing; a
-#    reinstall can drop it. `initrdUnlock` (disko's default) wires both into
+#    The disk named nvme1 here holds `cryptdata`; nvme0 holds `cryptroot`, on
+#    a one-disk mdadm RAID1. The names are disko's and live on in the GPT
+#    partition labels (`disk-nvme1-root`), which is what the initrd opens by.
+#    The kernel numbers the drives the other way round on this box:
+#    `disk-nvme1-root` is /dev/nvme0n1p3. Match a partition by its label,
+#    never by the kernel name. The one-disk array mirrors nothing and costs
+#    nothing; a reinstall can drop it. `initrdUnlock` (disko's default) wires both into
 #    `boot.initrd.luks.devices`; systemd-cryptsetup caches the passphrase, so
 #    one answer opens both, and ../initrd-ssh.nix makes the prompt answerable
 #    over the network. ./vm-test-ssh-unlock.nix proves both.
@@ -73,13 +77,8 @@ in
             root = {
               size = "100%";
               content = {
-                type = "luks";
-                name = "cryptdata";
-                settings.allowDiscards = true;
-                content = {
-                  type = "lvm_pv";
-                  vg = "mainpool";
-                };
+                type = "mdraid";
+                name = "root";
               };
             };
           };
@@ -112,8 +111,13 @@ in
             root = {
               size = "100%";
               content = {
-                type = "mdraid";
-                name = "root";
+                type = "luks";
+                name = "cryptdata";
+                settings.allowDiscards = true;
+                content = {
+                  type = "lvm_pv";
+                  vg = "mainpool";
+                };
               };
             };
           };
