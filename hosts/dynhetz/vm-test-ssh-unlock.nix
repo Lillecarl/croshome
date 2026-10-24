@@ -42,7 +42,10 @@ in
         imports = [ ./initrd-ssh.nix ];
 
         virtualisation = {
-          emptyDiskImages = [ 512 ];
+          emptyDiskImages = [
+            512
+            512
+          ];
           useBootLoader = true;
           # Booting off the encrypted disk needs the store reachable from the
           # switched-to specialisation, same as nixpkgs' own luks-password
@@ -62,6 +65,15 @@ in
         };
         boot.loader.systemd-boot.enable = true;
         boot.initrd.systemd.enable = true;
+        # test-instrumentation.nix sets 300 at the same priority as
+        # ./initrd-ssh.nix's value; the test runs the real machine's.
+        boot.initrd.systemd.settings.Manager.DefaultDeviceTimeoutSec = lib.mkForce "45min";
+        # ./initrd-ssh.nix's root shell runs the ask-password agent and
+        # ignores the ssh command, so `ssh server cmd` waits on the agent until
+        # the session ends and then answers with nothing. The test talks to the
+        # ask-password socket itself and needs a shell that runs its command.
+        boot.initrd.systemd.users.root.shell = lib.mkForce (lib.getExe pkgs.bashInteractive);
+        boot.initrd.systemd.storePaths = [ pkgs.bashInteractive ];
 
         # ./initrd-ssh.nix hardcodes dynhetz's real Hetzner address and a
         # gateway outside its /26 -- meaningless on the nixos-test vlan.
@@ -100,7 +112,7 @@ in
           (lib.fileContents ./vm-test-ssh-unlock-client-key.pub)
         ];
         environment.etc."secrets/initrd/ssh_host_ed25519_key" = {
-          source = ./vm-test-ssh-unlock-host-key;
+          source = lib.mkForce ./vm-test-ssh-unlock-host-key;
           mode = "0600";
         };
 
@@ -119,8 +131,8 @@ in
         };
 
         # Mirrors ./disko.nix's real shape closely enough to be meaningful:
-        # one named LUKS volume, no keyFile/passwordFile, so it prompts
-        # exactly the way the real machine will.
+        # two named LUKS volumes with one passphrase, no keyFile/passwordFile,
+        # so they prompt exactly the way the real machine will.
         specialisation.boot-luks.configuration = {
           # qemu-vm.nix forces `boot.initrd.luks.devices = mkVMOverride { }` by
           # default (useDefaultFilesystems), specifically so an ordinary VM
@@ -132,7 +144,10 @@ in
           # answer. Matching nixpkgs' own
           # nixos/tests/systemd-initrd-luks-password.nix, `mkVMOverride` here
           # merges with that default instead of losing to it.
-          boot.initrd.luks.devices = lib.mkVMOverride { cryptroot.device = "/dev/vdb"; };
+          boot.initrd.luks.devices = lib.mkVMOverride {
+            cryptroot.device = "/dev/vdb";
+            cryptdata.device = "/dev/vdc";
+          };
           virtualisation.rootDevice = "/dev/mapper/cryptroot";
         };
       };
@@ -165,6 +180,9 @@ in
           "echo -n ${luksPassphrase} | cryptsetup luksOpen -q /dev/vdb cryptroot"
       )
       server.succeed("mkfs.ext4 /dev/mapper/cryptroot")
+      server.succeed(
+          "echo -n ${luksPassphrase} | cryptsetup luksFormat -q --iter-time=1 /dev/vdc -"
+      )
 
       client.wait_for_unit("network.target")
 
@@ -217,22 +235,34 @@ in
       # that uses relies on the *main* system's own instrumentation
       # service, which isn't running yet while `server` is still in the
       # initrd (this is what "Shell disconnected" meant further up).
-      def luks_unlocked(_) -> bool:
-          client.execute(
+      # One answer, to one pending request, as an operator types it once.
+      # systemd-cryptsetup puts the passphrase in the kernel keyring, and the
+      # second device must open from that cache with no second answer.
+      def answered_once(_) -> bool:
+          status, _ = client.execute(
               f"{ssh} 'for f in /run/systemd/ask-password/ask.*; do "
               "sock=$(sed -n \"s/^Socket=//p\" \"$f\"); "
-              f"[ -n \"$sock\" ] && printf \"+%s\" \"${luksPassphrase}\" | socat -u STDIN \"UNIX-SENDTO:$sock\"; "
-              "done'"
+              f"[ -n \"$sock\" ] && printf \"+%s\" \"${luksPassphrase}\" | socat -u STDIN \"UNIX-SENDTO:$sock\" && exit 0; "
+              "done; exit 1'"
           )
-          status, _ = client.execute(f"{ssh} test -e /dev/mapper/cryptroot")
           return status == 0
 
-      with client.nested("unlocking cryptroot over ssh"):
-          retry(luks_unlocked, timeout_seconds=60)
+      with client.nested("answering the passphrase prompt once over ssh"):
+          retry(answered_once, timeout_seconds=60)
+
+      def both_open(_) -> bool:
+          status, _ = client.execute(
+              f"{ssh} test -e /dev/mapper/cryptroot -a -e /dev/mapper/cryptdata"
+          )
+          return status == 0
+
+      with client.nested("waiting for both volumes to open on that one answer"):
+          retry(both_open, timeout_seconds=60)
 
       server.wait_for_unit("multi-user.target")
       assert "/dev/mapper/cryptroot on / type ext4" in server.succeed(
           "mount"
       ), "cryptroot is not mounted as / after the ssh-driven unlock"
+      server.succeed("cryptsetup status cryptdata")
     '';
 }
