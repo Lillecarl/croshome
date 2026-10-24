@@ -33,15 +33,11 @@ in
           acceptor_host = "dynhetz.ch.se.eu.org";
           acceptor_port = 2235;
           store_id = "macbook";
-          # aarch64-linux through ./vz-builder, so dynhetz sends its
-          # aarch64-linux builds here before nix-community's last-resort box.
-          systems = [
-            "aarch64-darwin"
-            "aarch64-linux"
-          ];
-          # Through this machine's own scheduler, which sends aarch64-linux
-          # to vz-builder. `proxy` would hand every build to the darwin store.
-          schedule_mode = "scheduler";
+          # Not aarch64-linux for now. Offered through ./vz-builder with
+          # `schedule_mode = "scheduler"`, a burst of 48 fixed-output
+          # fetches from dynhetz took every slot and none finished in 45
+          # minutes (2026-10-24). Back once pynixd handles that load.
+          systems = [ "aarch64-darwin" ];
           server_host_key_paths = [ "/Users/lillecarl/.ssh/id_ed25519" ];
         };
 
