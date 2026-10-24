@@ -10,19 +10,20 @@
 #    `mirroredBoots` does natively, one independent bootloader install per
 #    disk rather than one install onto a mirrored block device.
 #
-#  - Data: mdadm RAID1, LUKS2 on top of the array (not per-disk -- one volume,
-#    one passphrase, mirrored underneath it), then LVM on the open volume.
-#    `initrdUnlock` (disko's default) wires the passphrase prompt into
-#    `boot.initrd.luks.devices` automatically, and ../initrd-ssh.nix is what
-#    makes that prompt answerable over the network instead of only at a
-#    physical console. A mirror underneath means a dead drive costs capacity,
-#    not data or the ability to unlock. Two logical volumes ride the decrypted
-#    PV: `root`, btrfs with the same subvolume scheme ../hetztop runs
-#    (`@root`, `@nix`, `@home`), and `thinpool`, a thin pool left unformatted
-#    for VM disks -- the reason for LVM here at all. TopoLVM allocates out of
-#    it now, one logical volume per PersistentVolumeClaim; see
-#    ../../kube/modules/topolvm.nix. Both sizes are LVM, so wrong is a resize
-#    away, not a reinstall.
+#  - Data: LVM over two LUKS2 volumes, one per drive, one passphrase.
+#    nvme0's partition is `cryptdata`; nvme1's is `cryptroot`, on a one-disk
+#    mdadm RAID1. The one-disk array mirrors nothing and costs nothing; a
+#    reinstall can drop it. `initrdUnlock` (disko's default) wires both into
+#    `boot.initrd.luks.devices`; systemd-cryptsetup caches the passphrase, so
+#    one answer opens both, and ../initrd-ssh.nix makes the prompt answerable
+#    over the network. ./vm-test-ssh-unlock.nix proves both.
+#
+#    `root` is LVM raid1 across the two PVs, btrfs with the same subvolume
+#    scheme ../hetztop runs (`@root`, `@nix`, `@home`): a dead drive costs
+#    capacity, not the system. The rest of the VG is for TopoLVM, thick and
+#    unmirrored, one logical volume per PersistentVolumeClaim (see
+#    ../../kube/modules/topolvm.nix). No thin pool: a thin pool cannot shrink,
+#    so one sized to the free space fixes every other LV for good.
 #
 # Swap sits outside the mirror and the LUKS volume entirely -- 48 GiB on each
 # drive, 96 GiB total, half again the 64 GiB of RAM, both enabled at equal
@@ -72,8 +73,13 @@ in
             root = {
               size = "100%";
               content = {
-                type = "mdraid";
-                name = "root";
+                type = "luks";
+                name = "cryptdata";
+                settings.allowDiscards = true;
+                content = {
+                  type = "lvm_pv";
+                  vg = "mainpool";
+                };
               };
             };
           };
@@ -138,18 +144,9 @@ in
       mainpool = {
         type = "lvm_vg";
         lvs = {
-          # Left unformatted on purpose. TopoLVM carves thin volumes out of
-          # this, one per PersistentVolumeClaim, so what is in it is decided by
-          # the cluster rather than declared here.
-          thinpool = {
-            size = "100%";
-            lvm_type = "thin-pool";
-          };
           root = {
-            # Ahead of thinpool: a thin-pool's "100%" claims whatever is left
-            # once earlier LVs have taken their share, not the whole VG.
-            priority = 0;
-            size = "250G";
+            size = "500G";
+            lvm_type = "raid1";
             content = {
               type = "btrfs";
               extraArgs = [ "-f" ];

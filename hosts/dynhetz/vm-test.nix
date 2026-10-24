@@ -63,8 +63,8 @@
 {
   disko.testMode = true;
 
-  # 10G per disk (see the invocation above) -- generous enough for a root LV
-  # and thin pool worth looking at, not so large the test drags.
+  # 10G per disk (see the invocation above) -- generous enough for a raid1
+  # root LV with room beside it, not so large the test drags.
   disko.devices.disk.nvme0.content.partitions.swap.size = lib.mkForce "256M";
   disko.devices.disk.nvme1.content.partitions.swap.size = lib.mkForce "256M";
 
@@ -73,7 +73,7 @@
   # unavailable on aarch64-linux, not just untested there.
   hardware.cpu.amd.updateMicrocode = lib.mkForce false;
 
-  # ./disko.nix's root volume asks for a passphrase interactively -- correct
+  # ./disko.nix's LUKS volumes ask for a passphrase interactively -- correct
   # for the real machine, useless for an unattended test. `settings.keyFile`
   # is disko's own escape hatch for exactly this: disko's test harness
   # (lib/tests.nix) already embeds `/tmp/secret.key` = "secretsecret" into
@@ -83,11 +83,10 @@
   # is additive, not an override -- ./disko.nix sets `settings.allowDiscards`
   # only, so there is no existing `keyFile` definition to conflict with.
   disko.devices.mdadm.root.content.settings.keyFile = "/tmp/secret.key";
+  disko.devices.disk.nvme0.content.partitions.root.content.settings.keyFile = "/tmp/secret.key";
 
-  # ./disko.nix's root LV is a fixed 250G, sized for the real ~900G VG left
-  # after boot and swap on a 1TB disk. Even at 10G-per-disk the test VG has
-  # nowhere near that, so this shrinks to something it can actually hold;
-  # thinpool's "100%" still claims whatever is left over.
+  # ./disko.nix's root LV is a fixed 500G per leg, sized for the real disks.
+  # The 10G test disks hold nowhere near that.
   disko.devices.lvm_vg.mainpool.lvs.root.size = lib.mkForce "4G";
 
   # ../initrd-ssh.nix's hostKeys points at a path on the real machine's own
@@ -111,7 +110,9 @@
     machine.wait_for_unit("multi-user.target")
     print(machine.succeed("cat /proc/mdstat"))
     print(machine.succeed("cryptsetup status cryptroot"))
-    print(machine.succeed("vgs; lvs"))
+    print(machine.succeed("cryptsetup status cryptdata"))
+    print(machine.succeed("vgs; lvs -a -o +segtype,devices"))
+    assert "raid1" in machine.succeed("lvs --noheadings -o segtype mainpool/root")
     for mp in ["/nix", "/home", "/", "/boot", "/boot-mirror"]:
         print(machine.succeed(f"findmnt {mp}"))
     machine.succeed("systemctl is-active sshd.service")
