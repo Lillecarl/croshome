@@ -72,7 +72,7 @@
   # host rather than shared in ../../home/packages.nix -- the service it
   # talks to lives here.
   home.packages = [
-    pkgs.t3code
+    # pkgs.t3code
     pkgs.kubecove.desktop
     pkgs.kubecove.server
     pkgs.awscli2
@@ -84,15 +84,15 @@
   # `journalctl --user -u t3code -f` on first start. (linger is already on
   # for this user, so the user manager -- and this service -- starts at boot
   # with nobody logged in.)
-  systemd.user.services.t3code = {
-    Unit.Description = "T3 Code server (headless, built from source)";
-    Service = {
-      ExecStart = "${lib.getExe pkgs.t3code} serve --port 18789 --host 127.0.0.1 --no-browser";
-      Restart = "always";
-      RestartSec = "2";
-    };
-    Install.WantedBy = [ "default.target" ];
-  };
+  # systemd.user.services.t3code = {
+  #   Unit.Description = "T3 Code server (headless, built from source)";
+  #   Service = {
+  #     ExecStart = "${lib.getExe pkgs.t3code} serve --port 18789 --host 127.0.0.1 --no-browser";
+  #     Restart = "always";
+  #     RestartSec = "2";
+  #   };
+  #   Install.WantedBy = [ "default.target" ];
+  # };
 
   # LiteLLM proxy: one OpenAI-style endpoint on loopback :4000 in front of
   # the OpenCode subscriptions, so every agent CLI speaks the same API.
