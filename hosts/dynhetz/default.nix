@@ -40,7 +40,6 @@
     ./pipewire.nix
     ./xdg-user-dirs.nix
     ./dynusers.nix
-    ./disk-migration-sudo.nix
   ];
   config = {
     users.users.lillecarl = {
