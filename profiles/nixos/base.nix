@@ -16,6 +16,9 @@
   homeArgs,
   ...
 }:
+let
+  ccacheDir = "/var/cache/ccache/cache";
+in
 {
   imports = [
     inputs.disko.nixosModules.disko
@@ -82,9 +85,9 @@
         "configurable-impure-env"
       ];
       sandbox = "relaxed";
-      # The module creates the cache but does not mount it: without this a
-      # build using `ccacheStdenv` finds no directory and fails.
-      extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
+      # Without the mount a build using `ccacheStdenv` finds no directory
+      # and fails.
+      extra-sandbox-paths = [ ccacheDir ];
     };
     nixPath = lib.mkBefore [
       "nixpkgs=/etc/nixpkgs"
@@ -95,23 +98,20 @@
     };
   };
 
-  # Shared by every package that builds with `ccacheStdenv`; none does yet.
+  # Shared by every package that builds with `ccacheStdenv`, or sets
+  # CCACHE_DIR to it. Not `programs.ccache`: with no `packageNames` it only
+  # adds this directory and a setgid `nix-ccache` stats helper, and that
+  # helper is a Perl script, which nixpkgs' wrapper integrity check refuses
+  # (2026-10-24). `ccache -s` as root shows the same statistics.
   #
-  # The module makes the cache 0770 root:nixbld, which no build can write
-  # under `auto-allocate-uids`: each build's group is its own allocated id,
-  # with no supplementary groups. Those ids span a range no group or ACL can
-  # name, so the cache itself is 0777. The parent keeps local users out:
-  # Nix opens the mount source as root and makes its own parents inside
-  # the sandbox, so builds reach the cache through a parent they cannot
-  # enter on the host. Group nixbld can, for the setgid `nix-ccache`.
-  programs.ccache = {
-    enable = true;
-    cacheDir = "/var/cache/ccache/cache";
-  };
+  # The cache is 0777: under `auto-allocate-uids` each build's group is its
+  # own allocated id, with no supplementary groups, in a range no group or
+  # ACL can name. The 0700 parent keeps local users out: Nix opens the mount
+  # source as root and makes its own parents inside the sandbox, so builds
+  # reach the cache through a parent they cannot enter on the host.
   systemd.tmpfiles.rules = lib.mkAfter [
-    "d /var/cache/ccache 0750 root nixbld -"
-    # After the module's `d` line, which would set 0770 back on every boot.
-    "z ${config.programs.ccache.cacheDir} 0777 root nixbld -"
+    "d /var/cache/ccache 0700 root root -"
+    "d ${ccacheDir} 0777 root root -"
   ];
 
   services.btrfs.autoScrub = {
