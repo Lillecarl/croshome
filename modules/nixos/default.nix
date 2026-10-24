@@ -5,6 +5,7 @@
   imports = [
     ./ai-rebuild.nix
     ./btrfs.nix
+    ./gate.nix
     ./installscript.nix
     ./nix-gc-sudo.nix
     ./pynixd.nix

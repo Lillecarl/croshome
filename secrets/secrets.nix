@@ -249,6 +249,50 @@ in
     ];
   };
 
+  # hetztop's hosting stack: the dex login, the OAuth2 client secret dex and
+  # the first app's gate share, the key every gate encrypts its session cookie
+  # with, and the app's database password (declared in
+  # ../hosts/hetztop/postgres.nix).
+  #
+  # Activation reads all four with no terminal, so each carries the host key as
+  # well as lillecarl-age. Not `lillecarl` -- a passphrase-less key copied to
+  # many places would set the floor for what guards a login on a public VPS,
+  # which is the same reasoning as the mailbox password above.
+  #
+  # None of these is read at build time, so rotating one is a re-encrypt and a
+  # restart, not a rebuild. ./README.md has the commands.
+  "dex-password-hash.age" = {
+    publicKeys = [
+      lillecarl-age
+      hetztop
+    ];
+    armor = true;
+  };
+
+  "dex-client-app.age" = {
+    publicKeys = [
+      lillecarl-age
+      hetztop
+    ];
+    armor = true;
+  };
+
+  "gate-cookie-secret.age" = {
+    publicKeys = [
+      lillecarl-age
+      hetztop
+    ];
+    armor = true;
+  };
+
+  "app-db-password.age" = {
+    publicKeys = [
+      lillecarl-age
+      hetztop
+    ];
+    armor = true;
+  };
+
   # Adding another: name it here and in `age.secrets` in ./default.nix. Naming
   # it in only one of the two places is the usual mistake -- this file decides
   # who *can* decrypt, that file decides what actually gets decrypted and where
