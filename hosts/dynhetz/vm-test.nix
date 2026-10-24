@@ -37,7 +37,7 @@
 #   '
 #
 # `installTest` (disko's module.nix, reconstructed above) partitions two
-# throwaway virtio disks with the real disko script -- exercising the mdadm
+# throwaway virtio disks with the real disko script -- exercising the LVM
 # RAID1 assembly, the LUKS unlock and the LVM/btrfs layout exactly as they
 # run on the physical machine -- boots the installed closure, and runs
 # ./disko.tests.extraChecks below.
@@ -79,10 +79,10 @@
   # (lib/tests.nix) already embeds `/tmp/secret.key` = "secretsecret" into
   # every installTest's initrd unconditionally, at both the disko-format step
   # and (because `settings` feeds straight into
-  # `boot.initrd.luks.devices.cryptroot`) the real boot-time unlock too. This
+  # `boot.initrd.luks.devices`) the real boot-time unlock too. This
   # is additive, not an override -- ./disko.nix sets `settings.allowDiscards`
   # only, so there is no existing `keyFile` definition to conflict with.
-  disko.devices.mdadm.root.content.settings.keyFile = "/tmp/secret.key";
+  disko.devices.disk.nvme0.content.partitions.root.content.settings.keyFile = "/tmp/secret.key";
   disko.devices.disk.nvme1.content.partitions.root.content.settings.keyFile = "/tmp/secret.key";
 
   # ./disko.nix's root LV is a fixed 500G per leg, sized for the real disks.
@@ -108,9 +108,8 @@
 
   disko.tests.extraChecks = ''
     machine.wait_for_unit("multi-user.target")
-    print(machine.succeed("cat /proc/mdstat"))
-    print(machine.succeed("cryptsetup status cryptroot"))
-    print(machine.succeed("cryptsetup status cryptdata"))
+    print(machine.succeed("cryptsetup status cryptnvme0"))
+    print(machine.succeed("cryptsetup status cryptnvme1"))
     print(machine.succeed("vgs; lvs -a -o +segtype,devices"))
     assert "raid1" in machine.succeed("lvs --noheadings -o segtype mainpool/root")
     for mp in ["/nix", "/home", "/", "/boot", "/boot-mirror"]:

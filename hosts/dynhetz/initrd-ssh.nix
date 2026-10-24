@@ -1,5 +1,5 @@
 # Remote LUKS unlock. ./disko.nix's root volume asks for a passphrase at
-# every boot (`boot.initrd.luks.devices.cryptroot`, wired up by disko because
+# every boot (`boot.initrd.luks.devices`, wired up by disko because
 # the LUKS device there sets neither `keyFile` nor `passwordFile`), and
 # there's no keyboard on a dedicated server -- Hetzner's own KVM console is a
 # fallback, not something to depend on. This brings up the same static
@@ -87,7 +87,7 @@ in
   # A physical keyboard never times out waiting for a LUKS passphrase; this
   # ssh path has to behave the same way, and by default it doesn't.
   # systemd's ~90s DefaultDeviceTimeoutSec applies to the .device units
-  # downstream of cryptroot (Initrd Root Device, /sysroot, ...), and that
+  # downstream of the LUKS volumes (Initrd Root Device, /sysroot, ...), and that
   # clock starts at boot -- not when an operator finally notices the reboot
   # and gets a passphrase typed in over ssh. Confirmed on the real machine:
   # those units failed at t+~80s, cascading into emergency mode, while the

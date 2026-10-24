@@ -1,4 +1,4 @@
-# Two 1 TB Samsung PM9A1 NVMe drives. Everything redundant, at two layers:
+# Two 1 TB Samsung PM9A1 NVMe drives. Redundant where it matters:
 #
 #  - `/boot`: two independent 1 GB ESPs, one per drive, *not* mdadm-mirrored.
 #    `bootctl install` refuses an md array outright -- it needs its target to
@@ -10,17 +10,15 @@
 #    `mirroredBoots` does natively, one independent bootloader install per
 #    disk rather than one install onto a mirrored block device.
 #
-#  - Data: LVM over two LUKS2 volumes, one per drive, one passphrase.
-#    The disk named nvme1 here holds `cryptdata`; nvme0 holds `cryptroot`, on
-#    a one-disk mdadm RAID1. The names are disko's and live on in the GPT
-#    partition labels (`disk-nvme1-root`), which is what the initrd opens by.
-#    The kernel numbers the drives the other way round on this box:
-#    `disk-nvme1-root` is /dev/nvme0n1p3. Match a partition by its label,
-#    never by the kernel name. The one-disk array mirrors nothing and costs
-#    nothing; a reinstall can drop it. `initrdUnlock` (disko's default) wires both into
-#    `boot.initrd.luks.devices`; systemd-cryptsetup caches the passphrase, so
-#    one answer opens both, and ../initrd-ssh.nix makes the prompt answerable
-#    over the network. ./vm-test-ssh-unlock.nix proves both.
+#  - Data: LVM over two LUKS2 volumes, one per drive, one passphrase:
+#    `cryptnvme0` and `cryptnvme1`, named after disko's disks. The names live
+#    on in the GPT partition labels (`disk-nvme0-root`), which is what the
+#    initrd opens by. The kernel numbers the drives the other way round on
+#    this box: `disk-nvme0-root` is /dev/nvme1n1p3. Match a partition by its
+#    label, never by the kernel name. `initrdUnlock` (disko's default) wires
+#    both into `boot.initrd.luks.devices`; systemd-cryptsetup caches the
+#    passphrase, so one answer opens both, and ../initrd-ssh.nix makes the
+#    prompt answerable over the network. ./vm-test-ssh-unlock.nix proves both.
 #
 #    `root` is LVM raid1 across the two PVs, btrfs with the same subvolume
 #    scheme ../hetztop runs (`@root`, `@nix`, `@home`): a dead drive costs
@@ -28,6 +26,8 @@
 #    unmirrored, one logical volume per PersistentVolumeClaim (see
 #    ../../kube/modules/topolvm.nix). No thin pool: a thin pool cannot shrink,
 #    so one sized to the free space fixes every other LV for good.
+#    dmeventd watches the raid1 and logs a failed leg to the journal; nothing
+#    mails about it.
 #
 # Swap sits outside the mirror and the LUKS volume entirely -- 48 GiB on each
 # drive, 96 GiB total, half again the 64 GiB of RAM, both enabled at equal
@@ -46,8 +46,21 @@ let
     "autodefrag"
   ];
   swapSize = "48G";
+  # No keyFile/passwordFile: disko asks for the passphrase at format time and
+  # the initrd asks for it at every boot.
+  luksPV = name: {
+    type = "luks";
+    inherit name;
+    settings.allowDiscards = true;
+    content = {
+      type = "lvm_pv";
+      vg = "mainpool";
+    };
+  };
 in
 {
+  services.lvm.dmeventd.enable = true;
+
   disko.devices = {
     disk = {
       nvme0 = {
@@ -76,10 +89,7 @@ in
             };
             root = {
               size = "100%";
-              content = {
-                type = "mdraid";
-                name = "root";
-              };
+              content = luksPV "cryptnvme0";
             };
           };
         };
@@ -110,36 +120,8 @@ in
             };
             root = {
               size = "100%";
-              content = {
-                type = "luks";
-                name = "cryptdata";
-                settings.allowDiscards = true;
-                content = {
-                  type = "lvm_pv";
-                  vg = "mainpool";
-                };
-              };
+              content = luksPV "cryptnvme1";
             };
-          };
-        };
-      };
-    };
-    mdadm = {
-      root = {
-        type = "mdadm";
-        level = 1;
-        content = {
-          type = "luks";
-          name = "cryptroot";
-          # No keyFile/passwordFile: disko asks for a passphrase at format
-          # time and NixOS prompts for it again at every boot via
-          # boot.initrd.luks.devices.cryptroot, which disko wires up on its
-          # own (initrdUnlock defaults to true). ../initrd-ssh.nix is what
-          # makes that boot-time prompt reachable over ssh.
-          settings.allowDiscards = true;
-          content = {
-            type = "lvm_pv";
-            vg = "mainpool";
           };
         };
       };
