@@ -9,6 +9,7 @@
 # concatenate in module order, and this file's land after the importing
 # host's own, so without it a host's extra entries would come first.
 {
+  config,
   pkgs,
   lib,
   inputs,
@@ -81,6 +82,9 @@
         "configurable-impure-env"
       ];
       sandbox = "relaxed";
+      # The module creates the cache but does not mount it: without this a
+      # build using `ccacheStdenv` finds no directory and fails.
+      extra-sandbox-paths = [ config.programs.ccache.cacheDir ];
     };
     nixPath = lib.mkBefore [
       "nixpkgs=/etc/nixpkgs"
@@ -90,6 +94,9 @@
       n.flake = inputs.nixpkgs;
     };
   };
+
+  # Shared by every package that builds with `ccacheStdenv`; none does yet.
+  programs.ccache.enable = true;
 
   services.btrfs.autoScrub = {
     enable = true;
