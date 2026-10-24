@@ -41,7 +41,6 @@
     ./xdg-user-dirs.nix
     ./mdmonitor-mail.nix
     ./dynusers.nix
-    ./disk-migration-sudo.nix
   ];
   config = {
     users.users.lillecarl = {
