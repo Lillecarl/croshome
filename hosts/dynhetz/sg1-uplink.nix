@@ -81,6 +81,34 @@ in
       to = 51820 + lib.length (lib.attrNames nodes);
     }
   ];
+
+  # SG1's downlink is the bottleneck: about 480 Mbit/s through the tunnels
+  # (2 s curl from gx10-1759, 2026-10-24). A bulk download filled the ISP's
+  # queue, BFD lost three probes and every node's session reset at once.
+  # Shaping the outer WireGuard packets below that rate keeps the queue here,
+  # under fq_codel. All tunnels share one class: they share one line.
+  systemd.services.sg1-shaper = {
+    description = "Shape WireGuard traffic to SG1 below its downlink";
+    wantedBy = [ "multi-user.target" ];
+    after = [ "network.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+    path = [ pkgs.iproute2 ];
+    script = ''
+      tc qdisc replace dev eth0 root handle 1: htb default 10
+      # Everything else: above eth0's 1 Gbit, so htb never holds it back.
+      # htb's computed burst (1600 bytes) undershoots at these rates.
+      tc class replace dev eth0 parent 1: classid 1:10 htb rate 10gbit burst 64k cburst 64k
+      tc class replace dev eth0 parent 1: classid 1:20 htb rate 450mbit ceil 450mbit burst 32k cburst 32k
+      tc qdisc replace dev eth0 parent 1:10 handle 10: fq_codel
+      tc qdisc replace dev eth0 parent 1:20 handle 20: fq_codel
+      tc filter replace dev eth0 parent 1: protocol ip prio 1 handle 1 flower \
+        ip_proto udp src_port 51821-${toString (51820 + lib.length (lib.attrNames nodes))} classid 1:20
+    '';
+    preStop = "tc qdisc del dev eth0 root || true";
+  };
   # 179 is BGP. 5000 is nix-serve: nixkube on sg1 substitutes from
   # dynhetz's store, as nixlab3 does, at the tunnel address a3:3:0:fe.
   networking.firewall.interfaces."wg-sg1+".allowedTCPPorts = [
