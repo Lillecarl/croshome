@@ -97,6 +97,11 @@ in
       # gap is the hysteresis. Shares one gc_cooldown window (900s) with
       # scheduled passes, so a hovering disk fires at most once per window.
       gc_high_watermark = 0.75;
+      # Each placement decision, with every score term and the expected
+      # seconds per store, into the store database: the evidence for why a
+      # build went where it went (nixidae/nixidae#1070). Rows older than a
+      # week go in chunks.
+      placement_trace.enabled = true;
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
       # startup and, until that finishes, refuses every build with "no
