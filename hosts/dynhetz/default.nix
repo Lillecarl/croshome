@@ -39,7 +39,6 @@
     ./nix-gc.nix
     ./pipewire.nix
     ./xdg-user-dirs.nix
-    ./mdmonitor-mail.nix
     ./dynusers.nix
     ./disk-migration-sudo.nix
   ];
