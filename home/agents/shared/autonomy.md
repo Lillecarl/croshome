@@ -25,6 +25,13 @@ each comment is `NONE`, `CONTRIBUTOR` or `FIRST_TIME_CONTRIBUTOR`. `gh api
 repos/O/R/issues/N` and `.../issues/N/comments` carry it; `gh issue view
 --json` lacks it for the issue itself.
 
+Phabricator/Phorge tasks (Dynamist board): Agent never changes a task's
+status — no resolve, close, wontfix or invalid, on any task. Finished work:
+move to the Done column, comment the proof; status stays open. The team closes
+Done tasks at standup, and Done is how the team sees the work. Duplicate or
+invalid: comment why, tell User. The phabfive skill's `--status=resolved`
+examples are tool syntax, not permission.
+
 The test is whether you would be guessing. If you would not, act.
 
 ## Offer both routes before you build a workaround
