@@ -112,5 +112,16 @@
       docker
       freezegun
       syrupy
+
+      mitmproxy
+      scapy
+      pwntools
+      impacket
+      ldap3
+      python-nmap
+      shodan
+      censys
+      dpkt
+      bandit
     ];
 }

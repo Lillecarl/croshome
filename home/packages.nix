@@ -255,6 +255,31 @@
     smartmontools # the disk knows it is dying before the filesystem does
     tcpdump # the packets themselves, when every layer above them disagrees
 
+    # Penetration testing and security research. Script-shaped CLIs:
+    # non-interactive, stable flags, a JSON mode somewhere (`nuclei -json`,
+    # `feroxbuster --json`). The scripted half of this kit, the Python
+    # libraries, is the pentest block in ./agent-python.nix.
+    masscan # TCP SYN sweep at line rate; nmap does the follow-up deep pass
+    nuclei # template-driven vulnerability scanner
+    subfinder # passive subdomain enumeration from public sources
+    httpx # probe live hosts for status, title, tech, JSON lines out
+    feroxbuster # recursive content discovery over a wordlist
+    sqlmap # SQL injection detection and takeover
+    hydra # online credential brute force, many protocols
+    john # offline hash cracking on CPU
+    # netexec dropped: on this pin it builds on python3.12, whose
+    # anyio-4.14.2 fails test_tls_connectable (CPython 3.12 rejects
+    # server_hostname on a server socket). Restore when the pin moves
+    # past the broken anyio, or the netexec python bumps off 3.12.
+    testssl # TLS protocol and configuration checks
+    tshark # capture dissection, `tshark -r x.pcap -T json` for scripts
+    # Wordlists for the discovery and fuzzing runs, under share/seclists.
+    seclists
+    # Top-level wraps on purpose: python3Packages carries neither in this
+    # pin, and the CLI is the useful shape of either.
+    boofuzz # block-structured protocol fuzzing with a state machine DSL
+    pip-audit # CVEs for a dependency lockfile or the live environment
+
     # Desktop integration for a terminal. `xdg-open` reads the mime
     # associations and, finding no desktop opener, hands the URL to
     # `$BROWSER`; ./pymux.nix points that at pymux, so a headless host still
