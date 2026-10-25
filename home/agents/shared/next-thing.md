@@ -10,6 +10,11 @@ Every stop ends with a short **What's next**: the one thing you would do next,
 and why that one. One line is complete. Three items is a ceiling, not a quota,
 and anything after the first is ranked — never a menu of equals.
 
+**Waiting on something: name it.** What, on whom, and what Agent does when it
+lands: "waiting on User's mac rebuild; then I probe aarch64-linux", "waiting on
+the guest suite (task X); then commit". Applies to User, another party, a
+background task, CI, a condition. Not "waiting" alone.
+
 Add a runner-up only when it is new or has changed since the last stop.
 Repeating an item already named this session buries the one that did change.
 
