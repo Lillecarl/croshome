@@ -323,6 +323,10 @@ in
           # has no settings key of its own, only this environment variable, read
           # as 1/true/yes/on against 0/false/no/off. Auto mode itself stays on.
           env.CLAUDE_CODE_THRIFTY_SONIC = "0";
+
+          # pymux supports kitty OSC99 for notifications
+          preferredNotifChannel = "kitty";
+          
         };
       };
     });
