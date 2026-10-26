@@ -222,6 +222,16 @@ in
     armor = true;
   };
 
+  # The Google app password for carl.andersson@dynamist.se, read by
+  # ../home/mail.nix. Same recipients as migadu-pass, for the same reasons.
+  "dynamist-mail-pass.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl-ssh
+    ];
+    armor = true;
+  };
+
   # aid's environment: API keys for the model providers its native agents
   # use, one KEY=value per line (DEEPSEEK_API_KEY so far). ../hosts/dynhetz/home.nix
   # decrypts it with home agenix and hands it to aid.service as its

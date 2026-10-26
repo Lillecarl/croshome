@@ -59,6 +59,48 @@
     };
   };
 
+  # Work mail on Google Workspace. Google accepts no account password over
+  # IMAP or SMTP; this is an app password, which needs 2-Step Verification.
+  #
+  #   cd secrets && agenix -e dynamist-mail-pass.age
+  age.secrets.dynamist-mail-pass.file = ../secrets/dynamist-mail-pass.age;
+
+  accounts.email.accounts.dynamist = {
+    flavor = "gmail.com";
+    address = "carl.andersson@dynamist.se";
+    realName = "Carl Andersson";
+    # Google shows app passwords in groups of four; the spaces are not part of it.
+    passwordCommand = "tr -d ' ' < ${config.age.secrets.dynamist-mail-pass.path}";
+    # 587, not 465: Hetzner drops outbound 465 to Gmail as it does to Migadu.
+    smtp.tls.useStartTls = true;
+    folders = {
+      inbox = "INBOX";
+      drafts = "[Gmail]/Drafts";
+      trash = "[Gmail]/Trash";
+      # Gmail files everything sent over SMTP in Sent Mail by itself, so
+      # neomutt keeps no copy of its own.
+      sent = null;
+    };
+    mbsync = {
+      enable = true;
+      # Only local creation: a folder made remotely becomes a Gmail label.
+      create = "maildir";
+      # All Mail, Important and Starred are label views over the same
+      # messages and would store every mail a second time.
+      patterns = [
+        "*"
+        "![Gmail]/All Mail"
+        "![Gmail]/Important"
+        "![Gmail]/Starred"
+      ];
+    };
+    msmtp.enable = true;
+    neomutt = {
+      enable = true;
+      sendMailCommand = "msmtp --account=dynamist";
+    };
+  };
+
   programs.mbsync.enable = true;
   programs.msmtp.enable = true;
   programs.neomutt.enable = true;
