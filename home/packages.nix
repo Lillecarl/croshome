@@ -71,240 +71,242 @@
       };
   };
 
-  home.packages = with pkgs; [
-    # Version control and code
-    ast-grep # structural search and rewrite, where ripgrep only sees text
-    binutils
-    difftastic # diff by syntax, so a reformat stops looking like a rewrite
-    # The Bitwarden vault from a shell, as `bw`. Builds and runs on both
-    # platforms, so it is here rather than in a per-machine list.
-    #
-    # It holds what this repository deliberately cannot: the two passphrases
-    # that open ../secrets, and the OpenPGP revocation certificates. Neither
-    # belongs in a public repository -- the passphrases because they are the
-    # whole of its protection, the revocation certificates because whoever
-    # holds one can retire the key. See ../secrets/README.md.
-    bitwarden-cli
+  home.packages =
+    with pkgs;
+    [
+      # Version control and code
+      ast-grep # structural search and rewrite, where ripgrep only sees text
+      binutils
+      difftastic # diff by syntax, so a reformat stops looking like a rewrite
+      # The Bitwarden vault from a shell, as `bw`. Builds and runs on both
+      # platforms, so it is here rather than in a per-machine list.
+      #
+      # It holds what this repository deliberately cannot: the two passphrases
+      # that open ../secrets, and the OpenPGP revocation certificates. Neither
+      # belongs in a public repository -- the passphrases because they are the
+      # whole of its protection, the revocation certificates because whoever
+      # holds one can retire the key. See ../secrets/README.md.
+      bitwarden-cli
 
-    gitui
-    # Transparent encryption inside a git repo. For other repositories -- this
-    # one keeps its secrets in ../secrets with agenix instead.
-    git-crypt
-    # gh's opposite number. ./github.nix configures gh through a home-manager
-    # module; glab has none, and its config lives in ~/.config/glab-cli
-    # either way, so the package is the whole of it.
-    #
-    # Shared rather than macbook-only, which is where it used to be. Nothing
-    # about talking to GitLab is a property of that machine, and having it on
-    # one of three was a divergence nobody chose.
-    glab
-    jj-hunk
-    lazygit
-    # Jujutsu through Python, from ../pkgs: `pyjj` the CLI, `pyjjui` the TUI.
-    # Neither replaces `jj`, which stays the nixpkgs build.
-    pyjj-cli
-    pyjjui
-    shellcheck # check a shell script before it is the thing that ran
-    shfmt
-    tree
+      gitui
+      # Transparent encryption inside a git repo. For other repositories -- this
+      # one keeps its secrets in ../secrets with agenix instead.
+      git-crypt
+      # gh's opposite number. ./github.nix configures gh through a home-manager
+      # module; glab has none, and its config lives in ~/.config/glab-cli
+      # either way, so the package is the whole of it.
+      #
+      # Shared rather than macbook-only, which is where it used to be. Nothing
+      # about talking to GitLab is a property of that machine, and having it on
+      # one of three was a divergence nobody chose.
+      glab
+      jj-hunk
+      lazygit
+      # Jujutsu through Python, from ../pkgs: `pyjj` the CLI, `pyjjui` the TUI.
+      # Neither replaces `jj`, which stays the nixpkgs build.
+      pyjj-cli
+      pyjjui
+      shellcheck # check a shell script before it is the thing that ran
+      shfmt
+      tree
 
-    # Nix
-    # The CLI only. Every machine that imports this directory already pulls
-    # from lillecarl.cachix.org as a substituter, which its own host file sets
-    # up; this is for pushing. It reads its auth token from
-    # ~/.config/cachix/cachix.dhall, which stays hand-managed and is not in
-    # this repository.
-    #
-    # Shared rather than macbook-only, which is where it used to be. Pushing a
-    # store path is not a property of that machine.
-    cachix
-    deadnix
-    nixd
-    nixfmt
-    statix
+      # Nix
+      # The CLI only. Every machine that imports this directory already pulls
+      # from lillecarl.cachix.org as a substituter, which its own host file sets
+      # up; this is for pushing. It reads its auth token from
+      # ~/.config/cachix/cachix.dhall, which stays hand-managed and is not in
+      # this repository.
+      #
+      # Shared rather than macbook-only, which is where it used to be. Pushing a
+      # store path is not a property of that machine.
+      cachix
+      deadnix
+      nixd
+      nixfmt
+      statix
 
-    # In ../pkgs, because ../home/agents.nix links its skill.
-    pynix
+      # In ../pkgs, because ../home/agents.nix links its skill.
+      pynix
 
-    # Scripted multi-file edits with dry-run diffs -- the tool agents reach for
-    # before bash. In ../pkgs, because ../home/agents.nix links its skill.
-    pyedit
+      # Scripted multi-file edits with dry-run diffs -- the tool agents reach for
+      # before bash. In ../pkgs, because ../home/agents.nix links its skill.
+      pyedit
 
-    # Privileged command queue: agents enqueue with `aisudo CMD...`, the
-    # user drains with `aisudo run` (sudo for root). Same ../pkgs shape as
-    # pyedit, so `nix build --file . pkgs.aisudo` reaches it without a host.
-    aisudo
-    # Nix diagnostics, for machines that rebuild this much. ../../rebuild uses
-    # both: nvd lists the packages a switch would move, nix-diff says why a
-    # derivation differs when no version moved at all.
-    nix-diff
-    nvd
+      # Privileged command queue: agents enqueue with `aisudo CMD...`, the
+      # user drains with `aisudo run` (sudo for root). Same ../pkgs shape as
+      # pyedit, so `nix build --file . pkgs.aisudo` reaches it without a host.
+      aisudo
+      # Nix diagnostics, for machines that rebuild this much. ../../rebuild uses
+      # both: nvd lists the packages a switch would move, nix-diff says why a
+      # derivation differs when no version moved at all.
+      nix-diff
+      nvd
 
-    # Phabricator and Phorge from the shell. Built by the overlay entry of the
-    # same name (../pkgs/default.nix), because ../home/agents.nix also links
-    # the SKILL.md it ships. Its `flake = false` source tree and its
-    # `default.nix` taking the package set that builds it keep nixpkgs single.
-    #
-    # Pure Python and unrestricted, so both machines get it. It carries its own
-    # `phabricator` dependency, which nixpkgs does not have, and it installs
-    # fish completions that ../home/fish.nix picks up without being told.
-    phabfive
+      # Phabricator and Phorge from the shell. Built by the overlay entry of the
+      # same name (../pkgs/default.nix), because ../home/agents.nix also links
+      # the SKILL.md it ships. Its `flake = false` source tree and its
+      # `default.nix` taking the package set that builds it keep nixpkgs single.
+      #
+      # Pure Python and unrestricted, so both machines get it. It carries its own
+      # `phabricator` dependency, which nixpkgs does not have, and it installs
+      # fish completions that ../home/fish.nix picks up without being told.
+      phabfive
 
-    # Slack automation CLI for AI agents. Built by the overlay entry of the
-    # same name (../pkgs/default.nix), which calls upstream's nix/package.nix
-    # at v0.10.1. Both platforms: upstream ships all four binaries, and the
-    # overlay launches the Linux ones through the glibc loader (patching the
-    # ELF breaks bun's bundle lookup).
-    agent-slack
+      # Slack automation CLI for AI agents. Built by the overlay entry of the
+      # same name (../pkgs/default.nix), which calls upstream's nix/package.nix
+      # at v0.10.1. Both platforms: upstream ships all four binaries, and the
+      # overlay launches the Linux ones through the glibc loader (patching the
+      # ELF breaks bun's bundle lookup).
+      agent-slack
 
-    # Shells
-    # The vendored xonsh bundle, built by the overlay entry of the same name
-    # (../pkgs/default.nix). Installed, but deliberately not made anyone's
-    # shell: it is still rounds away from ready, and fish stays the login
-    # shell until it is. Launch it as `anyxonsh` to try it.
-    #
-    # Shared rather than per-host, which is where it used to be. Both Linux
-    # hosts carried this same block, and the shell is `lib.platforms.unix`, so
-    # the MacBook builds it too. One copy here beats a third copy there.
-    anyxonsh
+      # Shells
+      # The vendored xonsh bundle, built by the overlay entry of the same name
+      # (../pkgs/default.nix). Installed, but deliberately not made anyone's
+      # shell: it is still rounds away from ready, and fish stays the login
+      # shell until it is. Launch it as `anyxonsh` to try it.
+      #
+      # Shared rather than per-host, which is where it used to be. Both Linux
+      # hosts carried this same block, and the shell is `lib.platforms.unix`, so
+      # the MacBook builds it too. One copy here beats a third copy there.
+      anyxonsh
 
-    # Kubernetes
-    kubectl
-    kubectl-explore
-    kubectx
-    # OIDC credential plugin; provides the kubectl-oidc_login binary.
-    kubelogin-oidc
-    stern
+      # Kubernetes
+      kubectl
+      kubectl-explore
+      kubectx
+      # OIDC credential plugin; provides the kubectl-oidc_login binary.
+      kubelogin-oidc
+      stern
 
-    # Google Cloud. `gcloud` for GKE and the rest of GCP.
-    google-cloud-sdk
+      # Google Cloud. `gcloud` for GKE and the rest of GCP.
+      google-cloud-sdk
 
-    # Hugging Face Hub CLI as `hf` (`huggingface-cli` is a deprecated shim).
-    python3Packages.huggingface-hub
+      # Hugging Face Hub CLI as `hf` (`huggingface-cli` is a deprecated shim).
+      python3Packages.huggingface-hub
 
-    # Shell and text tooling an agent can actually drive: non-interactive,
-    # parseable output, and interfaces stable enough to be known rather than
-    # guessed at. The TUIs above -- yazi, gitui, lazygit, k9s -- are the
-    # opposite, and they are here for a human.
-    config.lib.packages.comma
-    bc # arbitrary-precision calculator for shell arithmetic past $(( ))
-    gron # JSON to greppable lines and back, for when the shape is unknown
-    hyperfine # timing with warm-up, repeats and a variance figure, not one run
-    jc # turns the output of ~100 classic commands into JSON
-    # The OSC52 clipboard: `osc copy` and `osc paste` ride the escape
-    # sequence the terminal already carries, so they work over ssh with no
-    # daemon and no xclip on the far end.
-    osc
-    sqlite # query any .db directly instead of writing a script around it
-    yq-go # jq syntax over YAML, TOML and XML
+      # Shell and text tooling an agent can actually drive: non-interactive,
+      # parseable output, and interfaces stable enough to be known rather than
+      # guessed at. The TUIs above -- yazi, gitui, lazygit, k9s -- are the
+      # opposite, and they are here for a human.
+      config.lib.packages.comma
+      bc # arbitrary-precision calculator for shell arithmetic past $(( ))
+      gron # JSON to greppable lines and back, for when the shape is unknown
+      hyperfine # timing with warm-up, repeats and a variance figure, not one run
+      jc # turns the output of ~100 classic commands into JSON
+      # The OSC52 clipboard: `osc copy` and `osc paste` ride the escape
+      # sequence the terminal already carries, so they work over ssh with no
+      # daemon and no xclip on the far end.
+      osc
+      sqlite # query any .db directly instead of writing a script around it
+      yq-go # jq syntax over YAML, TOML and XML
 
-    # macOS ships no `timeout` at all, and its BSD versions of the rest take
-    # different flags from the GNU ones that every script and every agent
-    # assumes. moreutils adds `sponge`, `ts`, `chronic`, `parallel`.
-    #
-    # Worth knowing rather than discovering: these are unprefixed, and
-    # home.packages comes before the system path, so on darwin `ls`, `date`,
-    # `cp`, `stat` and the rest now behave like GNU instead of BSD. That is the
-    # point of installing them; it is also the surprise. `coreutils-prefixed`
-    # is the alternative if the shadowing ever gets in the way -- it installs
-    # the same tools as `gls`, `gdate`, `gtimeout` and leaves BSD in place.
-    coreutils
-    moreutils
+      # macOS ships no `timeout` at all, and its BSD versions of the rest take
+      # different flags from the GNU ones that every script and every agent
+      # assumes. moreutils adds `sponge`, `ts`, `chronic`, `parallel`.
+      #
+      # Worth knowing rather than discovering: these are unprefixed, and
+      # home.packages comes before the system path, so on darwin `ls`, `date`,
+      # `cp`, `stat` and the rest now behave like GNU instead of BSD. That is the
+      # point of installing them; it is also the surprise. `coreutils-prefixed`
+      # is the alternative if the shadowing ever gets in the way -- it installs
+      # the same tools as `gls`, `gdate`, `gtimeout` and leaves BSD in place.
+      coreutils
+      moreutils
 
-    # Plumbing macOS omits or freezes: socat for socket relay, xz and zstd
-    # for archives newer than gzip, rsync at 3.x while the system rsync is
-    # still 2.6.9, nmap for asking a port directly.
-    socat
-    xz
-    zstd
-    rsync
-    nmap
+      # Plumbing macOS omits or freezes: socat for socket relay, xz and zstd
+      # for archives newer than gzip, rsync at 3.x while the system rsync is
+      # still 2.6.9, nmap for asking a port directly.
+      socat
+      xz
+      zstd
+      rsync
+      nmap
 
-    # Software bill of materials for a closure. The dfdiskcache patch is a
-    # dependency whose requirements pin pandas below 3, which nixpkgs has moved
-    # past; the runtime check is what fails on it, not the code.
-    (
-      let
-        patchedPython = pkgs.python3.override {
-          packageOverrides = self: super: {
-            dfdiskcache = super.dfdiskcache.overrideAttrs (old: {
-              pythonRuntimeDepsCheck = false;
-              postPatch = (old.postPatch or "") + ''
-                substituteInPlace requirements/requirements.txt --replace "pandas>=1,<3" "pandas>=1"
-              '';
-            });
+      # Software bill of materials for a closure. The dfdiskcache patch is a
+      # dependency whose requirements pin pandas below 3, which nixpkgs has moved
+      # past; the runtime check is what fails on it, not the code.
+      (
+        let
+          patchedPython = pkgs.python3.override {
+            packageOverrides = self: super: {
+              dfdiskcache = super.dfdiskcache.overrideAttrs (old: {
+                pythonRuntimeDepsCheck = false;
+                postPatch = (old.postPatch or "") + ''
+                  substituteInPlace requirements/requirements.txt --replace "pandas>=1,<3" "pandas>=1"
+                '';
+              });
+            };
           };
-        };
-      in
-      sbomnix.override { python3 = patchedPython; }
-    )
+        in
+        sbomnix.override { python3 = patchedPython; }
+      )
 
-    # Answering "what is this machine doing right now", on either platform.
-    # The Linux-only half of the same job -- net-tools, psmisc, sysstat and the
-    # hardware tools -- is in ./linux/default.nix, because those read /proc,
-    # /sys and Linux netlink and have nothing to read on macOS.
-    #
-    # `jc` above parses most of these into JSON, which is what makes them worth
-    # installing for an agent rather than only for a human: `lsof -i -P -n | jc
-    # --lsof`, `dig ... | jc --dig`.
-    dnsutils # dig, and `dig +short` is the whole answer most of the time
-    file # what a thing actually is, when the extension is absent or lying
-    iperf3 # is the link slow, or is the far end slow
-    lsof # which process holds this file, this socket, this deleted inode
-    pv # a progress bar and a rate for any pipe that has neither
-    smartmontools # the disk knows it is dying before the filesystem does
-    tcpdump # the packets themselves, when every layer above them disagrees
+      # Answering "what is this machine doing right now", on either platform.
+      # The Linux-only half of the same job -- net-tools, psmisc, sysstat and the
+      # hardware tools -- is in ./linux/default.nix, because those read /proc,
+      # /sys and Linux netlink and have nothing to read on macOS.
+      #
+      # `jc` above parses most of these into JSON, which is what makes them worth
+      # installing for an agent rather than only for a human: `lsof -i -P -n | jc
+      # --lsof`, `dig ... | jc --dig`.
+      dnsutils # dig, and `dig +short` is the whole answer most of the time
+      file # what a thing actually is, when the extension is absent or lying
+      iperf3 # is the link slow, or is the far end slow
+      lsof # which process holds this file, this socket, this deleted inode
+      pv # a progress bar and a rate for any pipe that has neither
+      smartmontools # the disk knows it is dying before the filesystem does
+      tcpdump # the packets themselves, when every layer above them disagrees
 
-    # Penetration testing and security research. Script-shaped CLIs:
-    # non-interactive, stable flags, a JSON mode somewhere (`nuclei -json`,
-    # `feroxbuster --json`). The scripted half of this kit, the Python
-    # libraries, is the pentest block in ./agent-python.nix.
-    masscan # TCP SYN sweep at line rate; nmap does the follow-up deep pass
-    nuclei # template-driven vulnerability scanner
-    subfinder # passive subdomain enumeration from public sources
-    httpx # probe live hosts for status, title, tech, JSON lines out
-    feroxbuster # recursive content discovery over a wordlist
-    sqlmap # SQL injection detection and takeover
-    hydra # online credential brute force, many protocols
-    john # offline hash cracking on CPU
-    # netexec dropped: on this pin it builds on python3.12, whose
-    # anyio-4.14.2 fails test_tls_connectable (CPython 3.12 rejects
-    # server_hostname on a server socket). Restore when the pin moves
-    # past the broken anyio, or the netexec python bumps off 3.12.
-    testssl # TLS protocol and configuration checks
-    tshark # capture dissection, `tshark -r x.pcap -T json` for scripts
-    # Wordlists for the discovery and fuzzing runs, under share/seclists.
-    seclists
-    # Top-level wraps on purpose: python3Packages carries neither in this
-    # pin, and the CLI is the useful shape of either.
-    boofuzz # block-structured protocol fuzzing with a state machine DSL
-    pip-audit # CVEs for a dependency lockfile or the live environment
+      # Penetration testing and security research. Script-shaped CLIs:
+      # non-interactive, stable flags, a JSON mode somewhere (`nuclei -json`,
+      # `feroxbuster --json`). The scripted half of this kit, the Python
+      # libraries, is the pentest block in ./agent-python.nix.
+      masscan # TCP SYN sweep at line rate; nmap does the follow-up deep pass
+      nuclei # template-driven vulnerability scanner
+      subfinder # passive subdomain enumeration from public sources
+      httpx # probe live hosts for status, title, tech, JSON lines out
+      feroxbuster # recursive content discovery over a wordlist
+      sqlmap # SQL injection detection and takeover
+      john # offline hash cracking on CPU
+      # netexec dropped: on this pin it builds on python3.12, whose
+      # anyio-4.14.2 fails test_tls_connectable (CPython 3.12 rejects
+      # server_hostname on a server socket). Restore when the pin moves
+      # past the broken anyio, or the netexec python bumps off 3.12.
+      testssl # TLS protocol and configuration checks
+      tshark # capture dissection, `tshark -r x.pcap -T json` for scripts
+      # Wordlists for the discovery and fuzzing runs, under share/seclists.
+      seclists
+      # Top-level wraps on purpose: python3Packages carries neither in this
+      # pin, and the CLI is the useful shape of either.
+      boofuzz # block-structured protocol fuzzing with a state machine DSL
+      pip-audit # CVEs for a dependency lockfile or the live environment
 
-    # Desktop integration for a terminal. `xdg-open` reads the mime
-    # associations and, finding no desktop opener, hands the URL to
-    # `$BROWSER`; ./pymux.nix points that at pymux, so a headless host still
-    # reaches the terminal in front of it. foot (./linux/foot.nix) opens URLs
-    # through it, and so do CLI tools that want a browser.
-    #
-    # Both platforms: the darwin branch of the script ends in macOS `open`,
-    # so it is not Linux-only.
-    xdg-utils
+      # Desktop integration for a terminal. `xdg-open` reads the mime
+      # associations and, finding no desktop opener, hands the URL to
+      # `$BROWSER`; ./pymux.nix points that at pymux, so a headless host still
+      # reaches the terminal in front of it. foot (./linux/foot.nix) opens URLs
+      # through it, and so do CLI tools that want a browser.
+      #
+      # Both platforms: the darwin branch of the script ends in macOS `open`,
+      # so it is not Linux-only.
+      xdg-utils
 
-    # The rest
-    asciinema # record a terminal session to a .cast file, replay or share it
-    fish-lsp
-    # Serial console for MikroTik and other gear: 115200 8N1 no flow
-    # by default, auto-reconnect, `tio -l` lists ports. Exit with Ctrl-T Q.
-    tio
-    wireguard-tools
-    fzf
-    just
-    mosh
-    ncdu
-    rclone
-    sd
-    sshuttle
-    taskwarrior3
-    viddy
-  ];
+      # The rest
+      asciinema # record a terminal session to a .cast file, replay or share it
+      fish-lsp
+      # Serial console for MikroTik and other gear: 115200 8N1 no flow
+      # by default, auto-reconnect, `tio -l` lists ports. Exit with Ctrl-T Q.
+      tio
+      wireguard-tools
+      fzf
+      just
+      mosh
+      ncdu
+      rclone
+      sd
+      sshuttle
+      taskwarrior3
+      viddy
+    ]
+    ++ lib.optional (pkgs.stdenv.hostPlatform.system != "aarch64-darwin") pkgs.hydra;
 }
