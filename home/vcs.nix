@@ -10,6 +10,12 @@ let
   # another repo the same treatment.
   personalRepos = [ selfStr ];
   personalEmail = "git@lillecarl.com";
+  workEmail = "carl.andersson@dynamist.se";
+
+  # Employee work beyond what the remote host already says: paths, each
+  # covering everything under it. One repo without a rebuild:
+  # `pyjj config set --repo work-identity.employee true`.
+  employeeRepos = [ ];
 
   # ../secrets/pgp-keys.nix, written by ../secrets/pgp-create. Both entries are
   # null until that script has run once, ever, so this file has to evaluate
@@ -36,7 +42,25 @@ in
         # mkDefault stays, so a host can still commit under another address.
         # The git identity below reads this value, so overriding it moves
         # both.
-        user.email = lib.mkDefault "carl.andersson@dynamist.se";
+        user.email = lib.mkDefault workEmail;
+
+        # pyjj picks the address by repository and clock: ./pyjj/work_identity.py
+        # has the table. Read live from the checkout, so an edit to the hook
+        # needs no rebuild. jj itself ignores both keys.
+        pyjj.extensions = [ "${selfStr}/home/pyjj/work_identity.py" ];
+        work-identity = {
+          hosts = [ "gitlab.dynamist.cloud" ];
+          employee-repos = employeeRepos;
+          personal-repos = personalRepos;
+          work-email = workEmail;
+          probono-email = "carl.andersson+probono@dynamist.se";
+          private-email = personalEmail;
+        }
+        // lib.optionalAttrs signing {
+          work-signing-key = pgp.work;
+          probono-signing-key = pgp.work;
+          private-signing-key = pgp.personal;
+        };
 
         # jj does not read git's config for the committer identity. Checked
         # in a colocated repo: a [user] section written straight into
