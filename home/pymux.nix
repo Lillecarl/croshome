@@ -80,6 +80,13 @@
       # with what started it, for finding the bindings and features worth
       # learning. Never what a pane shows or what is typed into one.
       action-log = true;
+      # The marks of a window nobody looks at, as Hack Nerd Font icons
+      # (./fonts.nix puts it on every machine): md-bell_ring, oct-pulse,
+      # md-sleep and md-message_alert. pymux's own are ASCII.
+      bell-symbol = "󰂞";
+      activity-symbol = "";
+      silence-symbol = "󰒲";
+      notification-symbol = "󰍢";
     };
 
     # The theme is a client option, not a server one: it belongs to the
