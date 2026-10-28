@@ -35,6 +35,9 @@
       mode-keys = "vi";
       status-keys = "vi";
       history-limit = 50000;
+      # One wheel notch moves copy mode one line. pymux's default too;
+      # stated so it holds if the default moves.
+      copy-mode-wheel-lines = 1;
       # tmux draws this at the top of a pane. pymux has one place for it, so
       # the option is only on or off.
       pane-border-status = true;
