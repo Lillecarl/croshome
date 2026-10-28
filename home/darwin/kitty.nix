@@ -34,5 +34,12 @@
       # ssh session -- can drive the whole instance.
       allow_remote_control = "yes";
     };
+    # kitty_mod+m toggles a mode that sends every key to the program, for
+    # programs whose own bindings collide with kitty's. The other nearby
+    # kitty_mod keys (arrows, x) already have kitty defaults.
+    extraConfig = ''
+      map --new-mode pass_all --on-unknown passthrough kitty_mod+m
+      map --mode pass_all kitty_mod+m pop_keyboard_mode
+    '';
   };
 }
