@@ -30,7 +30,7 @@ in
 
       # The module states no default for `package` -- only `nixosModules.pynixd`
       # in pynixd's own flake does, and this imports the module file directly.
-      services.pynixd.package = lib.mkDefault nixidaePynixd.pynixd.package;
+      services.pynixd.package = lib.mkDefault nixidaePynixd.pynixd.packages.pynixd;
     }
 
     (lib.mkIf config.services.pynixd.enable {

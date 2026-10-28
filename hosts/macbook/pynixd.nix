@@ -14,7 +14,7 @@ in
     # Same reasoning as hosts/hetztop/pynixd.nix.
     services.pynixd = {
       enable = true;
-      package = (import inputs.nixidae-pynixd { inherit pkgs; }).pynixd.package;
+      package = (import inputs.nixidae-pynixd { inherit pkgs; }).pynixd.packages.pynixd;
       settings = {
         log_level = "INFO";
 

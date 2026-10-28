@@ -15,7 +15,7 @@
     #     enable = true;
     #     # The module states no default for `package` -- only `nixosModules.pynixd`
     #     # in pynixd's own flake does, and this imports the module file directly.
-    #     package = nixidaePynixd.pynixd.package;
+    #     package = nixidaePynixd.pynixd.packages.pynixd;
     #     settings = {
     #       log_level = "DEBUG";
     #       plugins = [ "/etc/pynixd/filter.py" ];

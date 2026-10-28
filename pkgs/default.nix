@@ -80,7 +80,7 @@ let
       huggorm = huggormSet.lanes.nix_2_35.huggorm;
       # On huggorm's package set, as pydd's own default.nix: the planners
       # share its Python.
-      inherit (import sources.nixvenv { inherit (huggormSet) pkgs; }) nixvenv;
+      inherit ((import sources.nixvenv { inherit (huggormSet) pkgs; }).lib) nixvenv;
       nix = final.nixVersions.nix_2_35;
       writer = "cli";
       plannerProtocol = "recursive";
@@ -439,7 +439,7 @@ in
     (import inputs.nixidae {
       pkgs = final;
       inherit (final.stdenv.hostPlatform) system;
-    }).nanopynix.pynix;
+    }).nanopynix.packages.pynix;
 
   # Slack automation CLI for AI agents, from its own nix/package.nix rather
   # than its flake -- and at v0.10.1 rather than the version its
