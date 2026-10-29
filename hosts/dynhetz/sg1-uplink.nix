@@ -138,6 +138,20 @@ in
 
   networking.nat.internalInterfaces = [ "wg-sg1+" ];
 
+  # The sg1 apiserver on the public IPv4, for a person's kubeconfig
+  # (kubernetes.sg1.ch.se.eu.org; solid-kubernetes environments/sg1/
+  # api-server.nix). The IPv4 VIP is announced by Cilium, and the nodes'
+  # default route comes back through here, so a DNAT alone returns. IPv6
+  # needs none: the IPv6 VIP sits in a2::/112, forwarded below.
+  networking.nat.forwardPorts = [
+    {
+      sourcePort = 6443;
+      proto = "tcp";
+      destination = "10.247.100.10:6443";
+      loopbackIPs = [ "37.27.129.237" ];
+    }
+  ];
+
   # TCPMSS before the ACCEPTs: a terminal ACCEPT ends the chain, so a clamp
   # after it never runs. Pods use MTU 8890 and the tunnel 1420; clamp-to-pmtu
   # on the way out would pick eth0's 1500, so outbound SYNs get a fixed MSS.
@@ -148,6 +162,7 @@ in
     ip46tables -A FORWARD -i wg-sg1+ -o eth0 -j ACCEPT
     ip46tables -A FORWARD -i eth0 -o wg-sg1+ -m state --state ESTABLISHED,RELATED -j ACCEPT
     ip6tables -A FORWARD -i eth0 -o wg-sg1+ -d 2a01:4f9:3071:11d7:a2::/112 -j ACCEPT
+    iptables -A FORWARD -i eth0 -o wg-sg1+ -d 10.247.100.10 -p tcp --dport 6443 -j ACCEPT
     ip46tables -A FORWARD -i wg-dynhetz -o wg-sg1+ -j ACCEPT
     ip46tables -A FORWARD -i wg-sg1+ -o wg-dynhetz -j ACCEPT
   '';
