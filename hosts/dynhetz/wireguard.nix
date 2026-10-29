@@ -121,12 +121,17 @@
 # at activation time, sidesteps that.
 { pkgs, lib, ... }:
 let
-  # One directory per account, from the same directory ./dynusers.nix
-  # builds users from. Read again rather than shared through an option,
-  # because the coupling would be one readDir either way.
-  wgUsers = builtins.attrNames (
-    lib.filterAttrs (_: type: type == "directory") (builtins.readDir ./dynusers)
-  ) ++ [ "lillecarl" ];
+  # Remote access to the lab per the wiki (kunskapsbank/guider/SBG1-serverall.md,
+  # "remote access"): not every dynusers account gets a peer, only these. Keep
+  # in sync with that page -- a name here without a dynusers directory breaks
+  # the home-directory install below.
+  wgUsers = [
+    "dparm"
+    "hholm"
+    "jsjoh"
+    "rholm"
+    "taron"
+  ] ++ [ "lillecarl" ];
 
   # Extra devices of one account, each a peer of its own: its own key, its
   # own address from the hash of `name`, so it can be connected at the
