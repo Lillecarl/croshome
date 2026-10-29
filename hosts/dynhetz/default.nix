@@ -202,18 +202,13 @@
         # user, so a nixkube built here fails solid-kubernetes' kubeapply.
         # cyberus-linux: solid-kubernetes' nixlab3 nodes run Cyberus Linux,
         # with Kubernetes from kubernetes4nix.
-        substituters = [
-          # pynixd's own HTTP cache first: it races every upstream at once
-          # and redirects the NAR to the highest-priority one that answered,
-          # where Nix itself would ask each in turn for every path. Misses
-          # fall through to the next substituter, so this entry only ever
-          # accelerates. ../../pynixd.nix sets the port.
-          "http://127.0.0.1:8080"
-          "https://lillecarl.cachix.org"
-          "https://nixkube.cachix.org"
-          "https://cache.cyberus-linux.com"
-          "https://kubernetes4nix.cachix.org"
-        ];
+        # These caches are pynixd stores (./pynixd.nix). Nix asks only
+        # pynixd's own HTTP cache, which races them at once and redirects
+        # the NAR to the highest-priority one that answered. Listed here
+        # too, Nix asked each in turn after pynixd missed: 1.2 s before
+        # every new local build (nixidae/nixidae#1125). With pynixd's cache
+        # down, Nix substitutes nothing. mkForce: NixOS adds cache.nixos.org.
+        substituters = lib.mkForce [ "http://127.0.0.1:8080" ];
       };
       nixPath = [
         "home-manager=/etc/home-manager"

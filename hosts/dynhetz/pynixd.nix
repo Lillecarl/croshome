@@ -6,6 +6,11 @@
   ...
 }:
 let
+  httpCache = url: {
+    type = "http-binary-cache";
+    inherit url;
+  };
+
   # nix-community's aarch64 builders, for capability only: `last_resort`
   # sends them a derivation only when no other healthy store supports its
   # system and features, never to shed load. Shared machines, so no probe
@@ -152,6 +157,16 @@ in
         # starts; without it a triggered pass is unbounded.
         gc_target_usage = 0.7;
       };
+
+      # The upstream caches live here, not in nix.conf: Nix asks only
+      # pynixd's cache (./default.nix), which races these at once. With
+      # them in nix.conf too, Nix asked each in turn after pynixd missed,
+      # 1.2 s before every new local build (nixidae/nixidae#1125).
+      stores.cache-nixos-org = httpCache "https://cache.nixos.org";
+      stores.lillecarl-cachix = httpCache "https://lillecarl.cachix.org";
+      stores.nixkube-cachix = httpCache "https://nixkube.cachix.org";
+      stores.cyberus-linux = httpCache "https://cache.cyberus-linux.com";
+      stores.kubernetes4nix-cachix = httpCache "https://kubernetes4nix.cachix.org";
 
       stores.nix-community-aarch64-linux = nixCommunity {
         host = "aarch64-build-box.nix-community.org";
