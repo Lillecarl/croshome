@@ -37,9 +37,15 @@
     # kitty_mod+m toggles a mode that sends every key to the program, for
     # programs whose own bindings collide with kitty's. The other nearby
     # kitty_mod keys (arrows, x) already have kitty defaults.
+    #
+    # --new-mode requires a key, so it binds kitty_mod+m and the plain map after
+    # it replaces that binding: kitty runs the last definition of a key. The
+    # forced OS window title is the indicator; it holds against programs
+    # setting their own title, and an empty title hands control back to them.
     extraConfig = ''
       map --new-mode pass_all --on-unknown passthrough kitty_mod+m
-      map --mode pass_all kitty_mod+m pop_keyboard_mode
+      map kitty_mod+m combine : push_keyboard_mode pass_all : remote_control set-os-window-title --match all "PASSTHROUGH (ctrl+shift+m exits)"
+      map --mode pass_all kitty_mod+m combine : pop_keyboard_mode : remote_control set-os-window-title --match all
     '';
   };
 }
