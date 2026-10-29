@@ -107,10 +107,13 @@ in
       # 50 points a second, and counting the CPU points in full only from a
       # 5 s build, keeps 81-85 % of builds local and halves the expected
       # time lost against the fastest store. A 200 ms build takes 600 ms on
-      # sg1.
+      # sg1. A build costs one core's share, so a store fills at its core
+      # count and not after one build per pass, and local wins a tie.
       ranking = {
         time_penalty_per_second = 50;
         cpu_reference_seconds = 5;
+        per_core_load = true;
+        local_wins_ties = true;
       };
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
