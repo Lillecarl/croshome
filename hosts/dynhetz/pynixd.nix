@@ -114,11 +114,14 @@ in
       # time lost against the fastest store. A 200 ms build takes 600 ms on
       # sg1. A build costs one core's share, so a store fills at its core
       # count and not after one build per pass, and local wins a tie.
+      # One build in ten goes to another candidate, so an estimate that went
+      # stale gets new builds: the median reads a store's 20 newest.
       ranking = {
         time_penalty_per_second = 50;
         cpu_reference_seconds = 5;
         per_core_load = true;
         local_wins_ties = true;
+        explore_share = 0.1;
       };
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
