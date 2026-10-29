@@ -150,7 +150,20 @@ in
       destination = "10.247.100.10:6443";
       loopbackIPs = [ "37.27.129.237" ];
     }
-  ];
+  ]
+  # Pangolin's Gerbil on sg1: WireGuard for sites, and the relay. UDP, so
+  # HAProxy cannot carry it. 51830 because this host's own WireGuard holds
+  # 51820 (solid-kubernetes environments/sg1/kubernetes/pangolin.nix).
+  ++ map
+    (port: {
+      sourcePort = port;
+      proto = "udp";
+      destination = "10.247.100.30:${toString port}";
+    })
+    [
+      51830
+      21820
+    ];
   # Nothing reaches SG1 with this host's public IPv4 as its source: the nodes
   # route 37.27.129.237, their WireGuard endpoint, out of eno1, so the reply
   # never comes back through the tunnel. Measured: the VIP answered from
@@ -173,6 +186,7 @@ in
     ip46tables -A FORWARD -i eth0 -o wg-sg1+ -m state --state ESTABLISHED,RELATED -j ACCEPT
     ip6tables -A FORWARD -i eth0 -o wg-sg1+ -d 2a01:4f9:3071:11d7:a2::/112 -j ACCEPT
     iptables -A FORWARD -i eth0 -o wg-sg1+ -d 10.247.100.10 -p tcp --dport 6443 -j ACCEPT
+    iptables -A FORWARD -i eth0 -o wg-sg1+ -d 10.247.100.30 -p udp -m multiport --dports 51830,21820 -j ACCEPT
     ip46tables -A FORWARD -i wg-dynhetz -o wg-sg1+ -j ACCEPT
     ip46tables -A FORWARD -i wg-sg1+ -o wg-dynhetz -j ACCEPT
   '';
