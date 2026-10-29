@@ -74,13 +74,16 @@ let
   pydd =
     let
       sources = import (inputs.nixidae.outPath + "/pydd/nix/sources.nix");
-      huggormSet = import sources.huggorm { inherit sources; };
+      # huggorm's own default: the planners and the bindings share its Python.
+      huggormPkgs = import sources.nixpkgs { };
+      huggormSet = import sources.huggorm {
+        inherit sources;
+        pkgs = huggormPkgs;
+      };
     in
     final.callPackage (inputs.nixidae.outPath + "/pydd/lib") {
       huggorm = huggormSet.lanes.nix_2_35.huggorm;
-      # On huggorm's package set, as pydd's own default.nix: the planners
-      # share its Python.
-      inherit ((import sources.nixvenv { inherit (huggormSet) pkgs; }).lib) nixvenv;
+      inherit ((import sources.nixvenv { pkgs = huggormPkgs; }).lib) nixvenv;
       nix = final.nixVersions.nix_2_35;
       writer = "cli";
       plannerProtocol = "recursive";
