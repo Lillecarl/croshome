@@ -102,6 +102,16 @@ in
       # build went where it went (nixidae/nixidae#1070). Rows older than a
       # week go in chunks.
       placement_trace.enabled = true;
+      # Keep short builds here. Re-scored over 352 traced decisions
+      # (nixidae/nixidae#1125), pricing each store's whole expected time at
+      # 50 points a second, and counting the CPU points in full only from a
+      # 5 s build, keeps 81-85 % of builds local and halves the expected
+      # time lost against the fastest store. A 200 ms build takes 600 ms on
+      # sg1.
+      ranking = {
+        time_penalty_per_second = 50;
+        cpu_reference_seconds = 5;
+      };
       # A store gets a build scheduled to it only when it has a feature
       # matrix. With none, pynixd probes the daemon with test builds at
       # startup and, until that finishes, refuses every build with "no
