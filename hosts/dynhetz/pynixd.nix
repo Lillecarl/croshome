@@ -67,6 +67,12 @@ in
   # hangs, so `replace` needs this version.
   nix.package = pkgs.nixVersions.latest;
 
+  # TEMPORARY diagnosis, 2026-10-29: the daemon sat at 3.3 GB resident
+  # while idle, 15 GB at peak. Tracing every allocation lets `pynixd state
+  # --section benchmark` name the sites. It slows the daemon; remove once
+  # the sites are known.
+  systemd.services.pynixd.environment.PYNIXD_BENCH = "1";
+
   services.pynixd = {
     enable = true;
     # `replace`: pynixd takes /nix/var/nix/daemon-socket/socket and nix-daemon
