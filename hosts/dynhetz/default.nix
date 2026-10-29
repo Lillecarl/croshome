@@ -42,6 +42,11 @@
     ./dynusers.nix
   ];
   config = {
+    # No GPU here: this puts Mesa in /run/opengl-driver, so a GL program
+    # in a `pymux wl` pane draws with llvmpipe instead of failing to find
+    # EGL. Chromium and qutebrowser need it; Firefox draws without it.
+    hardware.graphics.enable = true;
+
     users.users.lillecarl = {
       # frrvty is what `vtysh` needs, and the only thing it needs: the daemons
       # listen on /run/frr/*.vty, which are srwxrwx--- frr:frrvty, while
