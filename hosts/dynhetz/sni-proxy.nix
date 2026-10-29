@@ -6,7 +6,7 @@
 # The upstream dial carries a PROXY v2 header with the IPv4 client, and
 # leaves from eth0's IPv6, the one address both Traefiks trust for it
 # (solid-kubernetes environments/{nixlab3,sg1}/kubernetes).
-{ ... }:
+{ config, ... }:
 let
   ipv4 = "37.27.129.237";
   # Bracketed: HAProxy reads a bare IPv6 as host:port at its last colon,
@@ -50,6 +50,12 @@ in
         server traefik [2a01:4f9:3071:11d7:a2::30]:443 send-proxy-v2 source ${source}
     '';
   };
+
+  # Upstream deficiency: nixpkgs' haproxy module reads /etc/haproxy.cfg
+  # and declares no trigger on it, so a config change leaves the unit
+  # file unchanged and the switch never reloads HAProxy. Measured
+  # 2026-10-29: a new backend sat in /etc for an hour, unused.
+  systemd.services.haproxy.reloadTriggers = [ config.environment.etc."haproxy.cfg".source ];
 
   networking.firewall.extraCommands = ''
     iptables -A nixos-fw -d ${ipv4} -p tcp --dport 443 -j nixos-fw-accept
