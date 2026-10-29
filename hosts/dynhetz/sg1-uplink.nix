@@ -151,6 +151,16 @@ in
       loopbackIPs = [ "37.27.129.237" ];
     }
   ];
+  # Nothing reaches SG1 with this host's public IPv4 as its source: the nodes
+  # route 37.27.129.237, their WireGuard endpoint, out of eno1, so the reply
+  # never comes back through the tunnel. Measured: the VIP answered from
+  # 10.247.102.0 and timed out from 37.27.129.237 (2026-10-29). That source
+  # is what a local connection to the public IPv4 gets, and the hairpin SNAT
+  # above it gives too. 10.247.102.254 is on every tunnel. -I: before the
+  # hairpin SNAT, which would otherwise match first.
+  networking.nat.extraCommands = ''
+    iptables -w -t nat -I nixos-nat-post -s 37.27.129.237 -o wg-sg1+ -j SNAT --to-source 10.247.102.254
+  '';
 
   # TCPMSS before the ACCEPTs: a terminal ACCEPT ends the chain, so a clamp
   # after it never runs. Pods use MTU 8890 and the tunnel 1420; clamp-to-pmtu
