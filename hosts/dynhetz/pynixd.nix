@@ -217,13 +217,6 @@ in
       # parallel here instead.
       http_host = "127.0.0.1";
       http_port = 8080;
-
-      # Temporary, for nixidae/nixidae#1139: dump every thread's stack when
-      # the loop misses a beat by 0.45 s. The monitor beats every 0.25 s and
-      # the watchdog checks every second, so this catches every stall over
-      # about 1.2 s and one 0.4 s stall in five. Back to the default (30)
-      # once a dump names the cause.
-      stall_traceback_seconds = 0.45;
     };
   };
 }
