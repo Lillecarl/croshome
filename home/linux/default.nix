@@ -73,5 +73,10 @@
     # is pbcopy -- see home/fish/functions/copy.fish.
     waypipe
     wl-clipboard
+
+    # The browser pymux-mcp drives for an agent, headless or in a pymux
+    # window pane (Lillecarl/pymux#822). nixpkgs builds chromium for Linux
+    # only; macOS runs its own browser through `launch-browser`.
+    chromium
   ];
 }
