@@ -61,12 +61,6 @@ in
   # open their own port (../ttyd.nix): the rule lives with the service.
   networking.firewall.allowedTCPPorts = [ 2235 ];
 
-  # Temporary, for nixidae/nixidae#1139: uvloop's debug mode logs every
-  # callback slower than 0.1 s by name (`Executing <Handle ...> took`), Cython
-  # ones included, which no Python stack dump can see. It records a traceback
-  # per scheduled callback and raises on a call from the wrong thread.
-  systemd.services.pynixd.environment.PYTHONASYNCIODEBUG = "1";
-
   # Nix 2.35 names the socket-activated descriptor `nix-daemon.socket` in
   # LISTEN_FDNAMES, and the upstream socket unit pynixd listens behind relies
   # on that name. Under 2.34 the socket activates on nothing and every client
