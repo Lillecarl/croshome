@@ -283,9 +283,9 @@ in
       "${dir}/settings.json" = {
         format = "json";
         settings = {
-          # Starts the Remote Control bridge in every session. Without it the
-          # bridge waits for `claude remote-control` or the /config toggle.
-          remoteControlAtStartup = true;
+          # Disabled because the CC long-lived token doesn't allow it and it's how we
+          # switch between subscriptionts without separate configuration
+          remoteControlAtStartup = false;
 
           # The alt-screen renderer. A mature install otherwise resolves the
           # renderer to `default`, which draws inline: no alternate screen, no
