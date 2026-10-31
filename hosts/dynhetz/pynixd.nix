@@ -56,10 +56,37 @@ in
   # modules/common/lab.nix). n1-n3 register as x86_64-linux builders, the
   # GX10s as aarch64-linux, until the cluster goes to production.
   environment.etc."pynixd/builders/sg1.pub".source = ./sg1-builders.pub;
+  # nixidae's GitHub Actions runners, as a trusted client of the listener
+  # below: they build here and substitute from here. The private half is the
+  # repository secret PYNIXD_BUILDER_KEY.
+  environment.etc."pynixd/clients/gha-builder.pub".source = ./gha-builder.pub;
+
+  # The listener's host key, made once so the runners can pin it.
+  # pynixd would make an RSA key of its own, but only at its first start.
+  systemd.services.pynixd-ssh-keygen = {
+    description = "Make pynixd's SSH host key and its public half";
+    wantedBy = [ "pynixd.service" ];
+    before = [ "pynixd.service" ];
+    path = [ pkgs.openssh ];
+    serviceConfig = {
+      Type = "oneshot";
+      StateDirectory = "pynixd-ssh";
+      StateDirectoryMode = "0755";
+      UMask = "0077";
+    };
+    script = ''
+      key=/var/lib/pynixd-ssh/ssh_host_ed25519_key
+      [ -e $key ] || ssh-keygen -q -t ed25519 -N "" -C pynixd@dynhetz -f $key
+      chmod 0644 $key.pub
+    '';
+  };
 
   # The acceptor below faces the internet. Same shape as services that
   # open their own port (../ttyd.nix): the rule lives with the service.
-  networking.firewall.allowedTCPPorts = [ 2235 ];
+  networking.firewall.allowedTCPPorts = [
+    2234
+    2235
+  ];
 
   # Nix 2.35 names the socket-activated descriptor `nix-daemon.socket` in
   # LISTEN_FDNAMES, and the upstream socket unit pynixd listens behind relies
@@ -217,6 +244,14 @@ in
       # parallel here instead.
       http_host = "127.0.0.1";
       http_port = 8080;
+
+      # The client listener, for nixidae's CI: `ssh-ng://` to pynixd itself,
+      # as builder and substituter. Public, and it admits one key, as an
+      # admin: what Nix's `trusted-users` grants.
+      ssh_host = "";
+      ssh_port = 2234;
+      ssh_host_key = "/var/lib/pynixd-ssh/ssh_host_ed25519_key";
+      ssh_admin_keys = [ "/etc/pynixd/clients/gha-builder.pub" ];
     };
   };
 }
