@@ -164,7 +164,8 @@ This repo uses **jj (Jujutsu)**. Never use `git` directly.
 - Split a mixed working copy with `jj split <paths> -m '...'`, repeated. For
   finer-than-file granularity use the `jj-hunk` CLI on PATH, documented in
   `references/jj-hunk.md` inside the jj skill. There is no jj-hunk *skill*.
-- Pushing `develop` is pre-approved here: push finished commits without asking.
+- Pushing `develop` is pre-approved here: push finished commits at will,
+  without asking, as long as they carry no secret. Read the diff for one first.
   The shared rule that a push waits for User does not apply to this repo.
 
 The git ban is enforced, not merely advised. `home/claude/skills/jj-worktrees`
