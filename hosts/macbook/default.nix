@@ -454,7 +454,14 @@
   # a build whose inputs exceed ~1000 store paths hits seatbelt's 64 KiB string
   # limit and fails to start. etc and home-manager-path both do. Drop the patch
   # once a release carries the fix.
-  nix.package = pkgs.nixVersions.latest.appendPatches [ ./nix-darwin-sandbox-regex.patch ];
+  #
+  # nix-uds-local-fs.patch is huggorm's copy (nixidae huggorm/nix/patches): it
+  # adds `local-fs=false` to `unix://`. The build hook runs in this daemon, and
+  # it copies outputs back from pynix's Linux builder VM through such a store.
+  nix.package = pkgs.nixVersions.latest.appendPatches [
+    ./nix-darwin-sandbox-regex.patch
+    ./nix-uds-local-fs.patch
+  ];
 
   nix.settings = {
     experimental-features = [
