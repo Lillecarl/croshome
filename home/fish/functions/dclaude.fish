@@ -19,5 +19,6 @@ function dclaude --description "shared ~/.claude, work login from the token in ~
     end
     # Undo a prior dclaude in this shell; default backend is ~/.claude anyway.
     set --export CLAUDE_CONFIG_DIR ~/.claude
+    set --export CLAUDE_DISPLAY_ACCOUNT dynamist
     CLAUDE_CODE_OAUTH_TOKEN=(string trim < $token_file) claude $argv
 end
