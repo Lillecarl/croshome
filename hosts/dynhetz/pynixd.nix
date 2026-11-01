@@ -197,6 +197,11 @@ in
       stores.nixkube-cachix = httpCache "https://nixkube.cachix.org";
       stores.cyberus-linux = httpCache "https://cache.cyberus-linux.com";
       stores.kubernetes4nix-cachix = httpCache "https://kubernetes4nix.cachix.org";
+      # aarch64 CUDA builds (torch, nccl, cudnn, magma) for sg1's GX10s,
+      # redistributed under NVIDIA's licence. Without it here, every one
+      # of them counted as missing and went to a builder: hours on the
+      # GX10s for torch and magma (2026-11-02).
+      stores.flox = httpCache "https://cache.flox.dev";
 
       stores.nix-community-aarch64-linux = nixCommunity {
         host = "aarch64-build-box.nix-community.org";

@@ -202,6 +202,7 @@
           "nixkube.cachix.org-1:H8UE0jlI9pxHexK/NhDmEoLDarJXp1WTymQrsajlh7M="
           "ctrl-os:baPzGxj33zp/P+GAIJXsr8ss9Law+qEEFViX1+flbv8="
           "kubernetes4nix.cachix.org-1:8VVvvphJTNShbEwmgz99GiUTVaZB/CYB9hWQBzzFD0w="
+          "flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs="
         ];
         # nixkube: pynixd refuses an unsigned path from the untrusted push
         # user, so a nixkube built here fails solid-kubernetes' kubeapply.
