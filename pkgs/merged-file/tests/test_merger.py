@@ -41,6 +41,24 @@ def test_noop_leaves_file_untouched(tmp_path):
     assert open(target, encoding="utf-8").read() == '{\n  "a": 1\n}\n'
 
 
+@pytest.mark.parametrize("mode", [0o600, 0o640, 0o644])
+def test_update_keeps_the_file_mode(tmp_path, mode):
+    target = write(tmp_path / "config.json", '{"a": 1}')
+    os.chmod(target, mode)
+    assert merge_file(target, "json", {"b": 2}) == "updated"
+    assert os.stat(target).st_mode & 0o7777 == mode
+
+
+def test_create_follows_the_umask(tmp_path):
+    target = str(tmp_path / "config.json")
+    old = os.umask(0o077)
+    try:
+        assert merge_file(target, "json", {"a": 1}) == "created"
+    finally:
+        os.umask(old)
+    assert os.stat(target).st_mode & 0o7777 == 0o600
+
+
 def test_missing_file_create_and_no_create(tmp_path):
     target = str(tmp_path / "sub" / "config.json")
     assert merge_file(target, "json", {"a": 1}, create=False) == "skipped"

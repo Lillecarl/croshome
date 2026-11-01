@@ -72,6 +72,12 @@ def deep_merge(base: dict, overlay: dict) -> dict:
     return merged
 
 
+def _umask() -> int:
+    mask = os.umask(0)
+    os.umask(mask)
+    return mask
+
+
 def merge_file(path: str, format: str, settings: dict, create: bool = True) -> str:
     """Merge settings into path. Returns created, updated, up-to-date or skipped."""
     try:
@@ -91,8 +97,13 @@ def merge_file(path: str, format: str, settings: dict, create: bool = True) -> s
 
     parent = os.path.dirname(os.path.abspath(path))
     os.makedirs(parent, exist_ok=True)
+    # The replacement keeps the original's mode: ~/.claude.json is 0600, and
+    # a temporary file made under the umask would publish it as 0644.
+    mode = os.stat(path).st_mode & 0o7777 if original_text is not None else 0o666 & ~_umask()
     tmp_path = path + ".tmp"
-    with open(tmp_path, "w", encoding="utf-8") as f:
+    fd = os.open(tmp_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        os.fchmod(f.fileno(), mode)
         f.write(serialize(merged, format))
     os.replace(tmp_path, path)
     return "created" if original_text is None else "updated"
