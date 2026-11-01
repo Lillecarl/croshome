@@ -455,11 +455,11 @@
     "pyterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1793572975,
-        "narHash": "sha256-I/IRky8k2Woo0p5l/ycKN+ieM5njFgvuiygI3BOVARE=",
+        "lastModified": 1793573374,
+        "narHash": "sha256-t8YYxAwP6oIcJ2NZNpuvicUp/dY8YrQYMwAdovtq6mk=",
         "ref": "refs/heads/main",
-        "rev": "1441c745cb24d05d645010901638f1e3794a60b5",
-        "revCount": 4135,
+        "rev": "71a8b76ae335ebe226078f236f480cd343c01505",
+        "revCount": 4137,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Lillecarl/pyterm"
