@@ -40,6 +40,7 @@
     ./packages.nix
     ./pyedit-mcp.nix
     ./pymux.nix
+    ./pymux-mcp.nix
     ./sieve.nix
     ./tmux.nix
     ./vcs.nix
