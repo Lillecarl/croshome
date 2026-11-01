@@ -444,6 +444,15 @@ in
       inherit (final.stdenv.hostPlatform) system;
     }).nanopynix.packages.pynix;
 
+  # vivarium's `vivarium`, `vivarium-eval` and `vivarium-mcp`, and the skill
+  # it ships at share/skills/vivarium/vivarium. ../home/vivarium.nix installs
+  # it, links the skill and registers the MCP server.
+  vivarium =
+    (import inputs.nixidae {
+      pkgs = final;
+      inherit (final.stdenv.hostPlatform) system;
+    }).vivarium.packages.vivarium;
+
   # Slack automation CLI for AI agents, from its own nix/package.nix rather
   # than its flake -- and at v0.10.1 rather than the version its
   # nix/sources.json names (0.5.2 at the tag). v0.10.2's release binaries

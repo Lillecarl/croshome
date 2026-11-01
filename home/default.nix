@@ -44,6 +44,7 @@
     ./sieve.nix
     ./tmux.nix
     ./vcs.nix
+    ./vivarium.nix
     ../modules/home/wrapty.nix
     ./yazi.nix
   ]
