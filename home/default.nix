@@ -1,4 +1,5 @@
 {
+  config,
   lib,
   inputs,
   platform,
@@ -57,6 +58,12 @@
   # whichever default lands.
   catppuccin.enable = true;
   catppuccin.autoEnable = true;
+
+  # catppuccin's glamour port sets only GLAMOUR_STYLE. glab 1.114 still reads
+  # it but warns on every call. gh and glow read GLAMOUR_STYLE, so both stay.
+  home.sessionVariables.GLAB_GLAMOUR_STYLE = lib.mkIf (
+    config.catppuccin.enable && config.catppuccin.glamour.enable
+  ) config.home.sessionVariables.GLAMOUR_STYLE;
 
   programs.home-manager.enable = true;
 
