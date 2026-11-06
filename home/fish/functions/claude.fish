@@ -1,5 +1,6 @@
 function claude
     set --export BASH_ENV /etc/profile
+    set --query CLAUDE_DISPLAY_ACCOUNT; or set --export CLAUDE_DISPLAY_ACCOUNT lillecarl
     # `command -q` and not `command -v`: -v writes the resolved path to stdout,
     # which inside an `if` still lands on the function's stdout, so every
     # `claude` invocation would print wrapty's store path before running. -q is
