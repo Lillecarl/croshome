@@ -41,13 +41,49 @@ in
     // `O` and Cmd-T still land in the address bar. A config reload clears
     // these listeners, so they never pile up.
     const opened = new Set<number>();
+    let switched = 0;
     browser.tabs.onCreated.addListener((tab) => {
       if (tab.id !== undefined) opened.add(tab.id);
     });
     browser.tabs.onActivated.addListener(async ({ tabId }) => {
+      switched = Date.now();
       if (opened.delete(tabId)) return;
       const tab = await browser.tabs.get(tabId);
       if (tab.url === "about:newtab" || tab.url === "about:home") await glide.excmds.execute("blur");
     });
+
+    // A page cannot put Glide in insert mode by itself: not by focusing a
+    // field on load (Google does), nor by Firefox restoring a field's
+    // focus on a tab switch. Insert mode stays when it follows a key
+    // pressed after the switch, or a click in the page.
+    let pressed = 0;
+    glide.autocmds.create("KeyStateChanged", () => {
+      pressed = Date.now();
+    });
+    glide.autocmds.create("ModeChanged", "normal:insert", async () => {
+      if (pressed > switched && Date.now() - pressed < 1000) return;
+      const tab_id = await glide.tabs.active();
+      const page = await glide.content.execute(
+        () => ({ focused: document.hasFocus(), clicked: navigator.userActivation.isActive }),
+        { tab_id },
+      );
+      // The address bar has the focus, not the page.
+      if (!page.focused) return;
+      if (page.clicked && Date.now() - switched > 1000) return;
+      await glide.excmds.execute("blur");
+      await glide.excmds.execute("mode_change normal");
+    });
+
+    // `i` goes back into the last field when none has the focus, such as
+    // after the rule above took it away.
+    glide.keymaps.set("normal", "i", async () => {
+      const tab_id = await glide.tabs.active();
+      const editing = await glide.content.execute(() => {
+        const at = document.activeElement;
+        return !!at && (at.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(at.tagName));
+      }, { tab_id });
+      if (!editing) await glide.excmds.execute("focusinput last");
+      await glide.excmds.execute("mode_change insert --automove=left");
+    }, { description: "Insert mode, back in the last field when none has the focus" });
   '';
 }
