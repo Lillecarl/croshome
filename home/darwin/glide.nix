@@ -18,5 +18,9 @@ in
   xdg.configFile."glide/glide.ts".text = ''
     // pymux-mcp's bridge, closed until `:pymux_bridge on`.
     glide.unstable.include("${bridge}");
+
+    // Firefox's own vertical tabs, in the sidebar.
+    glide.prefs.set("sidebar.revamp", true);
+    glide.prefs.set("sidebar.verticalTabs", true);
   '';
 }
