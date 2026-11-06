@@ -74,16 +74,22 @@ in
       await glide.excmds.execute("mode_change normal");
     });
 
-    // `i` goes back into the last field when none has the focus, such as
-    // after the rule above took it away.
-    glide.keymaps.set("normal", "i", async () => {
+    // `i` inserts where the cursor is, not one character left as Glide's
+    // does; `a` one character right. Both go back into the last field
+    // when none has the focus, such as after the rule above took it away.
+    const insert = async (move: "right" | null) => {
       const tab_id = await glide.tabs.active();
       const editing = await glide.content.execute(() => {
         const at = document.activeElement;
         return !!at && (at.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(at.tagName));
       }, { tab_id });
       if (!editing) await glide.excmds.execute("focusinput last");
-      await glide.excmds.execute("mode_change insert --automove=left");
-    }, { description: "Insert mode, back in the last field when none has the focus" });
+      else if (move) await glide.excmds.execute(`caret_move ''${move}`);
+      await glide.excmds.execute("mode_change insert");
+    };
+    glide.keymaps.set("normal", "i", () => insert(null), { description: "Insert where the cursor is" });
+    glide.keymaps.set("normal", "a", () => insert("right"), {
+      description: "Insert after the character under the cursor",
+    });
   '';
 }
