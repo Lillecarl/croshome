@@ -39,6 +39,9 @@ in
       "claude"
       "firefox"
       "fuse-t"
+      # On trial beside qutebrowser: Firefox with a keyboard-driven shell,
+      # configured in TypeScript. Not the `glide` cask, a window manager.
+      "glide-browser"
       # The browser pymux-browser starts for Playwright and other CDP
       # tools: Firefox speaks only WebDriver BiDi. Lillecarl/pymux#653.
       "google-chrome"
