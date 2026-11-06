@@ -300,6 +300,15 @@ in
     patches = pattrs.patches or [ ] ++ [ ./vzvm-disk-cached.patch ];
   });
 
+  # The release tarball carries the generated help pages; a git tree does not.
+  qutebrowser = prev.qutebrowser.overrideAttrs (pattrs: {
+    src = inputs.qutebrowser;
+    nativeBuildInputs = pattrs.nativeBuildInputs ++ [ prev.python3.pkgs.pygments ];
+    preBuild = (pattrs.preBuild or "") + ''
+      python3 scripts/asciidoc2html.py
+    '';
+  });
+
   foot = prev.foot.overrideAttrs (pattrs: {
     patches = pattrs.patches or [ ] ++ [
       ./0001-ignore-numlock.patch

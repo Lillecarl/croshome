@@ -470,6 +470,23 @@
         "url": "https://github.com/Lillecarl/pyterm"
       }
     },
+    "qutebrowser": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1793993143,
+        "narHash": "sha256-fVPICev0ggz1v3+9D3TaRHYbFOkwZIGy8KBBNQjm3E4=",
+        "owner": "Lillecarl",
+        "repo": "qutebrowser",
+        "rev": "7a99389077ff1649209d6c55527273e11bcff222",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "ref": "patched",
+        "repo": "qutebrowser",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
         "acpcli": "acpcli",
@@ -493,7 +510,8 @@
         "pyjj": "pyjj",
         "pyproject-nix": "pyproject-nix",
         "pystemctl": "pystemctl",
-        "pyterm": "pyterm"
+        "pyterm": "pyterm",
+        "qutebrowser": "qutebrowser"
       }
     },
     "systems": {

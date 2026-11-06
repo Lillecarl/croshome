@@ -204,6 +204,12 @@
       url = "github:stablyai/agent-slack";
       flake = false;
     };
+
+    # Our qutebrowser patches, on top of the release nixpkgs packages.
+    qutebrowser = {
+      url = "github:Lillecarl/qutebrowser/patched";
+      flake = false;
+    };
   };
   outputs =
     inputs:
