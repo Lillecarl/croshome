@@ -15,6 +15,13 @@ in
     # `:set` writes autoconfig.yml; load it, so a setting tried at runtime
     # survives a restart until it moves here.
     loadAutoconfig = true;
+    settings = {
+      # Qt on macOS lays text out at 72 logical DPI, so the 10pt default
+      # draws 10 px. 14pt chosen by eye on the Dell U3421WE: 13pt read too
+      # small, 16pt too big.
+      fonts.default_size = "14pt";
+      tabs.position = "left";
+    };
     extraConfig = ''
       config.source("${bridge}")
     '';
