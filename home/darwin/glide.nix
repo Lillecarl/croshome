@@ -22,5 +22,18 @@ in
     // Firefox's own vertical tabs, in the sidebar.
     glide.prefs.set("sidebar.revamp", true);
     glide.prefs.set("sidebar.verticalTabs", true);
+
+    // qutebrowser's keys. Glide has no API to focus the address bar, so
+    // `o` and `O` press Firefox's own shortcuts.
+    glide.keymaps.set("normal", "o", () => glide.keys.send("<D-l>", { skip_mappings: true }), {
+      description: "Open an address in this tab",
+    });
+    glide.keymaps.set("normal", "O", () => glide.keys.send("<D-t>", { skip_mappings: true }), {
+      description: "Open an address in a new tab",
+    });
+    glide.keymaps.set("normal", "J", "tab_next");
+    glide.keymaps.set("normal", "K", "tab_prev");
+    glide.keymaps.set("normal", "H", "back");
+    glide.keymaps.set("normal", "L", "forward");
   '';
 }
