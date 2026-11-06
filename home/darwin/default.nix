@@ -2,6 +2,7 @@
 {
   imports = [
     ./flush-dns.nix
+    ./glide.nix
     ./kitty.nix
     ./qutebrowser.nix
   ];
