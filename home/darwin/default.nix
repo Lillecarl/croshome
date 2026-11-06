@@ -3,6 +3,7 @@
   imports = [
     ./flush-dns.nix
     ./kitty.nix
+    ./qutebrowser.nix
   ];
 
   # No XDG_RUNTIME_DIR exists on macOS: the spec makes it the login manager's
