@@ -36,6 +36,35 @@ in
     glide.keymaps.set("normal", "H", "back");
     glide.keymaps.set("normal", "L", "forward");
 
+    // Run `fn` in the active tab's page, or answer `fallback` where Glide
+    // may not: Firefox's own pages, such as New Tab, answer "missing host
+    // permission for the tab".
+    const in_page = async <T,>(fn: () => T, fallback: T): Promise<T> => {
+      try {
+        return await glide.content.execute(fn, { tab_id: await glide.tabs.active() });
+      } catch {
+        return fallback;
+      }
+    };
+
+    // Whether the cursor is in a field, where Glide's normal mode edits text.
+    const editing = () =>
+      in_page(() => {
+        const at = document.activeElement;
+        return !!at && (at.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(at.tagName));
+      }, false);
+
+    // Vimium's x and X close and reopen a tab; in a field they still
+    // delete a character, as Glide's do. Closing the last tab leaves a
+    // New Tab rather than closing the window, as in qutebrowser.
+    glide.prefs.set("browser.tabs.closeWindowWithLastTab", false);
+    glide.keymaps.set("normal", "x", async () => {
+      await glide.excmds.execute((await editing()) ? "motion x" : "tab_close");
+    }, { description: "Delete a character in a field, else close the tab" });
+    glide.keymaps.set("normal", "X", async () => {
+      await glide.excmds.execute((await editing()) ? "motion X" : "tab_reopen");
+    }, { description: "Delete the character before in a field, else reopen the last closed tab" });
+
     // Firefox focuses the address bar on every switch to an empty New Tab,
     // which leaves Glide in insert mode. Keep it on a tab just opened, so
     // `O` and Cmd-T still land in the address bar. A config reload clears
@@ -62,13 +91,12 @@ in
     });
     glide.autocmds.create("ModeChanged", "normal:insert", async () => {
       if (pressed > switched && Date.now() - pressed < 1000) return;
-      const tab_id = await glide.tabs.active();
-      const page = await glide.content.execute(
+      const page = await in_page(
         () => ({ focused: document.hasFocus(), clicked: navigator.userActivation.isActive }),
-        { tab_id },
+        null,
       );
-      // The address bar has the focus, not the page.
-      if (!page.focused) return;
+      // Firefox's own page, or the address bar has the focus, not the page.
+      if (!page || !page.focused) return;
       if (page.clicked && Date.now() - switched > 1000) return;
       await glide.excmds.execute("blur");
       await glide.excmds.execute("mode_change normal");
@@ -78,12 +106,7 @@ in
     // does; `a` one character right. Both go back into the last field
     // when none has the focus, such as after the rule above took it away.
     const insert = async (move: "right" | null) => {
-      const tab_id = await glide.tabs.active();
-      const editing = await glide.content.execute(() => {
-        const at = document.activeElement;
-        return !!at && (at.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(at.tagName));
-      }, { tab_id });
-      if (!editing) await glide.excmds.execute("focusinput last");
+      if (!(await editing())) await glide.excmds.execute("focusinput last");
       else if (move) await glide.excmds.execute(`caret_move ''${move}`);
       await glide.excmds.execute("mode_change insert");
     };
