@@ -35,5 +35,19 @@ in
     glide.keymaps.set("normal", "K", "tab_prev");
     glide.keymaps.set("normal", "H", "back");
     glide.keymaps.set("normal", "L", "forward");
+
+    // Firefox focuses the address bar on every switch to an empty New Tab,
+    // which leaves Glide in insert mode. Keep it on a tab just opened, so
+    // `O` and Cmd-T still land in the address bar. A config reload clears
+    // these listeners, so they never pile up.
+    const opened = new Set<number>();
+    browser.tabs.onCreated.addListener((tab) => {
+      if (tab.id !== undefined) opened.add(tab.id);
+    });
+    browser.tabs.onActivated.addListener(async ({ tabId }) => {
+      if (opened.delete(tabId)) return;
+      const tab = await browser.tabs.get(tabId);
+      if (tab.url === "about:newtab" || tab.url === "about:home") await glide.excmds.execute("blur");
+    });
   '';
 }
