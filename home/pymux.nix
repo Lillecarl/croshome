@@ -66,13 +66,7 @@
       # rate: every number that moves costs it a redraw. A desktop gets
       # all of it: the frame rates (a window pane's own while one draws),
       # the bytes down and up, the rate down and the time.
-      #
-      # First, what the program in the pane says it is doing (OSC 7501,
-      # Claude Code's "blocked" and the like), with its message on a desktop.
       status-right = builtins.concatStringsSep "" [
-        "{% if pane_program_state %} {{ pane_program_state }}"
-        "{% if pane_program_message and client_width|int >= 100 %}: {{ pane_program_message|truncate(40, true, '…') }}{% endif %}"
-        " ·{% endif %}"
         " {% if client_width|int < 100 %}"
         "↓{{ client_bytes_down|int|filesizeformat }} ↑{{ client_bytes_up|int|filesizeformat }}"
         "{% else %}"
@@ -81,9 +75,8 @@
         " {{ client_rate_down }} {{ now.strftime('%H:%M') }}"
         "{% endif %} "
       ];
-      # The desktop line runs to about 47 cells, and the program's state
-      # and message to about 55 more.
-      status-right-length = 110;
+      # The desktop line runs to about 47 cells.
+      status-right-length = 50;
       # pymux's default, `#I:#W#F`, with the window's program state after
       # it, so a window blocked on you shows from any other.
       window-status-format = "#I:#W#F#{?pane_program_state, #{pane_program_state},}";
