@@ -77,10 +77,10 @@
       ];
       # The desktop line runs to about 47 cells.
       status-right-length = 50;
-      # pymux's default, `#I:#W#F`, with the window's program state after
-      # it, so a window blocked on you shows from any other.
-      window-status-format = "#I:#W#F#{?pane_program_state, #{pane_program_state},}";
-      window-status-current-format = "#I:#W#F#{?pane_program_state, #{pane_program_state},}";
+      # pymux's jinja default without the program state after the name:
+      # the message row over the pane says it, and the tabs stay short.
+      window-status-format = "{{ window_index }}:{{ window_name or '(noname)' }}{{ window_status_flags }}";
+      window-status-current-format = "{{ window_index }}:{{ window_name or '(noname)' }}{{ window_status_flags }}";
       default-shell = lib.getExe config.programs.fish.package;
       # Write each command and click to ~/.local/state/pymux/actions.db,
       # with what started it, for finding the bindings and features worth
