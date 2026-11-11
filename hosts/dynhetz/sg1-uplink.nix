@@ -202,6 +202,12 @@ in
      match ip address prefix-list sg1-in4
     route-map sg1-in6 permit 10
      match ipv6 address prefix-list sg1-in6
+    ! The VPN (wireguard.nix), so a node whose default is sg1-router
+    ! answers the operator here, not by sg1-router, which drops it
+    ! (solid-kubernetes environments/sg1/nixos/README.md, "Rollout").
+    ip prefix-list sg1-out4 seq 10 permit 10.100.0.0/24
+    route-map sg1-out4 permit 10
+     match ip address prefix-list sg1-out4
     !
     ! Must match the nodes' profile (solid-kubernetes
     ! environments/sg1/nixos/modules/uplink.nix). Slow, because the
@@ -243,10 +249,11 @@ in
      bgp listen range ${v6}::/112 peer-group sg1-cilium6
      address-family ipv4 unicast
       maximum-paths 8
+      network 10.100.0.0/24
       neighbor sg1-node4 activate
       neighbor sg1-node4 default-originate
       neighbor sg1-node4 route-map sg1-in4 in
-      neighbor sg1-node4 route-map announce-nothing out
+      neighbor sg1-node4 route-map sg1-out4 out
       neighbor sg1-cilium4 activate
       neighbor sg1-cilium4 route-map sg1-in4 in
       neighbor sg1-cilium4 route-map announce-nothing out
