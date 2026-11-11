@@ -58,6 +58,9 @@ Take the primitive from `anyio` too, not the `asyncio` one beside it:
 `anyio.fail_after`, `anyio.move_on_after`, `anyio.create_task_group`,
 `anyio.open_process`, `anyio.to_thread`, `anyio.from_thread.BlockingPortal`,
 and **`anyio.Path`**, which is the one most often missed.
+A bare yield to the loop is `anyio.lowlevel.checkpoint()`, never
+`anyio.sleep(0)` or `asyncio.sleep(0)`: the same call on asyncio, but it
+names the intent.
 Mixing the two families is where cancellation stops behaving. ruff's `TID251`
 banned-api rule enforces this per project, and a rule in the linter beats a
 rule in prose.
