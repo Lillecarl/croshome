@@ -247,7 +247,8 @@ in
       maximum-paths 8
       network 10.100.0.0/24
       neighbor sg1-node4 activate
-      neighbor sg1-node4 default-originate
+      ! No IPv4 default: the nodes take it from sg1-router (solid-kubernetes
+      ! environments/sg1/nixos/README.md, "Rollout", step 10).
       neighbor sg1-node4 route-map sg1-in4 in
       neighbor sg1-node4 route-map sg1-out4 out
      exit-address-family
