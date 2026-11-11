@@ -418,11 +418,12 @@ in
   # Scripted multi-file edits with dry-run diffs. Here rather than imported at
   # each use because two places want it: ../home/packages.nix installs the
   # binary, and ../home/agents.nix links the SKILL.md it ships at
-  # share/skills/pyedit/pyedit.
-  # pyjj in pyedit's closure would enable `pyedit -r`, but the pinned
-  # pyedit takes only `pkgs` today; passing `pyjj` breaks evaluation.
-  # Re-add the argument when pyedit grows the parameter.
-  pyedit = (import inputs.pyedit.outPath { pkgs = final; }).pyedit;
+  # share/skills/pyedit/pyedit. pyjj in its closure enables `pyedit -r`.
+  pyedit =
+    (import inputs.pyedit.outPath {
+      pkgs = final;
+      inherit (pyjj) pyjj;
+    }).pyedit;
 
   # Timeboxed shell-command tokens for AI agents, plus its NixOS module
   # (./hosts/dynhetz/aiscalate.nix imports it by input path). Same shape

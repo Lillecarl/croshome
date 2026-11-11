@@ -387,11 +387,11 @@
     "pyedit": {
       "flake": false,
       "locked": {
-        "lastModified": 1792703293,
-        "narHash": "sha256-V1ZEvMoraFjoVhPvM+Q+kYwuUnd6JDcu5+k4A6yEUIw=",
+        "lastModified": 1794423048,
+        "narHash": "sha256-/mEGnvhH15N+nrGhCRDDe7mit6X68rScaDNPEYn+SMU=",
         "owner": "Lillecarl",
         "repo": "pyedit",
-        "rev": "a0a555a0314e84cc7cf187023144c4efcd9d7e9a",
+        "rev": "c10b061aeec3d72144950589f1acb5a3b7b82589",
         "type": "github"
       },
       "original": {
@@ -403,11 +403,11 @@
     "pyjj": {
       "flake": false,
       "locked": {
-        "lastModified": 1793031092,
-        "narHash": "sha256-+d2vW+WVB+f+/fjeX/ieHNDQTEFri/5dYvQOzjx35Qs=",
+        "lastModified": 1794423899,
+        "narHash": "sha256-L+iH565gU6PhNluHsDXp4+1rEQRhBrp/n6EBSdwaGGo=",
         "owner": "Lillecarl",
         "repo": "pyjj",
-        "rev": "df321074021b57fcc2db64150b1d0cd151ddf028",
+        "rev": "0eba0a8e5599045f1cd9ca01d58b37e3701acc48",
         "type": "github"
       },
       "original": {
