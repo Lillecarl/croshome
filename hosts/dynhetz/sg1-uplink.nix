@@ -10,13 +10,13 @@
 #
 # Per node n, k = 2(n-1): wg-sg1-n<n> listens on 51820+n, dynhetz holds
 # 10.247.102.k/31 and :a3:3::k/127, the node k+1. 10.247.102.254 and
-# :a3:3::fe sit on every tunnel: Cilium's BGP peer config is cluster-wide, so
-# it needs one dynhetz address every node can reach.
+# :a3:3::fe sit on every tunnel, from when Cilium peered here; nothing
+# uses them now.
 #
-# Two sessions per node and family. Node FRR peers from its tunnel address
-# and takes the default; Cilium peers from the node loopback (multihop) and
-# announces pods and LoadBalancer IPs. Cilium cannot install received routes
-# (./kubernetes/guest-routing.nix), hence node FRR.
+# One session per node and family, from the node's tunnel address. The
+# node's FRR announces its loopback and what Cilium on that node announces
+# to it: pods and LoadBalancer IPs (solid-kubernetes
+# environments/sg1/cilium-peering.nix).
 { lib, pkgs, ... }:
 let
   v6 = "2a01:4f9:3071:11d7:a3";
@@ -216,7 +216,8 @@ in
      profile uplink
       receive-interval 1000
       transmit-interval 1000
-      detect-multiplier 3
+    ! detect-multiplier 3 is FRR's default. Written out, frr-reload.py
+    ! sends the profile again on every reload.
     !
     router bgp 64512
      ! `frr defaults traditional` leaves this off, so a session that
@@ -229,24 +230,19 @@ in
      neighbor sg1-node4 remote-as external
      neighbor sg1-node6 peer-group
      neighbor sg1-node6 remote-as external
-     neighbor sg1-cilium4 peer-group
-     neighbor sg1-cilium4 remote-as external
-     neighbor sg1-cilium4 ebgp-multihop 2
-     neighbor sg1-cilium6 peer-group
-     neighbor sg1-cilium6 remote-as external
-     neighbor sg1-cilium6 ebgp-multihop 2
      ! Both sides dial in. Without passive, FRR dials a peer that graceful
      ! restart holds, and Cilium's host firewall drops it as world.
      neighbor sg1-node4 passive
      neighbor sg1-node6 passive
+     ! Both bfd lines, as `show running-config` has them. With the profile
+     ! line alone frr-reload.py deletes `bfd` on every reload, and every
+     ! node session resets (seen on the sg1 nodes, 2026-11-11).
+     neighbor sg1-node4 bfd
      neighbor sg1-node4 bfd profile uplink
+     neighbor sg1-node6 bfd
      neighbor sg1-node6 bfd profile uplink
-     neighbor sg1-cilium4 passive
-     neighbor sg1-cilium6 passive
      bgp listen range 10.247.102.0/24 peer-group sg1-node4
      bgp listen range ${v6}:3::/112 peer-group sg1-node6
-     bgp listen range 10.247.100.0/24 peer-group sg1-cilium4
-     bgp listen range ${v6}::/112 peer-group sg1-cilium6
      address-family ipv4 unicast
       maximum-paths 8
       network 10.100.0.0/24
@@ -254,9 +250,6 @@ in
       neighbor sg1-node4 default-originate
       neighbor sg1-node4 route-map sg1-in4 in
       neighbor sg1-node4 route-map sg1-out4 out
-      neighbor sg1-cilium4 activate
-      neighbor sg1-cilium4 route-map sg1-in4 in
-      neighbor sg1-cilium4 route-map announce-nothing out
      exit-address-family
      address-family ipv6 unicast
       maximum-paths 8
@@ -264,9 +257,6 @@ in
       neighbor sg1-node6 default-originate
       neighbor sg1-node6 route-map sg1-in6 in
       neighbor sg1-node6 route-map announce-nothing out
-      neighbor sg1-cilium6 activate
-      neighbor sg1-cilium6 route-map sg1-in6 in
-      neighbor sg1-cilium6 route-map announce-nothing out
      exit-address-family
     !
   '';
