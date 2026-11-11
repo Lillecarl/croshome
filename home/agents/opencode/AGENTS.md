@@ -15,8 +15,9 @@ on.
 
 ## Version Control
 
-- Load the **jj** skill (`skill({ name: "jj" })`) before any VCS operation and
-  go through it. Never call `jj` or `git` directly.
+- Load the **pyjj** skill (`skill({ name: "pyjj" })`) before any VCS operation
+  and use `pyjj`, per *pyjj first* in the shared rules. The **jj** skill is the
+  semantics reference. Never call `git` directly.
 - A `.jj` folder means a jj repo: no git write operations. Read-only git-style
   queries (`git log`, `git diff`) the skill wraps safely.
 - **Subagents must not use VCS tools unless the user asked.** log, diff, show,
@@ -82,7 +83,7 @@ anything.
 
 ## Working copy hygiene
 
-Check `jj status` through the jj skill before starting new work, and report
+Check `pyjj status` before starting new work, and report
 what is uncommitted. Commit or shelve it first, so it does not mix into the new
 work. Ask for direction; never discard or overwrite it.
 

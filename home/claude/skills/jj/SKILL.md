@@ -1,9 +1,16 @@
 ---
 name: jj
-description: Jujutsu (jj) version control. Use for all VCS work in a jj (or colocated jj/git) repository — committing, splitting, branching, rebasing, merging, workspaces, and revset queries. Prefers jj split over other splitting tools and never rewrites history unless explicitly asked.
+description: Jujutsu (jj) semantics reference — the working-copy model, revsets, filesets, splitting, rebasing, merging, workspaces, bookmarks, undo. Load alongside the pyjj skill for VCS work in a jj (or colocated jj/git) repository; commands run through `pyjj`, and `jj` only where pyjj falls short. Never rewrites history unless explicitly asked.
 ---
 
 # jj (Jujutsu) VCS
+
+**Run every command here as `pyjj`, not `jj`.** pyjj takes jj's arguments, so
+`jj split …` becomes `pyjj split …`. Hunk work is `pyjj hunk`, not `jj-hunk`.
+Two differences: `-T` takes Jinja2 instead of jj's template language, and pyjj
+has extras (`--dry-run`, `graph`, `python`) that the pyjj skill covers. `jj` and
+`jj-hunk` are the fallback where pyjj lacks a command or gets one wrong, and
+each fallback gets a pyjj issue (*pyjj first* in the shared instructions).
 
 Jujutsu has no staging area, no detached HEAD, and (mostly) reversible operations.
 The working copy `@` **is** a commit; edits are auto-snapshotted into it. This file

@@ -158,12 +158,13 @@ it — the loop and the session rules live there, not here.
 
 This repo uses **jj (Jujutsu)**. Never use `git` directly.
 
-- Load the **jj** skill before any version control operation.
-- `jj --no-pager` on every jj command, to avoid the pager.
-- Prefer `jj commit -m "msg"` over `jj describe` when finishing a task.
-- Split a mixed working copy with `jj split <paths> -m '...'`, repeated. For
-  finer-than-file granularity use the `jj-hunk` CLI on PATH, documented in
-  `references/jj-hunk.md` inside the jj skill. There is no jj-hunk *skill*.
+- `pyjj`, not `jj`: the shared rule in `home/agents/shared/commits.md`
+  (*pyjj first*) holds here. Load the **pyjj** skill before any version
+  control operation; the **jj** skill is the semantics reference.
+- Prefer `pyjj commit -m "msg"` over `pyjj describe` when finishing a task.
+- Split a mixed working copy with `pyjj split <paths> -m '...'`, repeated. For
+  finer-than-file granularity use `pyjj hunk`. `jj-hunk` is the fallback only.
+- `jj` fallback: `jj --no-pager` on every command, to avoid the pager.
 - Pushing `develop` is pre-approved here: push finished commits at will,
   without asking, as long as they carry no secret. Read the diff for one first.
   The shared rule that a push waits for User does not apply to this repo.

@@ -29,7 +29,7 @@ and carry on. Do not ask.
 A PreToolUse hook refuses a commit carrying either
 (`home/claude/skills/jj-worktrees/scripts/pretooluse-block-trailers.py`). It
 matches at the start of a line, so prose about the rule passes. Already wrote
-one? `jj describe -r <rev>` before you go on.
+one? `pyjj describe -r <rev>` before you go on.
 
 ## Commit as you go
 
@@ -53,21 +53,39 @@ me.
 
 ## When the working copy already mixes concerns
 
-You do not have to plan the split in advance. `jj split` separates a messy
+You do not have to plan the split in advance. `pyjj split` separates a messy
 working copy afterwards, and is non-interactive when you name the files:
 
 ```sh
-jj --no-pager split path/to/file.py --message "$(cat <<'EOF'
+pyjj split path/to/file.py --message "$(cat <<'EOF'
 the message for that part
 EOF
 )"
 ```
 
 The named files go into the first commit; the rest stays in `@`. Repeat until
-each concern has its own commit. **Never run `jj split` with no file
+each concern has its own commit. **Never run `pyjj split` with no file
 arguments** — it opens an editor and hangs the session.
 
-One file holding two concerns in the same diff needs `jj-hunk`, because `jj
-split` only works per file. The `jj` skill has the detail:
-`references/splitting.md` before your first split, `references/jj-hunk.md` for
-the hunk-level case.
+One file holding two concerns in the same diff needs `pyjj hunk` (`list`, then
+`split`, `commit` or `squash`), because `pyjj split` only works per file.
+`pyjj hunk schema` prints the spec format.
+
+## Version control: `pyjj` first
+
+User's own jj CLI, dogfooded here. Load the **pyjj** skill before the first VCS
+command of a session. Every jj operation goes through `pyjj`; hunk work through
+`pyjj hunk`, not `jj-hunk`. The **jj** skill stays the reference for jj
+semantics (revsets, filesets, workspaces); its commands map one-for-one onto
+`pyjj`, except `-T`, which takes Jinja2.
+
+Fall back to `jj` or `jj-hunk` only when pyjj lacks the command or flag, errors,
+or gives a wrong result. Say so in the reply. Every fallback is a pyjj bug
+report in `Lillecarl/pyjj`, filed in the same session, then the task goes on
+with `jj`:
+
+- Search issues first; a match gets a comment with the new case, not a duplicate.
+- Body: the pyjj command and its output, the jj command that worked, pyjj
+  revision (`pyjj version`). Label `bug`, or `enhancement` for a missing
+  command or flag.
+- An issue an outsider takes part in: the autonomy rules apply, ask User first.
