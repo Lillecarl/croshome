@@ -2,9 +2,10 @@
 # per node, BGP over each. Self-contained so it can be deleted whole: it only
 # adds to options other files own (FRR config, NAT, firewall).
 #
-# dynhetz masquerades SG1's IPv4 egress and will DNAT public IPv4 into it, so
-# the return path must come back through here. Each node dials its own
-# interface over the internet, and its default route points into the tunnel.
+# SG1's IPv4 egress and public IPv4 services go through sg1-router
+# (solid-kubernetes environments/sg1/nixos/README.md, "Rollout"). dynhetz
+# keeps SG1's IPv6, the VPN into SG1 and its own tunnel per node, which each
+# node dials over the internet.
 # sg1-nix environments/sg1/nixos/docs/networking.md has the design, and
 # modules/uplink.nix beside it the node side.
 #
@@ -138,32 +139,10 @@ in
 
   networking.nat.internalInterfaces = [ "wg-sg1+" ];
 
-  # The sg1 apiserver on the public IPv4, for a person's kubeconfig
-  # (kubernetes.sg1.ch.se.eu.org; solid-kubernetes environments/sg1/
-  # api-server.nix). The IPv4 VIP is announced by Cilium, and the nodes'
-  # default route comes back through here, so a DNAT alone returns. IPv6
-  # needs none: the IPv6 VIP sits in a2::/112, forwarded below.
-  networking.nat.forwardPorts = [
-    {
-      sourcePort = 6443;
-      proto = "tcp";
-      destination = "10.247.100.10:6443";
-      loopbackIPs = [ "37.27.129.237" ];
-    }
-  ]
-  # Pangolin's Gerbil on sg1: WireGuard for sites, and the relay. UDP, so
-  # HAProxy cannot carry it. 51830 because this host's own WireGuard holds
-  # 51820 (solid-kubernetes environments/sg1/kubernetes/pangolin.nix).
-  ++ map
-    (port: {
-      sourcePort = port;
-      proto = "udp";
-      destination = "10.247.100.30:${toString port}";
-    })
-    [
-      51830
-      21820
-    ];
+  # The sg1 apiserver and Pangolin's Gerbil reach the internet on SG1's own
+  # public IPv4, which sg1-router forwards (solid-kubernetes
+  # environments/sg1/edge.nix): the nodes' IPv4 default is sg1-router, so a
+  # DNAT here would be answered from the wrong address.
   # Nothing reaches SG1 with this host's public IPv4 as its source: the nodes
   # route 37.27.129.237, their WireGuard endpoint, out of eno1, so the reply
   # never comes back through the tunnel. Measured: the VIP answered from
@@ -185,8 +164,6 @@ in
     ip46tables -A FORWARD -i wg-sg1+ -o eth0 -j ACCEPT
     ip46tables -A FORWARD -i eth0 -o wg-sg1+ -m state --state ESTABLISHED,RELATED -j ACCEPT
     ip6tables -A FORWARD -i eth0 -o wg-sg1+ -d 2a01:4f9:3071:11d7:a2::/112 -j ACCEPT
-    iptables -A FORWARD -i eth0 -o wg-sg1+ -d 10.247.100.10 -p tcp --dport 6443 -j ACCEPT
-    iptables -A FORWARD -i eth0 -o wg-sg1+ -d 10.247.100.30 -p udp -m multiport --dports 51830,21820 -j ACCEPT
     ip46tables -A FORWARD -i wg-dynhetz -o wg-sg1+ -j ACCEPT
     ip46tables -A FORWARD -i wg-sg1+ -o wg-dynhetz -j ACCEPT
   '';
