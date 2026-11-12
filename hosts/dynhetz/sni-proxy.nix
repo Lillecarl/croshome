@@ -1,11 +1,12 @@
-# The public IPv4's :443, shared by two clusters. HAProxy reads the SNI of
-# each TLS hello without decrypting and passes the stream on: *.sg1 to sg1's
-# Traefik, everything else to nixlab3's. Both clusters are IPv6-only, so
-# this is also the 4-to-6 step that jool's static BIB did for one target.
+# The public IPv4's :443, for nixlab3. HAProxy reads the SNI of each TLS
+# hello without decrypting and passes the stream to nixlab3's Traefik, which
+# is IPv6-only: this is the 4-to-6 step that jool's static BIB did. sg1 has
+# public IPv4s of its own on sg1-router (solid-kubernetes
+# environments/sg1/edge.nix).
 #
 # The upstream dial carries a PROXY v2 header with the IPv4 client, and
-# leaves from eth0's IPv6, the one address both Traefiks trust for it
-# (solid-kubernetes environments/{nixlab3,sg1}/kubernetes).
+# leaves from eth0's IPv6, the address nixlab3's Traefik trusts for it
+# (solid-kubernetes environments/nixlab3/kubernetes).
 { config, ... }:
 let
   ipv4 = "37.27.129.237";
@@ -33,21 +34,10 @@ in
         bind ${ipv4}:443
         tcp-request inspect-delay 5s
         tcp-request content accept if { req_ssl_hello_type 1 }
-        # Before sg1: Pangolin's resources sit under it, on their own edge.
-        use_backend sg1-pangolin if { req_ssl_sni -m end .p.sg1.ch.se.eu.org }
-        use_backend sg1 if { req_ssl_sni -m end .sg1.ch.se.eu.org } || { req_ssl_sni -m str sg1.ch.se.eu.org }
         default_backend nixlab3
 
       backend nixlab3
         server traefik [2a01:4f9:3071:11d7:e2::1]:443 send-proxy-v2 source ${source}
-
-      backend sg1
-        server traefik [2a01:4f9:3071:11d7:a2::1]:443 send-proxy-v2 source ${source}
-
-      # The Traefik in Pangolin's Gerbil pod (solid-kubernetes
-      # environments/sg1/kubernetes/pangolin.nix).
-      backend sg1-pangolin
-        server traefik [2a01:4f9:3071:11d7:a2::30]:443 send-proxy-v2 source ${source}
     '';
   };
 
