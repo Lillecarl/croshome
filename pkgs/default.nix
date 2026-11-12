@@ -425,14 +425,6 @@ in
       inherit (pyjj) pyjj;
     }).pyedit;
 
-  # Timeboxed shell-command tokens for AI agents, plus its NixOS module
-  # (./hosts/dynhetz/aiscalate.nix imports it by input path). Same shape
-  # as pyedit: default.nix takes `pkgs`, so no second nixpkgs.
-  # Staged while github:Lillecarl/aiscalate does not exist yet: nothing
-  # references pkgs.aiscalate until the flake input lands, and Nix is
-  # lazy, so this costs nothing meanwhile.
-  aiscalate = (import inputs.aiscalate.outPath { pkgs = final; }).aiscalate;
-
   # Phabricator and Phorge from the shell. Here rather than imported at each
   # use because two places want it: ../home/packages.nix installs the binary,
   # and ../home/agents.nix links the SKILL.md it ships at
@@ -535,4 +527,12 @@ in
   # serves, no desktop/electron/mobile. The dynhetz user service in
   # ../hosts/dynhetz/home.nix runs it headless.
   t3code = final.callPackage ./t3code.nix { inherit pydd; };
+}
+# Timeboxed shell-command tokens for AI agents. Same shape as pyedit:
+# default.nix takes `pkgs`, so no second nixpkgs. Staged until
+# github:Lillecarl/aiscalate exists as a flake input. The guard is needed:
+# laziness does not cover enumeration (`pynix search`), and tryEval cannot
+# catch a missing attribute.
+// prev.lib.optionalAttrs (inputs ? aiscalate) {
+  aiscalate = (import inputs.aiscalate.outPath { pkgs = final; }).aiscalate;
 }
