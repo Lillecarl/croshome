@@ -49,9 +49,15 @@ jj --no-pager log -r 'ws1@' --no-graph -T 'description'
 jj --no-pager diff --git -r 'ws1@'
 ```
 
-Read only. Never rewrite another workspace's `@` (`describe`, `squash`, `rebase`,
-`-R <other path>`): that workspace is owned by whatever works in it, and its files go
-**stale** (below). The one exception is User asking for that exact rewrite.
+Read only. Never manipulate another workspace: no rewrite of its `@` or any mutable
+ancestor of it (`describe`, `squash`, `rebase`, `abandon`, `absorb`), no `-R <other
+path>`, `update-stale` or `forget` on it. That workspace belongs to whatever works in
+it, and its files go **stale** (below). This holds from every workspace, `default`
+included.
+
+Exceptions: Agent is the sole agent owner of both workspaces (this session created or
+took over both, and no other session works in either), or User asks for that exact
+rewrite. Uncertain ownership is not ownership.
 
 ## Staleness and `jj workspace update-stale`
 
@@ -121,9 +127,10 @@ new `main`.
 
 **Held = off limits.** `jj workspace list` gives each workspace's `@`. `main` is
 always held by `default`. A bookmark on another workspace's `@` or `@-` is held by
-that workspace. A secondary workspace never moves, sets, deletes or rewrites a held
-bookmark, nor another workspace's `@`. It commits on its own `@` and on ancestors no
-other workspace or bookmark holds, and moves only a bookmark it created for its task.
+that workspace. No workspace moves, sets, deletes or rewrites a bookmark another
+workspace holds, nor another workspace's `@` or its mutable ancestors (exceptions
+above). A secondary workspace commits on its own `@` and on ancestors no other
+workspace or bookmark holds, and moves only a bookmark it created for its task.
 
 **Who lands.** Only the default workspace: its session, or User. A secondary
 workspace that is ready stops (need_user, or a message to the default session) with
@@ -150,25 +157,29 @@ Thoughts that lead across the line. Each one is wrong:
 - "The repo's CLAUDE.md says `jj bookmark set main`." Written for the default
   workspace.
 
-**How**, run from the default workspace. Any one of these, with `<tip>` the
-secondary workspace's last finished commit (usually `<ws>@-`). Rewrite only mutable
-(unpushed) commits, never `main@origin` or its ancestors.
+**How**, run from the default workspace, with `<tip>` the secondary workspace's last
+finished commit (usually `<ws>@-`). The merge rewrites nothing, so it is the default:
 
 ```bash
-# 1. Rebase onto main, fast-forward main.
+jj new --no-edit main <tip> --message 'merge: <task>'
+jj bookmark set main --revision <that merge commit>
+```
+
+Two rebase shapes rewrite commits under the secondary workspace's `@`. Use them only
+when Agent is the sole agent owner of both workspaces, or User asks for that shape.
+Rewrite only mutable (unpushed) commits, never `main@origin` or its ancestors.
+
+```bash
+# Rebase onto main, fast-forward main.
 jj rebase --branch <tip> --onto main
 jj bookmark set main --revision <tip>
 
-# 2. Merge commit. --no-edit keeps this workspace's @ where it is.
-jj new --no-edit main <tip> --message 'merge: <task>'
-jj bookmark set main --revision <that merge commit>
-
-# 3. Rebase main's unpushed commits onto the workspace; main follows them.
+# Rebase main's unpushed commits onto the workspace; main follows them. Rewrites
+# under the secondary @ when it branched from an unpushed main commit.
 jj rebase --source 'roots(main@origin..main)' --onto <tip>
 ```
 
-Shapes 1 and 3 rewrite under the secondary workspace's `@`, so it goes stale. Safe
-only because it stopped at `ready to land`; it runs `jj workspace update-stale`
+Either one makes the secondary workspace stale: run `jj workspace update-stale` there
 before working again.
 
 Then push `main` if the repository lands by pushing (its own `AGENTS.md` or

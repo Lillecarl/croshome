@@ -77,13 +77,22 @@ a new `@` — further edits silently land back in the commit you just described.
   there is normal; quick fixes land straight from it.
 - A secondary workspace is a checked-out branch for one larger task that must not
   block those fixes. Commit there.
-- A secondary workspace never moves, sets, deletes or rewrites a bookmark another
-  workspace holds (`main` always, held by `default`), nor another workspace's `@`.
-  It commits on its own `@` and moves only bookmarks it created for its own task.
+- **Never manipulate another workspace**, from any workspace, `default` included:
+  - no rewrite of its `@` or of any mutable ancestor of it: `rebase`, `squash`,
+    `describe`, `abandon`, `absorb`, `split`, `edit`
+  - no `-R <its path>`, `workspace update-stale` or `workspace forget` on it
+  - no move, set or delete of a bookmark it holds (`main` always, held by `default`)
+
+  Only exception: Agent is the sole agent owner of both workspaces, meaning this
+  session created or took over both and no other session works in either. When
+  ownership is not certain, Agent is not the owner. User asking for that exact
+  rewrite also permits it.
+- A secondary workspace commits on its own `@` and moves only bookmarks it created
+  for its own task.
 - Landing (moving `main`, advancing `default@`) happens only from the default
-  workspace, by its session or by User. A secondary workspace ends with
-  `ready to land: <change-id>` and waits. Details and the traps:
-  [workspaces.md](references/workspaces.md#landing-a-workspace).
+  workspace, by its session or by User, and by merge commit unless the exception
+  holds. A secondary workspace ends with `ready to land: <change-id>` and waits.
+  Details and the traps: [workspaces.md](references/workspaces.md#landing-a-workspace).
 
 ## Passing commit messages safely
 
