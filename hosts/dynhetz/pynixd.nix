@@ -60,6 +60,8 @@ in
   # below: they build here and substitute from here. The private half is the
   # repository secret PYNIXD_BUILDER_KEY.
   environment.etc."pynixd/clients/gha-builder.pub".source = ./gha-builder.pub;
+  # Dynamist colleagues, as untrusted clients of the same listener.
+  environment.etc."pynixd/clients/dynamist.pub".source = ./pynixd-clients.pub;
 
   # The listener's host key, made once so the runners can pin it.
   # pynixd would make an RSA key of its own, but only at its first start.
@@ -250,13 +252,14 @@ in
       http_host = "127.0.0.1";
       http_port = 8080;
 
-      # The client listener, for nixidae's CI: `ssh-ng://` to pynixd itself,
-      # as builder and substituter. Public, and it admits one key, as an
-      # admin: what Nix's `trusted-users` grants.
+      # The client listener: `ssh-ng://` to pynixd itself, as builder and
+      # substituter. Public. nixidae's CI is admin, what Nix's
+      # `trusted-users` grants; the Dynamist keys are untrusted users.
       ssh_host = "";
       ssh_port = 2234;
       ssh_host_key = "/var/lib/pynixd-ssh/ssh_host_ed25519_key";
       ssh_admin_keys = [ "/etc/pynixd/clients/gha-builder.pub" ];
+      ssh_user_keys = [ "/etc/pynixd/clients/dynamist.pub" ];
     };
   };
 }
