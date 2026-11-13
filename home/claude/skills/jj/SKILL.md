@@ -88,18 +88,20 @@ a new `@` — further edits silently land back in the commit you just described.
   - no rewrite of its `@` or of any mutable ancestor of it: `rebase`, `squash`,
     `describe`, `abandon`, `absorb`, `split`, `edit`
   - no `-R <its path>`, `workspace update-stale` or `workspace forget` on it
-  - no move, set or delete of a bookmark it holds (`main` always, held by `default`)
+  - no move, set or delete of a bookmark it holds; `main` moves only through
+    `pyjj wf land`
 
   Only exception: Agent is the sole agent owner of both workspaces, meaning this
   session created or took over both and no other session works in either. When
   ownership is not certain, Agent is not the owner. User asking for that exact
   rewrite also permits it.
-- A secondary workspace commits on its own `@` and moves only bookmarks it created
-  for its own task.
-- Landing (moving `main`, advancing `default@`) happens only from the default
-  workspace, by its session or by User, and by merge commit unless the exception
-  holds. A secondary workspace ends with `ready to land: <change-id>` and waits.
-  Details and the traps: [workspaces.md](references/workspaces.md#landing-a-workspace).
+- A workspace commits on its own `@` and moves only bookmarks it created for its
+  own task, plus `main` through `pyjj wf land`.
+- Every workspace lands its own finished work: `pyjj commit`, then `pyjj wf land`
+  (rebase onto `main`, move `main` forward, one transaction). Never
+  `bookmark set main` by hand. With nothing to land it moves `@` onto `main`:
+  how a workspace, `default` included, catches up.
+  Details and the refusals: [workspaces.md](references/workspaces.md#landing-a-workspace).
 
 ## Passing commit messages safely
 

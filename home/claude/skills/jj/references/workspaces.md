@@ -121,84 +121,45 @@ jj --no-pager workspace rename new-name
 
 ## Landing a workspace
 
-The default workspace is tied to `main`. A secondary workspace is a branch off it.
-Landing = the branch's commits enter `main`, and the default workspace ends on the
-new `main`.
-
-**Held = off limits.** `jj workspace list` gives each workspace's `@`. `main` is
-always held by `default`. A bookmark on another workspace's `@` or `@-` is held by
-that workspace. No workspace moves, sets, deletes or rewrites a bookmark another
-workspace holds, nor another workspace's `@` or its mutable ancestors (exceptions
-above). A secondary workspace commits on its own `@` and on ancestors no other
-workspace or bookmark holds, and moves only a bookmark it created for its task.
-
-**Who lands.** Only the default workspace: its session, or User. A secondary
-workspace that is ready stops (need_user, or a message to the default session) with
-`ready to land: <change-id>`. No session in the default workspace means wait for
-User, never land it yourself.
-
-A repository's own `AGENTS.md`/`CLAUDE.md` finish steps (`jj bookmark set main ...;
-jj git push`) are written for the default workspace. In a secondary workspace, stop
-before the bookmark step.
-
-Report position exactly: "on top of `main` (`main` not moved)", never "on `main`".
-The short form reads as if `main` moved.
-
-Thoughts that lead across the line. Each one is wrong:
-
-- "A bookmark is only a label, moving `main` is harmless." The default workspace
-  follows `main`; moving it leaves `default@` behind, and User's other sessions
-  build on it.
-- "Rebasing main's commits is fine, they are unpushed." A content change under
-  another workspace's `@` makes it stale, and its unsaved edits end up in a
-  divergent orphan (table under Staleness).
-- "Nobody is in the default workspace, so I land it." Absence is not permission.
-- "I'll bring `default@` along with `-R`." That rewrites someone else's working copy.
-- "The repo's CLAUDE.md says `jj bookmark set main`." Written for the default
-  workspace.
-
-**How**, run from the default workspace, with `<tip>` the secondary workspace's last
-finished commit (usually `<ws>@-`). The merge rewrites nothing, so it is the default:
+Landing = a workspace's finished commits enter `main`. Every workspace lands its
+own work, `default` included, with one command:
 
 ```bash
-jj new --no-edit main <tip> --message 'merge: <task>'
-jj bookmark set main --revision <that merge commit>
+pyjj commit -m '<message>'   # @ must be empty
+pyjj wf land                 # --onto <bookmark> for a trunk other than main
 ```
 
-Two rebase shapes rewrite commits under the secondary workspace's `@`. Use them only
-when Agent is the sole agent owner of both workspaces, or User asks for that shape.
-Rewrite only mutable (unpushed) commits, never `main@origin` or its ancestors.
+One transaction (`croshome/home/pyjj/land.py`): rebase every root of `main..@`
+onto `main` (`jj rebase -b @ -d main`), then move `main` to `@-`. The move is
+forward, so pyjj's fast-forward guard passes it. Only the local bookmark moves.
 
-```bash
-# Rebase onto main, fast-forward main.
-jj rebase --branch <tip> --onto main
-jj bookmark set main --revision <tip>
+Refusals, each writing nothing:
 
-# Rebase main's unpushed commits onto the workspace; main follows them. Rewrites
-# under the secondary @ when it branched from an unpushed main commit.
-jj rebase --source 'roots(main@origin..main)' --onto <tip>
-```
+- `@` has changes: commit first.
+- a commit in `main..@-` has no description.
+- the rebase would rewrite a commit under another workspace's `@` (it would go
+  stale). Land the shared base from the workspace that owns it, or ask User.
+- the rebase introduces a conflict: resolve in this workspace's own commits, then
+  land again.
 
-Either one makes the secondary workspace stale: run `jj workspace update-stale` there
-before working again.
+Nothing to land: it moves `@` onto `main` and stops. That is how a workspace,
+`default` included, catches up after another one landed. Run it in the workspace
+itself, never with `-R` on someone else's.
+
+**Held = off limits.** `jj workspace list` gives each workspace's `@`. A bookmark on
+another workspace's `@` or `@-` is held by that workspace. No workspace moves, sets,
+deletes or rewrites a bookmark another workspace holds, nor another workspace's `@`
+or its mutable ancestors (exceptions above). `main` moves only through
+`pyjj wf land`: never `bookmark set main` by hand, also when a repository's
+`AGENTS.md`/`CLAUDE.md` finish steps say so.
 
 Then push `main` if the repository lands by pushing (its own `AGENTS.md` or
 `CLAUDE.md` says).
 
-**Advance the default workspace.** Moving `main` does not move `default@`. One
-command covers every case: `@` empty, `@` with uncommitted changes, and local commits
-in the default workspace that are not in `main` yet:
+Report position exactly: "landed, `main` at <change-id>", or "on top of `main`
+(`main` not moved)", never "on `main`".
 
-```bash
-jj rebase --source 'roots(main..@)' --onto main
-```
-
-Run in the default workspace, so its files on disk update too. Already on
-`main` → "Skipped rebase ... already in place", no change. A conflict lands in the
-rebased commit: report it, do not resolve someone else's edit. Verified on jj 0.46.0.
-
-Afterwards the secondary workspace's `@` still sits on the old branch. `jj new main`
-there to keep working, or `jj workspace forget` it when the task is over.
+When the task is over, `jj workspace forget` the workspace.
 
 ## Practical pattern for agents: one workspace per parallel task
 
