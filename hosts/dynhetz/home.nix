@@ -16,12 +16,12 @@
   # aid runs from a dev profile: `devprofile deploy aid` builds croshome's
   # pkgs.aid against ~/Code/aid and restarts it, with no ai-rebuild. dex is
   # pkgs.dex-oidc and stays pinned. See ../../modules/home/devprofiles.nix.
+  # Not aid.service: the daemon is aid-dev, run from the ~/Code/aid checkout.
+  # A second daemon on the same sockets and state fights it (Telegram 409,
+  # lost PR worktrees).
   programs.devProfiles.profiles.aid = {
     package = pkgs.aid;
-    units = [
-      "aid.service"
-      "aid-web.service"
-    ];
+    units = [ "aid-web.service" ];
   };
 
   # The AI daemon, as a user service. Its agents would otherwise inherit
