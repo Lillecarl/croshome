@@ -7,7 +7,8 @@ move trunk to it.
 What an agent does after each finished piece when several workspaces
 share one repository. The rebase picks up what the other workspaces
 landed meanwhile, and the bookmark move publishes this one's work to
-them. Run it with `@` empty, that is, after `pyjj commit`.
+them. Run it with `@` empty, that is, after `pyjj commit`. With nothing
+to land, it only moves `@` onto trunk: how a workspace catches up.
 
 The rebase and the move are one transaction: both land or neither does.
 It refuses, and writes nothing, when
@@ -58,8 +59,19 @@ class Land(pyjj.Workflow):
                 "(`pyjj commit -m ...`), then land."
             )
         stack = repo.revset(f"{trunk}..@-")
+        # `jj rebase -b @ -d trunk`: every root of the branch moves, so a
+        # side branch merged into the stack comes along. With an empty
+        # stack the one root is `@`.
+        roots = repo.revset(f"roots({trunk}..@)")
+        on_trunk = repo.revset(trunk)[0].id
+        rewrites = any(root.parent_ids != [on_trunk] for root in roots)
         if not stack:
-            print(f"Nothing to land: @- is already in {args.onto}.")
+            if rewrites:
+                with repo.atomic(f"rebase @ onto {args.onto}") as block:
+                    block.rebase("@", destination=trunk)
+                print(f"Nothing to land; @ is now on {args.onto}.")
+            else:
+                print(f"Nothing to land: @ is already on {args.onto}.")
             return 0
         for commit in stack:
             if not commit.description.strip():
@@ -67,11 +79,6 @@ class Land(pyjj.Workflow):
                     f"Commit {_short(commit)} has no description; "
                     "describe it before landing."
                 )
-        # `jj rebase -b @ -d trunk`: every root of the branch moves, so a
-        # side branch merged into the stack comes along.
-        roots = repo.revset(f"roots({trunk}..@)")
-        on_trunk = repo.revset(trunk)[0].id
-        rewrites = any(root.parent_ids != [on_trunk] for root in roots)
         # A rewrite under another workspace's `@` leaves it stale, and its
         # unsaved edits end up in a divergent orphan.
         shared = repo.revset(f"({trunk}..@-) & ::(working_copies() ~ @)")
