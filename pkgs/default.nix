@@ -62,10 +62,16 @@ let
   # so this keeps a trap out rather than fixing a break.
   #
   # Take named attributes from this, never the whole set.
-  pyjj = import inputs.pyjj {
-    pkgs = final;
-    inherit (final.stdenv.hostPlatform) system;
-  };
+  #
+  # `rev` is what `pyjj version` names. A locked input carries one; an
+  # overrides.nix checkout does not, and pyjj then reads its own git HEAD.
+  pyjj = import inputs.pyjj (
+    {
+      pkgs = final;
+      inherit (final.stdenv.hostPlatform) system;
+    }
+    // final.lib.optionalAttrs (inputs.pyjj ? rev) { inherit (inputs.pyjj) rev; }
+  );
 
   # pydd builds a third-party project from its own lock file: one node per
   # package, planned in the build. Recursive mode on released Nix, because
