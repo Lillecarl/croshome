@@ -46,8 +46,12 @@ in
 
         # pyjj picks the address by repository and clock: ./pyjj/work_identity.py
         # has the table. Read live from the checkout, so an edit to the hook
-        # needs no rebuild. jj itself ignores both keys.
-        pyjj.extensions = [ "${selfStr}/home/pyjj/work_identity.py" ];
+        # needs no rebuild. jj itself ignores both keys. ./pyjj/land.py adds
+        # `pyjj wf land`: rebase this workspace onto main, then move main.
+        pyjj.extensions = [
+          "${selfStr}/home/pyjj/work_identity.py"
+          "${selfStr}/home/pyjj/land.py"
+        ];
         work-identity = {
           hosts = [ "gitlab.dynamist.cloud" ];
           employee-repos = employeeRepos;
