@@ -424,11 +424,13 @@ in
   # Scripted multi-file edits with dry-run diffs. Here rather than imported at
   # each use because two places want it: ../home/packages.nix installs the
   # binary, and ../home/agents.nix links the SKILL.md it ships at
-  # share/skills/pyedit/pyedit. pyjj in its closure enables `pyedit -r`.
+  # share/skills/pyedit/pyedit. pyjj in its closure enables `pyedit -r`, and
+  # aid-models (aid's model clients) enables `pyedit index build` and `search`.
   pyedit =
     (import inputs.pyedit.outPath {
       pkgs = final;
       inherit (pyjj) pyjj;
+      aid-models = final.python3Packages.callPackage (inputs.aid.outPath + "/models/package.nix") { };
     }).pyedit;
 
   # Phabricator and Phorge from the shell. Here rather than imported at each
