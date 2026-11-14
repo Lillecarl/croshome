@@ -136,6 +136,29 @@ in
           `https://dex.<baseDomain>` whatever this is; Caddy forwards here.
         '';
       };
+
+      clients = lib.mkOption {
+        type = lib.types.attrsOf (
+          lib.types.submodule {
+            options = {
+              redirectURIs = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                description = "Where dex may send a code back to.";
+              };
+              secretFile = lib.mkOption {
+                type = lib.types.path;
+                description = "The client secret, read by dex at start.";
+              };
+            };
+          }
+        );
+        default = { };
+        description = ''
+          dex clients for apps that do OIDC themselves, with no gate in
+          front. The attribute name is the client id. Such an app checks
+          every request on its own; nothing here protects it.
+        '';
+      };
     };
 
     apps = lib.mkOption {
@@ -288,12 +311,18 @@ in
             userID = cfg.idp.username;
           }
         ];
-        staticClients = lib.mapAttrsToList (name: app: {
-          id = name;
-          name = app.host;
-          secretFile = app.clientSecretFile;
-          redirectURIs = [ "https://${app.host}/oauth2/callback" ];
-        }) cfg.apps;
+        staticClients =
+          lib.mapAttrsToList (name: app: {
+            id = name;
+            name = app.host;
+            secretFile = app.clientSecretFile;
+            redirectURIs = [ "https://${app.host}/oauth2/callback" ];
+          }) cfg.apps
+          ++ lib.mapAttrsToList (name: client: {
+            id = name;
+            inherit name;
+            inherit (client) secretFile redirectURIs;
+          }) cfg.idp.clients;
       };
     };
 
