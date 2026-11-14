@@ -10,13 +10,15 @@
 # a passphrase. Adding one means naming it here, in ./secrets.nix under
 # ../../secrets for its recipients, and -- if a build reads it -- wherever it is
 # used.
-{ ... }:
+{ config, ... }:
 {
-  # bcrypt hash of the login password dex checks, no trailing newline.
-  # Re-encrypt this file and restart dex to change the password.
+  # bcrypt hash of the login password dex checks, no trailing newline, cost 10
+  # or more (`mkpasswd -m bcrypt -R 12`; its default is 5). Re-encrypting the
+  # file is enough: dex reads the hash only at start, so the switch restarts it.
   age.secrets.dex-password-hash = {
     file = ../../secrets/dex-password-hash.age;
   };
+  systemd.services.dex.restartTriggers = [ config.age.secrets.dex-password-hash.file ];
 
   # The OAuth2 client secret the first app and dex share: dex reads it to
   # accept the login, the app's gate reads it to redeem that login.
