@@ -61,11 +61,11 @@
     "aid": {
       "flake": false,
       "locked": {
-        "lastModified": 1792707249,
-        "narHash": "sha256-xzLaacaBaMr8SLLvpeVHFAr79Upzw4Cx2taIkoorCnc=",
+        "lastModified": 1794662555,
+        "narHash": "sha256-7K5jVloFM4gEj/euQnCJsvU58diG9XnBdL8utACyVzs=",
         "owner": "Lillecarl",
         "repo": "aid",
-        "rev": "3fb115e5e038263e489ba7f4e54baf87e1d2aef5",
+        "rev": "9ea62dc616c61566be89a2c8aea657850ccb890e",
         "type": "github"
       },
       "original": {
@@ -387,11 +387,11 @@
     "pyedit": {
       "flake": false,
       "locked": {
-        "lastModified": 1794423048,
-        "narHash": "sha256-/mEGnvhH15N+nrGhCRDDe7mit6X68rScaDNPEYn+SMU=",
+        "lastModified": 1794666408,
+        "narHash": "sha256-+cHf6CWe9J5HvS1Wn5DJMNHpWExWJrla3rXGGBp5zxY=",
         "owner": "Lillecarl",
         "repo": "pyedit",
-        "rev": "c10b061aeec3d72144950589f1acb5a3b7b82589",
+        "rev": "5a8ab5953db421b47b09e79b9d1da49406c609d7",
         "type": "github"
       },
       "original": {
