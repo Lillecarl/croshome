@@ -62,6 +62,11 @@ in
   environment.etc."pynixd/clients/gha-builder.pub".source = ./gha-builder.pub;
   # Dynamist colleagues, as trusted clients of the same listener.
   environment.etc."pynixd/clients/dynamist.pub".source = ./pynixd-clients.pub;
+  # hetztop's nix-daemon, which logs in with that machine's SSH host key to
+  # build and substitute here (../hetztop/remote-builder.nix).
+  environment.etc."pynixd/clients/hetztop.pub".text = ''
+    ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM84ek07rVn/Bj5dvmrhk96xpzbR+FUVu3ob8rmBV9VX root@hetztop
+  '';
 
   # The listener's host key, made once so the runners can pin it.
   # pynixd would make an RSA key of its own, but only at its first start.
@@ -261,6 +266,7 @@ in
       ssh_admin_keys = [
         "/etc/pynixd/clients/gha-builder.pub"
         "/etc/pynixd/clients/dynamist.pub"
+        "/etc/pynixd/clients/hetztop.pub"
       ];
     };
   };
