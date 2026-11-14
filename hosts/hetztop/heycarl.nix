@@ -7,7 +7,10 @@
 {
   imports = [ (inputs.heycarl.outPath + "/nix/module.nix") ];
 
-  services.heycarl.enable = true;
+  services.heycarl = {
+    enable = true;
+    publicUrl = "https://hey.lillecarl.com";
+  };
 
   age.secrets.dex-client-hey.file = ../../secrets/dex-client-hey.age;
 
