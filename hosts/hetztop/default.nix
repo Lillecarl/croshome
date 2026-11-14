@@ -13,6 +13,7 @@
     ./pynixd.nix
     ./nix-gc.nix
     ./postgres.nix
+    ./remote-builder.nix
     ./secrets.nix
   ];
   config = {
