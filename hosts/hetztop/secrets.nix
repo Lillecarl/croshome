@@ -18,7 +18,10 @@
   age.secrets.dex-password-hash = {
     file = ../../secrets/dex-password-hash.age;
   };
-  systemd.services.dex.restartTriggers = [ config.age.secrets.dex-password-hash.file ];
+  # The content hash: the path itself is the same string in every generation.
+  systemd.services.dex.restartTriggers = [
+    (builtins.hashFile "sha256" config.age.secrets.dex-password-hash.file)
+  ];
 
   # The OAuth2 client secret the first app and dex share: dex reads it to
   # accept the login, the app's gate reads it to redeem that login.
