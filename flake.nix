@@ -165,6 +165,13 @@
       flake = false;
     };
 
+    # Bitwarden secrets for a command, released for a security key touch. A
+    # source tree like pyedit: its default.nix takes `pkgs`.
+    touchgate = {
+      url = "github:Lillecarl/touchgate";
+      flake = false;
+    };
+
     # The systemctl/journalctl reimplementation, from a source tree like
     # pyedit. Linux only in practice: it reads the journal and speaks D-Bus
     # directly, so ../home/linux/default.nix is the only place that installs

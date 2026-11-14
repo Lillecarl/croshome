@@ -11,6 +11,7 @@
     ../../home
     (inputs.aid.outPath + "/nix/home-manager.nix")
     ./aid-web.nix
+    ./touchgate.nix
   ];
 
   # aid runs from a dev profile: `devprofile deploy aid` builds croshome's

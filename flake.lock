@@ -493,7 +493,8 @@
         "pyjj": "pyjj",
         "pyproject-nix": "pyproject-nix",
         "pystemctl": "pystemctl",
-        "pyterm": "pyterm"
+        "pyterm": "pyterm",
+        "touchgate": "touchgate"
       }
     },
     "systems": {
@@ -523,6 +524,22 @@
       "original": {
         "owner": "nix-systems",
         "repo": "default",
+        "type": "github"
+      }
+    },
+    "touchgate": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794671077,
+        "narHash": "sha256-kztDrz0VMxMrDteAau5iiZbXhpS8+fFrPeaVlQfZho4=",
+        "owner": "Lillecarl",
+        "repo": "touchgate",
+        "rev": "c0d1398cb4e17897c21e563d9b6c0fdb8b336e9c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "repo": "touchgate",
         "type": "github"
       }
     },

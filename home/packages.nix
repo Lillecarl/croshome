@@ -132,6 +132,10 @@
       # before bash. In ../pkgs, because ../home/agents.nix links its skill.
       pyedit
 
+      # Secrets from Bitwarden for one command, after a YubiKey touch. In
+      # ../pkgs, because ../hosts/dynhetz/touchgate.nix wants it too.
+      touchgate
+
       # Privileged command queue: agents enqueue with `aisudo CMD...`, the
       # user drains with `aisudo run` (sudo for root). Same ../pkgs shape as
       # pyedit, so `nix build --file . pkgs.aisudo` reaches it without a host.

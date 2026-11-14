@@ -433,6 +433,12 @@ in
       aid-models = final.python3Packages.callPackage (inputs.aid.outPath + "/models/package.nix") { };
     }).pyedit;
 
+  # Bitwarden secrets for a command, once a security key touch approves the
+  # run. Here because two places want it: ../home/packages.nix installs the
+  # CLI on every machine (the Mac enrolls and unlocks with the YubiKey), and
+  # ../hosts/dynhetz/touchgate.nix runs the broker and links the pymux plugin.
+  touchgate = (import inputs.touchgate.outPath { pkgs = final; }).touchgate;
+
   # Phabricator and Phorge from the shell. Here rather than imported at each
   # use because two places want it: ../home/packages.nix installs the binary,
   # and ../home/agents.nix links the SKILL.md it ships at
