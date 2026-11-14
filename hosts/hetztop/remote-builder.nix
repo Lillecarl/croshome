@@ -1,4 +1,4 @@
-# dynhetz's pynixd as this machine's build machine.
+# dynhetz's pynixd as this machine's build machine and first substituter.
 #
 # The daemon logs in with this machine's SSH host key, which dynhetz admits as
 # an admin client (../dynhetz/pynixd.nix). The host key is there from the first
@@ -31,13 +31,15 @@ in
     }
   ];
 
-  # Fetch inputs on dynhetz too, rather than download them here first.
-  nix.settings.builders-use-substitutes = true;
-
-  # Not a substituter yet. This daemon (Nix 2.34) sends QueryRealisation in
-  # the old shape, pynixd refuses it, and Nix 2.34 aborts on that error reply
-  # (same root as nixidae/nixidae#1061). Once pynixd answers it, add
-  #   nix.settings.extra-substituters = [ "ssh-ng://hetztop@dynhetz.ch.se.eu.org:2234?ssh-key=${sshKey}&base64-ssh-public-host-key=${hostKey}&trusted=1&priority=2" ];
-  # `trusted=1` because pynixd does not sign; priority 2 asks it before
-  # cache.nixos.org (40).
+  nix.settings = {
+    # Fetch inputs on dynhetz too, rather than download them here first.
+    builders-use-substitutes = true;
+    # `trusted=1`: pynixd does not sign. Priority 2 asks dynhetz before
+    # cache.nixos.org (40). Needs a pynixd that answers an old-shape
+    # QueryRealisation (nixidae/nixidae#1354): this daemon is Nix 2.34 and
+    # aborts on the error an older pynixd sends.
+    extra-substituters = [
+      "ssh-ng://hetztop@dynhetz.ch.se.eu.org:2234?ssh-key=${sshKey}&base64-ssh-public-host-key=${hostKey}&trusted=1&priority=2"
+    ];
+  };
 }
