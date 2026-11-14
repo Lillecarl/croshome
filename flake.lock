@@ -530,11 +530,11 @@
     "touchgate": {
       "flake": false,
       "locked": {
-        "lastModified": 1794676638,
-        "narHash": "sha256-8KIo/so8VNbrxB3Ald6IUkXF+2hudE7JMvZIR8QeZMs=",
+        "lastModified": 1794678735,
+        "narHash": "sha256-koCD0Xq9CvNwBW9qefaoxU5QvHNdSIAe/FdcmwgIw8k=",
         "owner": "Lillecarl",
         "repo": "touchgate",
-        "rev": "8ef2223f97873e45be685c31b172700f208e5c17",
+        "rev": "2303a5a5720461d7912365ebd01aceb29e884344",
         "type": "github"
       },
       "original": {
