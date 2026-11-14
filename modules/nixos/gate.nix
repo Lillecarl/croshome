@@ -22,7 +22,12 @@
 # Everything the gates need from dex arrives through `idp`, and dex is this
 # module's too: registering an app here registers its OAuth2 client there and
 # hands it the same client secret the gate authenticates with.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.services.gate;
 
@@ -135,49 +140,99 @@ in
 
     apps = lib.mkOption {
       type = lib.types.attrsOf (
-        lib.types.submodule {
-          options = {
-            upstream = lib.mkOption {
-              type = lib.types.str;
-              description = ''
-                What the gate forwards an authenticated request to, in
-                oauth2-proxy's own syntax: `http://127.0.0.1:3000` for a
-                service, `file:///path` for a directory of static files, or
-                `static://200` for a placeholder that proves the gate works
-                before the app behind it exists.
+        lib.types.submodule (
+          { name, ... }:
+          {
+            options = {
+              host = lib.mkOption {
+                type = lib.types.str;
+                default = "${name}.${cfg.baseDomain}";
+                defaultText = lib.literalExpression ''"<name>.''${baseDomain}"'';
+                description = ''
+                  The app's public name. A name outside `baseDomain` needs its
+                  own A record to this host; the wildcard does not cover it.
+                '';
+                example = "hey.example.com";
+              };
 
-                A service here has to listen on loopback. Point this at
-                anything else and the gate is decoration.
-              '';
-              example = "http://127.0.0.1:3000";
+              upstream = lib.mkOption {
+                type = lib.types.str;
+                description = ''
+                  What the gate forwards an authenticated request to, in
+                  oauth2-proxy's own syntax: `http://127.0.0.1:3000` for a
+                  service, `file:///path` for a directory of static files, or
+                  `static://200` for a placeholder that proves the gate works
+                  before the app behind it exists.
+
+                  A service here has to listen on loopback. Point this at
+                  anything else and the gate is decoration.
+                '';
+                example = "http://127.0.0.1:3000";
+              };
+
+              clientSecretFile = lib.mkOption {
+                type = lib.types.path;
+                description = ''
+                  File holding this app's OAuth2 client secret: 32 random bytes,
+                  or any string, with no trailing newline. dex reads it when the
+                  gate redirects a login here, and the gate reads it to redeem
+                  that login, so both sides must be given this same file.
+                '';
+                example = "/run/agenix/dex-client-app";
+              };
+
+              allowedEmails = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                description = ''
+                  Addresses allowed through this app's gate, one per line in the
+                  list. Empty means any account dex knows, which on a dex with
+                  one password is one person anyway.
+
+                  This is per app and not global on purpose: it is how a later
+                  account can be given one app without being given all of them.
+                '';
+                example = [ "someone@example.com" ];
+              };
+
+              publicRoutes = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                description = ''
+                  Path regexes the gate passes on with no session
+                  (`--skip-auth-route`). Each one is a second way into the app,
+                  so the app must check its own secret on every such route.
+                  Anchor them: an unanchored regex matches inside other paths.
+
+                  They land on ExecStart, where systemd expands `$`, `%` and
+                  `\`. Write `[.]` for a literal dot and no `$` at the end.
+                '';
+                example = [ "^/api/public/" ];
+              };
+
+              apiRoutes = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                description = ''
+                  Path regexes that get 401 instead of a redirect to dex when the
+                  session is missing (`--api-route`). A script's fetch cannot
+                  follow a redirect to another origin, so it needs the status.
+                '';
+                example = [ "^/api/" ];
+              };
+
+              groups = lib.mkOption {
+                type = lib.types.listOf lib.types.str;
+                default = [ ];
+                description = ''
+                  Extra groups for the gate's process, to open an upstream unix
+                  socket (`unix:///run/app/app.sock`). A member of the group can
+                  reach the app without the gate, so the group holds the gate.
+                '';
+              };
             };
-
-            clientSecretFile = lib.mkOption {
-              type = lib.types.path;
-              description = ''
-                File holding this app's OAuth2 client secret: 32 random bytes,
-                or any string, with no trailing newline. dex reads it when the
-                gate redirects a login here, and the gate reads it to redeem
-                that login, so both sides must be given this same file.
-              '';
-              example = "/run/agenix/dex-client-app";
-            };
-
-            allowedEmails = lib.mkOption {
-              type = lib.types.listOf lib.types.str;
-              default = [ ];
-              description = ''
-                Addresses allowed through this app's gate, one per line in the
-                list. Empty means any account dex knows, which on a dex with
-                one password is one person anyway.
-
-                This is per app and not global on purpose: it is how a later
-                account can be given one app without being given all of them.
-              '';
-              example = [ "someone@example.com" ];
-            };
-          };
-        }
+          }
+        )
       );
       default = { };
       description = ''
@@ -194,16 +249,15 @@ in
       # 80 and 443. 80 is not optional: it is where the ACME challenge is
       # answered, and where a plain http:// request gets told to use https.
       openFirewall = true;
-      virtualHosts =
-        {
-          "dex.${cfg.baseDomain}".extraConfig = "reverse_proxy 127.0.0.1:${toString cfg.idp.port}";
+      virtualHosts = {
+        "dex.${cfg.baseDomain}".extraConfig = "reverse_proxy 127.0.0.1:${toString cfg.idp.port}";
+      }
+      // lib.mapAttrs' (
+        name: app:
+        lib.nameValuePair app.host {
+          extraConfig = "reverse_proxy 127.0.0.1:${toString (gatePort name)}";
         }
-        // lib.mapAttrs' (
-          name: _:
-          lib.nameValuePair "${name}.${cfg.baseDomain}" {
-            extraConfig = "reverse_proxy 127.0.0.1:${toString (gatePort name)}";
-          }
-        ) cfg.apps;
+      ) cfg.apps;
     };
 
     services.dex = {
@@ -236,9 +290,9 @@ in
         ];
         staticClients = lib.mapAttrsToList (name: app: {
           id = name;
-          name = "${name}.${cfg.baseDomain}";
+          name = app.host;
           secretFile = app.clientSecretFile;
-          redirectURIs = [ "https://${name}.${cfg.baseDomain}/oauth2/callback" ];
+          redirectURIs = [ "https://${app.host}/oauth2/callback" ];
         }) cfg.apps;
       };
     };
@@ -266,7 +320,7 @@ in
     // lib.mapAttrs' (
       name: app:
       lib.nameValuePair "gate-${name}" {
-        description = "OAuth2 gate in front of ${name}.${cfg.baseDomain}";
+        description = "OAuth2 gate in front of ${app.host}";
         wantedBy = [ "multi-user.target" ];
         # oauth2-proxy fetches discovery from the issuer before it listens, so
         # dex must be up first; the restart loop covers the race anyway.
@@ -277,6 +331,7 @@ in
         wants = [ "dex.service" ];
         serviceConfig = {
           DynamicUser = true;
+          SupplementaryGroups = app.groups;
           Restart = "on-failure";
           RestartSec = 2;
           # Both secrets arrive as systemd credentials, readable by the unit
@@ -286,9 +341,7 @@ in
             "cookie-secret:${cfg.cookieSecretFile}"
           ]
           ++ lib.optionals (app.allowedEmails != [ ]) [
-            "allowed-emails:${
-              pkgs.writeText "gate-${name}-allowed-emails" (lib.concatLines app.allowedEmails)
-            }"
+            "allowed-emails:${pkgs.writeText "gate-${name}-allowed-emails" (lib.concatLines app.allowedEmails)}"
           ];
           ExecStart = lib.concatStringsSep " " (
             [
@@ -302,7 +355,7 @@ in
               "--cookie-secure=true"
               "--http-address=127.0.0.1:${toString (gatePort name)}"
               "--upstream=${app.upstream}"
-              "--redirect-url=https://${name}.${cfg.baseDomain}/oauth2/callback"
+              "--redirect-url=https://${app.host}/oauth2/callback"
               # Caddy is in front, so the scheme and client address arrive in
               # X-Forwarded-* headers and are worth trusting: nothing but Caddy
               # can open this port. Naming the proxy explicitly matters --
@@ -318,6 +371,8 @@ in
               # and the only issuer this trusts is the dex above.
               "--insecure-oidc-allow-unverified-email=true"
             ]
+            ++ map (r: "--skip-auth-route=${lib.escapeShellArg r}") app.publicRoutes
+            ++ map (r: "--api-route=${lib.escapeShellArg r}") app.apiRoutes
             ++ lib.optionals (app.allowedEmails == [ ]) [ "--email-domain=*" ]
             ++ lib.optionals (app.allowedEmails != [ ]) [
               "--authenticated-emails-file=%d/allowed-emails"
