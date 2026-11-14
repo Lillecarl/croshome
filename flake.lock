@@ -244,6 +244,22 @@
         "type": "github"
       }
     },
+    "heycarl": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794689497,
+        "narHash": "sha256-xWV5WqYXUrPuneEHn4YTzPCeYB8yi9sdVVCS0qvar0w=",
+        "owner": "Lillecarl",
+        "repo": "heycarl",
+        "rev": "356cc420571bf7f21c67fc47faedf741df18f8dd",
+        "type": "github"
+      },
+      "original": {
+        "owner": "Lillecarl",
+        "repo": "heycarl",
+        "type": "github"
+      }
+    },
     "home-manager": {
       "inputs": {
         "nixpkgs": [
@@ -481,6 +497,7 @@
         "crane": "crane",
         "disko": "disko",
         "flake-compatish": "flake-compatish",
+        "heycarl": "heycarl",
         "home-manager": "home-manager",
         "llm-agents": "llm-agents",
         "nix-darwin": "nix-darwin",

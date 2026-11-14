@@ -189,6 +189,14 @@
       flake = false;
     };
 
+    # Hey Carl, the personal app framework hetztop serves at hey.lillecarl.com.
+    # A source tree: ./hosts/hetztop/heycarl.nix imports its NixOS module,
+    # which builds from this configuration's pkgs.
+    heycarl = {
+      url = "github:Lillecarl/heycarl";
+      flake = false;
+    };
+
     # Python bindings for Jujutsu, with a CLI and a TUI built on them.
     #
     # A source tree, and not a flake, for the same reason as nixidae above,
