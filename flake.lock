@@ -455,11 +455,11 @@
     "pyterm": {
       "flake": false,
       "locked": {
-        "lastModified": 1794580648,
-        "narHash": "sha256-0jIiNCxZzTdqQt0QsGj6fWquIvKxEznrQOoDUKV8VvA=",
+        "lastModified": 1794676611,
+        "narHash": "sha256-vALSWhCGqbMPDXj4wI3oW7t6Ig+cyBNnhmNslWht4Ow=",
         "ref": "refs/heads/main",
-        "rev": "d2e13bf7ae786f64ff6c89efa9fcf9d73166a58a",
-        "revCount": 4421,
+        "rev": "58afcd86ac5be20dbdc39ba59b0484d6b66ac2cb",
+        "revCount": 4430,
         "submodules": true,
         "type": "git",
         "url": "https://github.com/Lillecarl/pyterm"
@@ -530,11 +530,11 @@
     "touchgate": {
       "flake": false,
       "locked": {
-        "lastModified": 1794671077,
-        "narHash": "sha256-kztDrz0VMxMrDteAau5iiZbXhpS8+fFrPeaVlQfZho4=",
+        "lastModified": 1794676638,
+        "narHash": "sha256-8KIo/so8VNbrxB3Ald6IUkXF+2hudE7JMvZIR8QeZMs=",
         "owner": "Lillecarl",
         "repo": "touchgate",
-        "rev": "c0d1398cb4e17897c21e563d9b6c0fdb8b336e9c",
+        "rev": "8ef2223f97873e45be685c31b172700f208e5c17",
         "type": "github"
       },
       "original": {
