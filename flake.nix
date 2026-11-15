@@ -181,6 +181,15 @@
       flake = false;
     };
 
+    # Agent configuration with the Nix module system. Only
+    # ./hosts/dynhetz/runix-agent.nix reads it, so other hosts never fetch it.
+    # SSH, because the repository is private on Dynamist's GitLab: locking or
+    # updating this input needs a key that GitLab accepts.
+    runix-agent = {
+      url = "git+ssh://git@gitlab.dynamist.cloud/lia26/runix-agent";
+      flake = false;
+    };
+
     # The AI daemon: persistent ACP and native agents. A source tree like
     # pyedit; its default.nix also exports the home-manager module that
     # ./hosts/dynhetz/home.nix imports.

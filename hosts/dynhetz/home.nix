@@ -11,6 +11,7 @@
     ../../home
     (inputs.aid.outPath + "/nix/home-manager.nix")
     ./aid-web.nix
+    ./runix-agent.nix
     ./touchgate.nix
   ];
 

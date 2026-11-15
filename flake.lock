@@ -511,7 +511,24 @@
         "pyproject-nix": "pyproject-nix",
         "pystemctl": "pystemctl",
         "pyterm": "pyterm",
+        "runix-agent": "runix-agent",
         "touchgate": "touchgate"
+      }
+    },
+    "runix-agent": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1794675652,
+        "narHash": "sha256-362ojbEk17afGu1D9B6CLrnM9UYtoLoGC/hsnSj8LSE=",
+        "ref": "refs/heads/main",
+        "rev": "cdfe2c7b22201469f1506b0b0b5e6b29bd0b032b",
+        "revCount": 55,
+        "type": "git",
+        "url": "ssh://git@gitlab.dynamist.cloud/lia26/runix-agent"
+      },
+      "original": {
+        "type": "git",
+        "url": "ssh://git@gitlab.dynamist.cloud/lia26/runix-agent"
       }
     },
     "systems": {
