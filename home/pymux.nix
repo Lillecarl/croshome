@@ -65,18 +65,23 @@
       # phone, under 100 columns, gets the bytes down and up and no frame
       # rate: every number that moves costs it a redraw. A desktop gets
       # all of it: the frame rates (a window pane's own while one draws),
-      # the bytes down and up, the rate down and the time.
+      # the bytes down and up, the rate down, the peer links' rate down
+      # and the time. The client's rate is the local feed, which redraws
+      # a mirrored pane uncompressed; the link's, shown once a link
+      # carried anything, is what crosses the network, after zstd.
       status-right = builtins.concatStringsSep "" [
         " {% if client_width|int < 100 %}"
         "↓{{ client_bytes_down|int|filesizeformat }} ↑{{ client_bytes_up|int|filesizeformat }}"
         "{% else %}"
         "{{ client_fps }}{% if client_window_fps %} · {{ client_window_fps|replace(' fps', '') }} wl{% endif %}"
         " ↓{{ client_bytes_down|int|filesizeformat }} ↑{{ client_bytes_up|int|filesizeformat }}"
-        " {{ client_rate_down }} {{ now.strftime('%H:%M') }}"
+        " {{ client_rate_down }}"
+        "{% if link_bytes_down|int %} link {{ link_rate_down }}{% endif %}"
+        " {{ now.strftime('%H:%M') }}"
         "{% endif %} "
       ];
-      # The desktop line runs to about 47 cells.
-      status-right-length = 50;
+      # The desktop line runs to about 47 cells, 59 with a link.
+      status-right-length = 62;
       # pymux's jinja default without the program state after the name:
       # the message row over the pane says it, and the tabs stay short.
       window-status-format = "{{ window_index }}:{{ window_name or '(noname)' }}{{ window_status_flags }}";
