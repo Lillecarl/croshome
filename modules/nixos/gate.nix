@@ -276,7 +276,7 @@ in
       # limits sign-in attempts per address. Stock Caddy has no rate limit.
       package = pkgs.caddy.withPlugins {
         plugins = [ "github.com/mholt/caddy-ratelimit@v0.1.1-0.20260612195517-5625512f24f6" ];
-        hash = "sha256-un3EYnFin5o/HrW7yZlVTMWzWbYYNbL7wjuhWb37CC8=";
+        hash = "sha256-mfY+ldXq435FoilK6fdnwk7IXWvfNi74VRAs0FtCoAE=";
       };
       globalConfig = "order rate_limit before reverse_proxy";
       virtualHosts = {
