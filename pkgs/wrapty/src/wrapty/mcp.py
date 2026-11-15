@@ -6,11 +6,11 @@ Runs as a subprocess of the Claude Code session wrapty wrapped, so it
 inherits WAPTY_ID from the environment automatically -- there is exactly one
 session it could mean, so tools don't take a session id."""
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from wrapty.client import call, session_id
 
-mcp = FastMCP("wrapty")
+mcp = MCPServer("wrapty")
 
 
 def _session_id() -> str:

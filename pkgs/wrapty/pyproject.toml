@@ -7,7 +7,7 @@ name = "wrapty"
 version = "0.1.0"
 description = "Minimal PTY wrapper that forwards stdin to a wrapped process"
 requires-python = ">=3.9"
-dependencies = ["mcp", "json-rpc", "jinja2"]
+dependencies = ["mcp>=2", "json-rpc", "jinja2"]
 
 [project.scripts]
 # These command names are referenced by hand-written JSON outside this
