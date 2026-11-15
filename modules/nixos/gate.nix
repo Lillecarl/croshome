@@ -272,8 +272,37 @@ in
       # 80 and 443. 80 is not optional: it is where the ACME challenge is
       # answered, and where a plain http:// request gets told to use https.
       openFirewall = true;
+      # dex has one password per person and no lockout of its own, so Caddy
+      # limits sign-in attempts per address. Stock Caddy has no rate limit.
+      package = pkgs.caddy.withPlugins {
+        plugins = [ "github.com/mholt/caddy-ratelimit@v0.1.1-0.20260612195517-5625512f24f6" ];
+        hash = "sha256-un3EYnFin5o/HrW7yZlVTMWzWbYYNbL7wjuhWb37CC8=";
+      };
+      globalConfig = "order rate_limit before reverse_proxy";
       virtualHosts = {
-        "dex.${cfg.baseDomain}".extraConfig = "reverse_proxy 127.0.0.1:${toString cfg.idp.port}";
+        "dex.${cfg.baseDomain}".extraConfig = ''
+          rate_limit {
+            zone dex_login_minute {
+              match {
+                method POST
+                path /auth/*
+              }
+              key {remote_host}
+              events 10
+              window 1m
+            }
+            zone dex_login_day {
+              match {
+                method POST
+                path /auth/*
+              }
+              key {remote_host}
+              events 100
+              window 24h
+            }
+          }
+          reverse_proxy 127.0.0.1:${toString cfg.idp.port}
+        '';
       }
       // lib.mapAttrs' (
         name: app:
