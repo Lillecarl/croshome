@@ -4,7 +4,7 @@
   makeWrapper,
   playwright,
   playwright-stealth,
-  fastmcp,
+  mcp,
 }:
 buildPythonApplication {
   pname = "kagi-mcp";
@@ -13,7 +13,7 @@ buildPythonApplication {
   pyproject = true;
   build-system = [ hatchling ];
   dependencies = [
-    fastmcp
+    mcp
     playwright
     playwright-stealth
     playwright.driver.browsers

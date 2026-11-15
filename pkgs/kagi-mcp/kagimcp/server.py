@@ -4,11 +4,11 @@ import os
 import time
 from urllib.parse import quote_plus
 
-from fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 from playwright.async_api import async_playwright
 from playwright_stealth import Stealth
 
-mcp = FastMCP("kagi")
+mcp = MCPServer("kagi")
 
 _BROWSER_TTL = int(os.environ.get("KAGI_BROWSER_TTL", "30"))
 
