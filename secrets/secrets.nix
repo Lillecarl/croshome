@@ -311,6 +311,14 @@ in
     armor = true;
   };
 
+  "heycarl-google-token-key.age" = {
+    publicKeys = [
+      lillecarl-age
+      hetztop
+    ];
+    armor = true;
+  };
+
   # Adding another: name it here and in `age.secrets` in ./default.nix. Naming
   # it in only one of the two places is the usual mistake -- this file decides
   # who *can* decrypt, that file decides what actually gets decrypted and where
