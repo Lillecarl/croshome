@@ -33,6 +33,7 @@
     ./github.nix
     ./gpg.nix
     ./helix.nix
+    ./heycarl-mcp.nix
     ./k9s.nix
     ./kagi-mcp.nix
     ./mail.nix
