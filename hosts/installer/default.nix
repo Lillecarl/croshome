@@ -33,5 +33,29 @@
     password = "plsinstallmenow";
   };
 
+  # Size: nixos-anywhere copies the closure in over ssh, so the target needs
+  # no nixpkgs source, manuals or git. git alone drags in python3.
+  system.installer.channel.enable = false;
+  documentation = {
+    enable = lib.mkForce false;
+    doc.enable = lib.mkForce false;
+    man.enable = lib.mkForce false;
+    nixos.enable = lib.mkForce false;
+  };
+  programs.git.enable = lib.mkForce false;
+  # The flake registry pins nixpkgs to a 200M source copy.
+  nixpkgs.flake.setFlakeRegistry = false;
+  nixpkgs.flake.setNixPath = false;
+  # cifs-utils pulls in python3. A network share is no install target.
+  boot.supportedFilesystems.cifs = lib.mkForce false;
+  # nixos-rebuild-ng is python3 too. nixos-anywhere calls only nixos-install
+  # and nixos-generate-config, which stay.
+  system.tools.nixos-rebuild.enable = false;
+
+  # dhcpcd on every interface, in place of NetworkManager and ModemManager.
+  # Wi-Fi then needs wpa_supplicant by hand; wired is the target here.
+  networking.networkmanager.enable = lib.mkForce false;
+  networking.useDHCP = lib.mkForce true;
+
   system.stateVersion = lib.trivial.release;
 }
