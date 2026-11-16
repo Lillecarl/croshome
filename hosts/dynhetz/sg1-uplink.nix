@@ -29,6 +29,14 @@ let
     "4" = "L2jgy/vDwifd++ciAsR/k0hIapxCKsq8AGZ7M9tBkkc=";
     "5" = "Lqt9qN9MPXZbueD+ky+uxW5W0o5l8gxCrgI6JmRR91c=";
   };
+  # The tunnels: the nodes, and sg1-wgt (solid-kubernetes
+  # environments/sg1/nixos/modules/terminator-routing.nix), which takes over
+  # every node's tunnel as peer 9: one tunnel for all of SG1.
+  peers = nodes // {
+    "9" = "cZKsQKZZKUhes/aHWTbKE6n9f4qA3jJmiH2qTofK60Q=";
+  };
+  # Up to the highest index, not the count: indexes have gaps.
+  lastPort = 51820 + lib.foldl' lib.max 1 (map lib.toInt (lib.attrNames peers));
   names = {
     "1" = "sg1-n1";
     "2" = "sg1-n2";
@@ -89,14 +97,14 @@ in
       fi
       wg pubkey < private.key > public.key
       chmod 644 public.key
-      ${lib.concatStrings (lib.mapAttrsToList tunnel nodes)}
+      ${lib.concatStrings (lib.mapAttrsToList tunnel peers)}
     '';
   };
 
   networking.firewall.allowedUDPPortRanges = [
     {
       from = 51821;
-      to = 51820 + lib.length (lib.attrNames nodes);
+      to = lastPort;
     }
   ];
 
@@ -105,7 +113,9 @@ in
   # queue, BFD lost three probes and every node's session reset at once.
   # Shaping the outer WireGuard packets below that rate keeps the queue here,
   # under fq_codel. All tunnels share one class: they share one line.
-  systemd.services.sg1-shaper = {
+  # A restart deletes the qdisc, and the gap drops BFD on every session (sg1-router,
+  # 2026-11-16). Every command replaces in place, so a change reloads instead.
+  systemd.services.sg1-shaper = rec {
     description = "Shape WireGuard traffic to SG1 below its downlink";
     wantedBy = [ "multi-user.target" ];
     after = [ "network.target" ];
@@ -113,9 +123,15 @@ in
       Type = "oneshot";
       RemainAfterExit = true;
     };
+    reloadIfChanged = true;
+    reload = script;
     path = [ pkgs.iproute2 ];
     script = ''
-      tc qdisc replace dev eth0 root handle 1: htb default 10
+      # htb cannot change its root in place ("Change operation not
+      # supported", sg1-router 2026-11-16), so a reload makes it only
+      # where it is missing.
+      tc qdisc show dev eth0 root | grep -q '^qdisc htb 1:' \
+        || tc qdisc replace dev eth0 root handle 1: htb default 10
       # Everything else: above eth0's 1 Gbit, so htb never holds it back.
       # htb's computed burst (1600 bytes) undershoots at these rates.
       tc class replace dev eth0 parent 1: classid 1:10 htb rate 10gbit burst 64k cburst 64k
@@ -123,7 +139,7 @@ in
       tc qdisc replace dev eth0 parent 1:10 handle 10: fq_codel
       tc qdisc replace dev eth0 parent 1:20 handle 20: fq_codel
       tc filter replace dev eth0 parent 1: protocol ip prio 1 handle 1 flower \
-        ip_proto udp src_port 51821-${toString (51820 + lib.length (lib.attrNames nodes))} classid 1:20
+        ip_proto udp src_port 51821-${toString lastPort} classid 1:20
     '';
     preStop = "tc qdisc del dev eth0 root || true";
   };
@@ -220,6 +236,31 @@ in
      neighbor sg1-node6 bfd profile uplink
      bgp listen range 10.247.102.0/24 peer-group sg1-node4
      bgp listen range ${v6}:3::/112 peer-group sg1-node6
+     ! sg1-wgt carries all of SG1 over one tunnel. Its sessions ride out
+     ! loss instead of failing fast: no BFD, a long hold, graceful restart
+     ! and long-lived graceful restart (solid-kubernetes
+     ! environments/sg1/nixos/modules/terminator-routing.nix). Named
+     ! neighbors win over the listen ranges.
+     bgp graceful-restart restart-time 60
+     bgp graceful-restart stalepath-time 300
+     ! A restarted bgpd leaves the kernel's routes in place; without this
+     ! its OPEN says otherwise and the helper flushes at once.
+     bgp graceful-restart preserve-fw-state
+     ! A restarted bgpd picks no best path until every graceful-restart
+     ! peer sent End-of-RIB, 360 s by default: with sg1-wgt down, the
+     ! nodes would wait that long too.
+     bgp graceful-restart select-defer-time 10
+     bgp long-lived-graceful-restart stale-time 3600
+     neighbor sg1-ll4 peer-group
+     neighbor sg1-ll4 remote-as external
+     neighbor sg1-ll4 timers 20 120
+     neighbor sg1-ll4 graceful-restart
+     neighbor sg1-ll6 peer-group
+     neighbor sg1-ll6 remote-as external
+     neighbor sg1-ll6 timers 20 120
+     neighbor sg1-ll6 graceful-restart
+     neighbor 10.247.102.17 peer-group sg1-ll4
+     neighbor ${v6}:3::11 peer-group sg1-ll6
      address-family ipv4 unicast
       maximum-paths 8
       network 10.100.0.0/24
@@ -228,6 +269,9 @@ in
       ! environments/sg1/nixos/README.md, "Rollout", step 10).
       neighbor sg1-node4 route-map sg1-in4 in
       neighbor sg1-node4 route-map sg1-out4 out
+      neighbor sg1-ll4 activate
+      neighbor sg1-ll4 route-map sg1-in4 in
+      neighbor sg1-ll4 route-map sg1-out4 out
      exit-address-family
      address-family ipv6 unicast
       maximum-paths 8
@@ -235,6 +279,10 @@ in
       neighbor sg1-node6 default-originate
       neighbor sg1-node6 route-map sg1-in6 in
       neighbor sg1-node6 route-map announce-nothing out
+      neighbor sg1-ll6 activate
+      neighbor sg1-ll6 default-originate
+      neighbor sg1-ll6 route-map sg1-in6 in
+      neighbor sg1-ll6 route-map announce-nothing out
      exit-address-family
     !
   '';
