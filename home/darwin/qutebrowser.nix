@@ -8,10 +8,10 @@ let
   '';
 in
 {
-  # On trial as the main browser. The package comes from our fork, through
-  # the overlay. Its cask is disabled: it fails Gatekeeper.
+  # Disabled; the settings stay for a later trial. The package comes from our
+  # fork, through the overlay. Its cask is disabled: it fails Gatekeeper.
   programs.qutebrowser = {
-    enable = true;
+    enable = false;
     # `:set` writes autoconfig.yml; load it, so a setting tried at runtime
     # survives a restart until it moves here.
     loadAutoconfig = true;
