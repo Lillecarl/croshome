@@ -302,10 +302,6 @@ in
     else
       prev.vfkit;
 
-  vzvm = prev.vzvm.overrideAttrs (pattrs: {
-    patches = pattrs.patches or [ ] ++ [ ./vzvm-disk-cached.patch ];
-  });
-
   # Our fork, as pyterm builds it: the browser pyterm's checks judge. From
   # `prev`, since pyterm's build overrides this set's own qutebrowser.
   qutebrowser = (import inputs.pyterm { pkgs = prev; }).qutebrowser;
