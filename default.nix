@@ -149,6 +149,18 @@ rec {
       ];
     };
 
+  # x86_64-linux by default: the host this ISO boots is never the one
+  # evaluating it. `installerSystem { system = "aarch64-linux"; }` for ARM.
+  installer = (installerSystem { }).config.system.build.isoImage;
+  installerSystem =
+    {
+      system ? "x86_64-linux",
+    }:
+    inputs.nixpkgs.lib.nixosSystem {
+      inherit system;
+      modules = [ ./hosts/installer ];
+    };
+
   # ChromeOS runs home-manager on its own: there is no NixOS underneath to hang
   # it off, so this is the standalone entry point rather than a system.
   cros = crosHome { };
