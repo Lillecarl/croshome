@@ -1,34 +1,22 @@
-# Uplink for the SG1 lab cluster (Dynamist, sg1-nix): one WireGuard tunnel
-# per node, BGP over each. Self-contained so it can be deleted whole: it only
-# adds to options other files own (FRR config, NAT, firewall).
+# Uplink for the SG1 lab cluster (Dynamist): one WireGuard tunnel to
+# sg1-wgt, SG1's terminator (solid-kubernetes
+# environments/sg1/nixos/modules/terminator-routing.nix), with BGP over it.
+# Self-contained so it can be deleted whole: it only adds to options other
+# files own (FRR config, NAT, firewall).
 #
-# SG1's IPv4 egress and public IPv4 services go through sg1-router
-# (solid-kubernetes environments/sg1/nixos/README.md, "Rollout"). dynhetz
-# keeps SG1's IPv6, the VPN into SG1 and its own tunnel per node, which each
-# node dials over the internet.
-# sg1-nix environments/sg1/nixos/docs/networking.md has the design, and
-# modules/uplink.nix beside it the node side.
+# SG1's IPv4 egress and public IPv4 services go through sg1-router; dynhetz
+# gives the IPv6 default for its own /64, and the VPN into SG1. The nodes
+# have no tunnels: sg1-wgt picks the upstream by source.
 #
-# Per node n, k = 2(n-1): wg-sg1-n<n> listens on 51820+n, dynhetz holds
-# 10.247.102.k/31 and :a3:3::k/127, the node k+1. 10.247.102.254 and
-# :a3:3::fe sit on every tunnel, from when Cilium peered here; nothing
-# uses them now.
-#
-# One session per node and family, from the node's tunnel address. The
-# node's FRR announces its loopback and what Cilium on that node announces
-# to it: pods and LoadBalancer IPs (solid-kubernetes
-# environments/sg1/cilium-peering.nix).
+# The tunnel keeps the old per-node scheme as peer 9: wg-sg1-n9 listens on
+# 51829, dynhetz holds 10.247.102.16/31 and :a3:3::10/127. 10.247.102.254
+# and :a3:3::fe sit on it too; :a3:3::fe is where nixkube on SG1 reaches
+# nix-serve.
 { lib, pkgs, ... }:
 let
   v6 = "2a01:4f9:3071:11d7:a3";
-  nodes = {
-    "1" = "t6rrhXxLJV0XX/RX1sPKxIomKTN5M6RCIX7hccg2Wig=";
-    "2" = "yZUrMTeZio2zVkyeyp7yrsw8vRJPgasncknhHXg4F1c=";
-    "3" = "xPzI+dJ75sEeEF3IPeALv8RPPSM4Hk+IVyVN4JqLrik=";
-    # The GX10s (solid-kubernetes environments/sg1/nixos): gx10-1759, gx10-1a5f.
-    "4" = "L2jgy/vDwifd++ciAsR/k0hIapxCKsq8AGZ7M9tBkkc=";
-    "5" = "Lqt9qN9MPXZbueD+ky+uxW5W0o5l8gxCrgI6JmRR91c=";
-  };
+  peers."9" = "cZKsQKZZKUhes/aHWTbKE6n9f4qA3jJmiH2qTofK60Q=";
+  # Up to the highest index, not the count: indexes have gaps.
   names = {
     "1" = "sg1-n1";
     "2" = "sg1-n2";
@@ -89,53 +77,25 @@ in
       fi
       wg pubkey < private.key > public.key
       chmod 644 public.key
-      ${lib.concatStrings (lib.mapAttrsToList tunnel nodes)}
+      ${lib.concatStrings (lib.mapAttrsToList tunnel peers)}
+      # A tunnel that left `peers` stays up until removed.
+      for dev in $(ip -o link show type wireguard | grep -o 'wg-sg1-n[0-9]*'); do
+        case $dev in
+          ${lib.concatMapStringsSep "|" (n: "wg-sg1-n${n}") (lib.attrNames peers)}) ;;
+          *) ip link del "$dev" ;;
+        esac
+      done
     '';
   };
 
-  networking.firewall.allowedUDPPortRanges = [
-    {
-      from = 51821;
-      to = 51820 + lib.length (lib.attrNames nodes);
-    }
-  ];
+  networking.firewall.allowedUDPPorts = map (n: 51820 + lib.toInt n) (lib.attrNames peers);
 
-  # SG1's downlink is the bottleneck: about 480 Mbit/s through the tunnels
-  # (2 s curl from gx10-1759, 2026-10-24). A bulk download filled the ISP's
-  # queue, BFD lost three probes and every node's session reset at once.
-  # Shaping the outer WireGuard packets below that rate keeps the queue here,
-  # under fq_codel. All tunnels share one class: they share one line.
-  systemd.services.sg1-shaper = {
-    description = "Shape WireGuard traffic to SG1 below its downlink";
-    wantedBy = [ "multi-user.target" ];
-    after = [ "network.target" ];
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-    path = [ pkgs.iproute2 ];
-    script = ''
-      tc qdisc replace dev eth0 root handle 1: htb default 10
-      # Everything else: above eth0's 1 Gbit, so htb never holds it back.
-      # htb's computed burst (1600 bytes) undershoots at these rates.
-      tc class replace dev eth0 parent 1: classid 1:10 htb rate 10gbit burst 64k cburst 64k
-      tc class replace dev eth0 parent 1: classid 1:20 htb rate 450mbit ceil 450mbit burst 32k cburst 32k
-      tc qdisc replace dev eth0 parent 1:10 handle 10: fq_codel
-      tc qdisc replace dev eth0 parent 1:20 handle 20: fq_codel
-      tc filter replace dev eth0 parent 1: protocol ip prio 1 handle 1 flower \
-        ip_proto udp src_port 51821-${toString (51820 + lib.length (lib.attrNames nodes))} classid 1:20
-    '';
-    preStop = "tc qdisc del dev eth0 root || true";
-  };
   # 179 is BGP. 5000 is nix-serve: nixkube on sg1 substitutes from
   # dynhetz's store, as nixlab3 does, at the tunnel address a3:3:0:fe.
   networking.firewall.interfaces."wg-sg1+".allowedTCPPorts = [
     179
     5000
   ];
-  # BFD for the node sessions.
-  networking.firewall.interfaces."wg-sg1+".allowedUDPPorts = [ 3784 ];
-  services.frr.bfdd.enable = true;
 
   networking.nat.internalInterfaces = [ "wg-sg1+" ];
 
@@ -143,9 +103,9 @@ in
   # public IPv4, which sg1-router forwards (solid-kubernetes
   # environments/sg1/edge.nix): the nodes' IPv4 default is sg1-router, so a
   # DNAT here would be answered from the wrong address.
-  # Nothing reaches SG1 with this host's public IPv4 as its source: the nodes
-  # route 37.27.129.237, their WireGuard endpoint, out of eno1, so the reply
-  # never comes back through the tunnel. Measured: the VIP answered from
+  # Nothing reaches SG1 with this host's public IPv4 as its source: SG1's
+  # default is sg1-router, so the reply never comes back through the
+  # tunnel. Measured: the VIP answered from
   # 10.247.102.0 and timed out from 37.27.129.237 (2026-10-29). That source
   # is what a local connection to the public IPv4 gets, and the hairpin SNAT
   # above it gives too. 10.247.102.254 is on every tunnel. -I: before the
@@ -179,67 +139,59 @@ in
      match ip address prefix-list sg1-in4
     route-map sg1-in6 permit 10
      match ipv6 address prefix-list sg1-in6
-    ! The VPN (wireguard.nix), so a node whose default is sg1-router
-    ! answers the operator here, not by sg1-router, which drops it
-    ! (solid-kubernetes environments/sg1/nixos/README.md, "Rollout").
+    ! The VPN (wireguard.nix), so SG1 answers the operator here, not by
+    ! sg1-router, which drops it.
     ip prefix-list sg1-out4 seq 10 permit 10.100.0.0/24
     route-map sg1-out4 permit 10
      match ip address prefix-list sg1-out4
-    !
-    ! Must match the nodes' profile (solid-kubernetes
-    ! environments/sg1/nixos/modules/uplink.nix). Slow, because the
-    ! tunnels cross the internet.
-    bfd
-     profile uplink
-      receive-interval 1000
-      transmit-interval 1000
-    ! detect-multiplier 3 is FRR's default. Written out, frr-reload.py
-    ! sends the profile again on every reload.
     !
     router bgp 64512
      ! `frr defaults traditional` leaves this off, so a session that
      ! drops leaves no trace in the journal.
      bgp log-neighbor-changes
-     ! Each node announces the VIP from its own ASN; without this FRR keeps
-     ! one path and never spreads over the three.
-     bgp bestpath as-path multipath-relax
-     neighbor sg1-node4 peer-group
-     neighbor sg1-node4 remote-as external
-     neighbor sg1-node6 peer-group
-     neighbor sg1-node6 remote-as external
-     ! Both sides dial in. Without passive, FRR dials a peer that graceful
-     ! restart holds, and Cilium's host firewall drops it as world.
-     neighbor sg1-node4 passive
-     neighbor sg1-node6 passive
-     ! Both bfd lines, as `show running-config` has them. With the profile
-     ! line alone frr-reload.py deletes `bfd` on every reload, and every
-     ! node session resets (seen on the sg1 nodes, 2026-11-11).
-     neighbor sg1-node4 bfd
-     neighbor sg1-node4 bfd profile uplink
-     neighbor sg1-node6 bfd
-     neighbor sg1-node6 bfd profile uplink
-     bgp listen range 10.247.102.0/24 peer-group sg1-node4
-     bgp listen range ${v6}:3::/112 peer-group sg1-node6
+     ! sg1-wgt carries all of SG1 over one tunnel. Its sessions ride out
+     ! loss instead of failing fast: no BFD, a long hold, graceful restart
+     ! and long-lived graceful restart (solid-kubernetes
+     ! environments/sg1/nixos/modules/terminator-routing.nix).
+     bgp graceful-restart restart-time 60
+     bgp graceful-restart stalepath-time 300
+     ! A restarted bgpd leaves the kernel's routes in place; without this
+     ! its OPEN says otherwise and the helper flushes at once.
+     bgp graceful-restart preserve-fw-state
+     ! A restarted bgpd picks no best path until every graceful-restart
+     ! peer sent End-of-RIB, 360 s by default: with sg1-wgt down, the
+     ! nodes would wait that long too.
+     bgp graceful-restart select-defer-time 10
+     bgp long-lived-graceful-restart stale-time 3600
+     neighbor sg1-ll4 peer-group
+     neighbor sg1-ll4 remote-as external
+     neighbor sg1-ll4 timers 20 120
+     neighbor sg1-ll4 graceful-restart
+     neighbor sg1-ll6 peer-group
+     neighbor sg1-ll6 remote-as external
+     neighbor sg1-ll6 timers 20 120
+     neighbor sg1-ll6 graceful-restart
+     neighbor 10.247.102.17 peer-group sg1-ll4
+     neighbor ${v6}:3::11 peer-group sg1-ll6
      address-family ipv4 unicast
       maximum-paths 8
       network 10.100.0.0/24
-      neighbor sg1-node4 activate
-      ! No IPv4 default: the nodes take it from sg1-router (solid-kubernetes
-      ! environments/sg1/nixos/README.md, "Rollout", step 10).
-      neighbor sg1-node4 route-map sg1-in4 in
-      neighbor sg1-node4 route-map sg1-out4 out
+      ! No IPv4 default: SG1 takes it from sg1-router.
+      neighbor sg1-ll4 activate
+      neighbor sg1-ll4 route-map sg1-in4 in
+      neighbor sg1-ll4 route-map sg1-out4 out
      exit-address-family
      address-family ipv6 unicast
       maximum-paths 8
-      neighbor sg1-node6 activate
-      neighbor sg1-node6 default-originate
-      neighbor sg1-node6 route-map sg1-in6 in
-      neighbor sg1-node6 route-map announce-nothing out
+      neighbor sg1-ll6 activate
+      neighbor sg1-ll6 default-originate
+      neighbor sg1-ll6 route-map sg1-in6 in
+      neighbor sg1-ll6 route-map announce-nothing out
      exit-address-family
     !
   '';
 
-  # SSH straight to each node's loopback over its tunnel. The management
+  # SSH straight to each node's loopback through sg1-wgt. The management
   # addresses (10.247.101.x on the GX10s) answer only via oobtik and a jump.
   programs.ssh.knownHosts = lib.mapAttrs' (
     n: name:
