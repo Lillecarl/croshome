@@ -260,16 +260,21 @@ in
       # Builders on demand as EC2 spot instances (nixidae/nixidae#1198). A
       # build that needs `aws-spot` launches one; it installs pynixd at boot,
       # registers through the acceptor above with a one-time join token, and
-      # ends after 15 minutes with no build. The builder also powers itself
-      # off after 15 quiet minutes, so a dead dynhetz leaves nothing running.
+      # ends after 5 minutes with no build. The builder also powers itself off
+      # after 10 quiet minutes, so a dead dynhetz leaves nothing running.
       # Every resource carries pynixd-cloud-builder=true.
+      #
+      # `mandatory_features` while we test: only a build that asks for
+      # `aws-spot` launches a builder or runs on one. Drop it to let them
+      # take general load.
       provisioning = {
         provider = "ec2";
         acceptor_host = "dynhetz.ch.se.eu.org";
         acceptor_port = 2235;
         ec2 = {
           region = "eu-north-1";
-          # 4 vCPU x86 spot, about $0.03-0.05/h there on 2026-11-17.
+          # 4 vCPU spot there on 2026-11-17: x86 about $0.03-0.05/h,
+          # Graviton about $0.03-0.04/h.
           templates.spot-x86 = {
             instance_types = [
               "c7i.xlarge"
@@ -279,23 +284,45 @@ in
             ];
             root_gib = 64;
           };
+          templates.spot-arm = {
+            arch = "aarch64";
+            instance_types = [
+              "c7g.xlarge"
+              "m7g.xlarge"
+              "c8g.xlarge"
+              "c6g.xlarge"
+            ];
+            root_gib = 64;
+          };
         };
-        pools = [
-          {
-            name = "aws-x86";
-            template = "spot-x86";
-            systems = [ "x86_64-linux" ];
-            features = [ "aws-spot" ];
-            # Off: a build that needs no feature also fits this pool, so
-            # other agents' x86 builds launched builders and ran on them
-            # (nixidae/nixidae#1425). Back to 1 once a pool takes only its
-            # own features.
-            max_instances = 0;
-            slots = 4;
-            idle_seconds = 900;
-            launch_timeout = 1200;
-          }
-        ];
+        pools =
+          map
+            (
+              pool:
+              pool
+              // {
+                features = [ "aws-spot" ];
+                mandatory_features = [ "aws-spot" ];
+                # Off until the installer release carries the chown fix
+                # (nixidae/nixidae#1416); then 1.
+                max_instances = 0;
+                slots = 4;
+                idle_seconds = 300;
+                launch_timeout = 180;
+              }
+            )
+            [
+              {
+                name = "aws-x86";
+                template = "spot-x86";
+                systems = [ "x86_64-linux" ];
+              }
+              {
+                name = "aws-arm";
+                template = "spot-arm";
+                systems = [ "aarch64-linux" ];
+              }
+            ];
       };
 
       # HTTP binary cache for this machine's own daemons, first in their
