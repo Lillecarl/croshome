@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# Dump shitbox's contract (./contract.nix) as normalised JSON, or diff two dumps.
+#
+#   check-contract legacy  > old.json   # ~/Code/nixos flake, the running setup
+#   check-contract new     > new.json   # this repository's `shitbox`
+#   check-contract diff               # both, then diff them
+set -euo pipefail
+here=$(cd "$(dirname "$0")" && pwd)
+repo=$(cd "$here/../.." && pwd)
+legacy=${LEGACY_FLAKE:-$HOME/Code/nixos}
+
+normalise() {
+  # Hashes change on every rebuild; versions and contents are what matter.
+  sed -E 's|/nix/store/[a-z0-9]{32}-|/nix/store/HASH-|g' | jq -S .
+}
+
+dump() {
+  case $1 in
+    legacy)
+      FLAKE=$legacy nix eval --impure --json --expr "
+        let
+          f = builtins.getFlake \"$legacy\";
+          nixos = f.nixosConfigurations.shitbox;
+        in import $here/contract.nix {
+          inherit (nixos.pkgs) lib;
+          nixos = nixos.config;
+          home = f.homeConfigurations.\"lillecarl@shitbox\".config;
+        }"
+      ;;
+    new)
+      nix eval --impure --json --expr "
+        let
+          r = import $repo;
+          nixos = r.shitbox;
+        in import $here/contract.nix {
+          inherit (r) lib;
+          nixos = nixos.config;
+          home = nixos.config.home-manager.users.lillecarl;
+        }"
+      ;;
+    *) echo "usage: check-contract legacy|new|diff" >&2; exit 2 ;;
+  esac | normalise
+}
+
+case ${1:-diff} in
+  diff)
+    tmp=$(mktemp -d)
+    trap 'rm -rf "$tmp"' EXIT
+    dump legacy > "$tmp/legacy.json"
+    dump new > "$tmp/new.json"
+    diff -u "$tmp/legacy.json" "$tmp/new.json" && echo "contract: identical" >&2
+    ;;
+  *) dump "$1" ;;
+esac

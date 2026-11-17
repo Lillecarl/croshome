@@ -24,7 +24,7 @@ link adds nothing there. Do not delete it as a duplicate.
 
 ## Layout
 
-Four hosts, one configuration.
+Five hosts, one configuration.
 
 | Path            | What it is                                                     |
 | --------------- | -------------------------------------------------------------- |
@@ -32,6 +32,7 @@ Four hosts, one configuration.
 | `hosts/macbook` | nix-darwin. `./rebuild build\|switch`, or `ai-rebuild`.          |
 | `hosts/hetztop` | NixOS. `ai-rebuild`.                                            |
 | `hosts/dynhetz` | NixOS, dedicated server: Ryzen 7700, 64G, 2×1TB NVMe mirror. `ai-rebuild`. |
+| `hosts/shitbox` | NixOS desktop: niri, VFIO gaming VM. `ai-rebuild`. Disk and niri are pinned by `hosts/shitbox/contract.nix`; run `hosts/shitbox/check-contract` before activating. |
 | `hosts/cros`    | home-manager alone on ChromeOS. Deliberately small.             |
 | `home/`         | Shared home-manager config. macbook, hetztop and dynhetz import it. |
 | `home/darwin/`  | macOS only.                                                     |
@@ -41,7 +42,7 @@ Four hosts, one configuration.
 | `modules/home/` | home-manager option modules, imported by `home/default.nix`.     |
 | `profiles/nixos/` | Plain NixOS config shared by hosts. `base.nix` is what every NixOS host imports first. |
 
-`ai-rebuild` is NOPASSWD, for agents, on the three hosts that have it.
+`ai-rebuild` is NOPASSWD, for agents, on the four hosts that have it.
 
 ChromeOS has no wrapper script:
 

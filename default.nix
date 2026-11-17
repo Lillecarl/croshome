@@ -149,6 +149,16 @@ rec {
       ];
     };
 
+  # The desktop. x86_64-linux only, so no system argument.
+  shitbox = inputs.nixpkgs.lib.nixosSystem {
+    system = "x86_64-linux";
+    specialArgs = specialArgsFor "x86_64-linux";
+    modules = [
+      ./hosts/shitbox
+      (pkgsModule "x86_64-linux")
+    ];
+  };
+
   # x86_64-linux by default: the host this ISO boots is never the one
   # evaluating it. `installerSystem { system = "aarch64-linux"; }` for ARM.
   installer = (installerSystem { }).config.system.build.isoImage;

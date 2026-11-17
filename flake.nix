@@ -41,6 +41,14 @@
       url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+    # shitbox's compositor and the home-manager module its config is written
+    # in. Pinned to the revision ~/Code/nixos ran, so moving the host here
+    # does not also move niri; bump it on purpose, on its own.
+    niri = {
+      url = "github:sodiboo/niri-flake/cad5e606ba48f4ff0cc5236f2187fc27411b098e";
+      inputs.nixpkgs.follows = "nixpkgs";
+      inputs.nixpkgs-stable.follows = "nixpkgs-stable";
+    };
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       # Follows nixpkgs. This needs the installAgentSkills helper (nixpkgs

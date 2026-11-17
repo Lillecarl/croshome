@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# One-off, for moving shitbox off ~/Code/nixos: remove what its standalone
+# home-manager put in $HOME, so the home-manager this repository runs as a
+# NixOS module starts from a clean slate.
+#
+# The legacy setup left two kinds of symlink:
+#   - into its last generation's home-manager-files (ordinary home-manager)
+#   - into ~/Code/nixos/users/lillecarl/dotfiles, made by its `uglinker`
+#     and listed in ~/.local/linkstate
+# fish sources every file in conf.d, so a stale link there keeps running the
+# old configuration. Nothing else is touched: regular files, and links that
+# point anywhere else, stay.
+#
+#   retire-legacy-home          list what would go
+#   retire-legacy-home --apply  remove it, and the standalone profile links
+set -euo pipefail
+
+apply=false
+[ "${1:-}" = --apply ] && apply=true
+
+profile=$HOME/.local/state/nix/profiles/home-manager
+dotfiles=$HOME/Code/nixos/users/lillecarl/dotfiles
+
+if [ ! -e "$profile" ]; then
+  echo "no standalone home-manager profile at $profile; nothing to retire" >&2
+  exit 0
+fi
+files=$(readlink -f "$profile/home-files")
+
+# The old generation's own file list is the authority for store links:
+# every path it manages, followed to where it lands in $HOME.
+mapfile -t managed < <(cd "$files" && find . \( -type l -o -type f \) -printf '%P\n')
+
+candidates=()
+for rel in "${managed[@]}"; do
+  p=$HOME/$rel
+  [ -L "$p" ] || continue
+  case $(readlink "$p") in
+    /nix/store/*-home-manager-files/*) candidates+=("$p") ;;
+  esac
+done
+if [ -f "$HOME/.local/linkstate" ]; then
+  while IFS= read -r dst; do
+    [ -L "$dst" ] || continue
+    case $(readlink "$dst") in
+      "$dotfiles"/*) candidates+=("$dst") ;;
+    esac
+  done < <(jq -r '.[].dst' "$HOME/.local/linkstate")
+fi
+
+printf '%s\n' "${candidates[@]}" | sort -u > "${TMPDIR:-/tmp}/retire-legacy-home.list"
+n=$(wc -l < "${TMPDIR:-/tmp}/retire-legacy-home.list")
+echo "$n links from the legacy home-manager (list: ${TMPDIR:-/tmp}/retire-legacy-home.list)" >&2
+
+if ! $apply; then
+  sed 's/^/  /' "${TMPDIR:-/tmp}/retire-legacy-home.list" | head -40 >&2
+  [ "$n" -gt 40 ] && echo "  ..." >&2
+  echo "dry run; pass --apply to remove them" >&2
+  exit 0
+fi
+
+xargs -d '\n' rm -f < "${TMPDIR:-/tmp}/retire-legacy-home.list"
+rm -f "$HOME/.local/linkstate"
+# The profile and its generations: without them nothing can run the old
+# activate script again (the old niri config spawned it at every login).
+rm -f "$profile" "$profile"-*-link
+echo "removed $n links and the standalone home-manager profile" >&2
