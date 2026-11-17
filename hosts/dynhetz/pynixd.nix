@@ -286,7 +286,11 @@ in
             template = "spot-x86";
             systems = [ "x86_64-linux" ];
             features = [ "aws-spot" ];
-            max_instances = 1;
+            # Off: a build that needs no feature also fits this pool, so
+            # other agents' x86 builds launched builders and ran on them
+            # (nixidae/nixidae#1425). Back to 1 once a pool takes only its
+            # own features.
+            max_instances = 0;
             slots = 4;
             idle_seconds = 900;
             launch_timeout = 1200;
