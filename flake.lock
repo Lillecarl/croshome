@@ -247,11 +247,11 @@
     "heycarl": {
       "flake": false,
       "locked": {
-        "lastModified": 1794944442,
-        "narHash": "sha256-rwwmJG3u/NKpk1TqzQoYBI6qbuQhlqXf63X16WmGiTg=",
+        "lastModified": 1794945577,
+        "narHash": "sha256-gwtqxQLquMu/oYJrzprtk+e5QVzzmH4OROMHEL4lcUE=",
         "owner": "Lillecarl",
         "repo": "heycarl",
-        "rev": "e4ebd9346284e9ef8bcff2043a648bda32214f10",
+        "rev": "bae04e921262bf01769d103c6799bba462b5ec1a",
         "type": "github"
       },
       "original": {
