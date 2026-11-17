@@ -55,6 +55,8 @@
   # the token and chat allowlist live in aid-env.age beside DEEPSEEK_API_KEY,
   # which the daemon already sources as its environmentFile.
   age.secrets.aid-env.file = ../../secrets/aid-env.age;
+  # pynixd's AWS key for cloud builders (./pynixd.nix reads it as root).
+  age.secrets.pynixd-aws.file = ../../secrets/pynixd-aws.age;
   systemd.user.services.aid.Unit = {
     Requires = [ "agenix.service" ];
     After = [ "agenix.service" ];

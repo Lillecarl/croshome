@@ -246,6 +246,20 @@ in
     armor = true;
   };
 
+  # The access key of IAM user pynixd-cloud-builder (account 963529867168),
+  # as an AWS shared credentials file. Its inline policy only launches,
+  # tags and terminates instances tagged pynixd-cloud-builder=true in
+  # eu-north-1. ../hosts/dynhetz/home.nix decrypts it with home agenix; the
+  # system pynixd reads it as root (../hosts/dynhetz/pynixd.nix). Same
+  # recipients as aid-env.
+  "pynixd-aws.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl-ssh
+    ];
+    armor = true;
+  };
+
   # LiteLLM proxy environment: OPENCODE_ZEN_API_KEY and OPENCODE_GO_API_KEY
   # (copied from ~/.local/share/opencode/auth.json) plus LITELLM_MASTER_KEY
   # for the proxy's own auth, one KEY=value per line.

@@ -101,6 +101,15 @@ in
   # hangs, so `replace` needs this version.
   nix.package = pkgs.nixVersions.latest;
 
+  # The AWS key of IAM user pynixd-cloud-builder, decrypted by home agenix
+  # (./home.nix); the user lingers, so it is there at boot. pynixd asks for
+  # credentials at its first launch and asks again after a miss, so an
+  # early start before agenix is no failure.
+  systemd.services.pynixd.environment = {
+    AWS_SHARED_CREDENTIALS_FILE = "/run/user/1000/agenix/pynixd-aws";
+    AWS_CONFIG_FILE = "/run/user/1000/agenix/pynixd-aws";
+  };
+
   services.pynixd = {
     enable = true;
     # `replace`: pynixd takes /nix/var/nix/daemon-socket/socket and nix-daemon
@@ -245,6 +254,43 @@ in
         authorized_builder_keys = [
           "/etc/pynixd/builders/macbook.pub"
           "/etc/pynixd/builders/sg1.pub"
+        ];
+      };
+
+      # Builders on demand as EC2 spot instances (nixidae/nixidae#1198). A
+      # build that needs `aws-spot` launches one; it installs pynixd at boot,
+      # registers through the acceptor above with a one-time join token, and
+      # ends after 15 minutes with no build. The builder also powers itself
+      # off after 15 quiet minutes, so a dead dynhetz leaves nothing running.
+      # Every resource carries pynixd-cloud-builder=true.
+      provisioning = {
+        provider = "ec2";
+        acceptor_host = "dynhetz.ch.se.eu.org";
+        acceptor_port = 2235;
+        ec2 = {
+          region = "eu-north-1";
+          # 4 vCPU x86 spot, about $0.03-0.05/h there on 2026-11-17.
+          templates.spot-x86 = {
+            instance_types = [
+              "c7i.xlarge"
+              "m7a.xlarge"
+              "c6i.xlarge"
+              "c7a.xlarge"
+            ];
+            root_gib = 64;
+          };
+        };
+        pools = [
+          {
+            name = "aws-x86";
+            template = "spot-x86";
+            systems = [ "x86_64-linux" ];
+            features = [ "aws-spot" ];
+            max_instances = 1;
+            slots = 4;
+            idle_seconds = 900;
+            launch_timeout = 1200;
+          }
         ];
       };
 
