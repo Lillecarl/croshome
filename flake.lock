@@ -518,11 +518,11 @@
     "runix-agent": {
       "flake": false,
       "locked": {
-        "lastModified": 1794745995,
-        "narHash": "sha256-bAtk4QRj016qiiDmluGXndsFpe/MpCT6h+Y8pKlSYbg=",
+        "lastModified": 1794914355,
+        "narHash": "sha256-34t2e2kiM9w+2JgUaBeLtY+SUAjVu2NYTq5yLnGiaTg=",
         "ref": "refs/heads/main",
-        "rev": "0992d4b0c92f6784f1ad8a19eb005b519a69621b",
-        "revCount": 57,
+        "rev": "a8569c9228735139c7d07d0cc7258644ab43b499",
+        "revCount": 60,
         "type": "git",
         "url": "ssh://git@gitlab.dynamist.cloud/lia26/runix-agent"
       },
