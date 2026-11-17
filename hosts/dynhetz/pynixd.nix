@@ -303,9 +303,7 @@ in
               // {
                 features = [ "aws-spot" ];
                 mandatory_features = [ "aws-spot" ];
-                # Off until the installer release carries the chown fix
-                # (nixidae/nixidae#1416); then 1.
-                max_instances = 0;
+                max_instances = 1;
                 slots = 4;
                 idle_seconds = 300;
                 launch_timeout = 180;
