@@ -161,7 +161,7 @@ This repo uses **jj (Jujutsu)**. Never use `git` directly.
 
 - `pyjj`, not `jj`: the shared rule in `home/agents/shared/commits.md`
   (*pyjj first*) holds here. Load the **pyjj** skill before any version
-  control operation; the **jj** skill is the semantics reference.
+  control operation; its references cover jj semantics.
 - Prefer `pyjj commit -m "msg"` over `pyjj describe` when finishing a task.
 - Split a mixed working copy with `pyjj split <paths> -m '...'`, repeated. For
   finer-than-file granularity use `pyjj hunk`. `jj-hunk` is the fallback only.

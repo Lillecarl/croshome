@@ -163,11 +163,10 @@ let
   };
 
   # The skill pyjj-cli ships with itself, same convention: the package's
-  # own SKILL.md, linked rather than copied, so agents always read what
-  # the installed CLI teaches.
+  # own skill directory (SKILL.md, references/, scripts/), linked rather
+  # than copied, so agents always read what the installed CLI teaches.
   pyjjSkillLink = agentDir: {
     "${agentDir}/skills/pyjj".source = "${pkgs.pyjj-cli}/share/skills/pyjj-cli/pyjj";
-    "${agentDir}/skills/pyjj-octopus".source = "${pkgs.pyjj-cli}/share/skills/pyjj-cli/pyjj-octopus";
   };
 
   # The skill phabfive ships with itself, same convention again: the package's

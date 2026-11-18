@@ -75,9 +75,8 @@ One file holding two concerns in the same diff needs `pyjj hunk` (`list`, then
 
 User's own jj CLI, dogfooded here. Load the **pyjj** skill before the first VCS
 command of a session. Every jj operation goes through `pyjj`; hunk work through
-`pyjj hunk`, not `jj-hunk`. The **jj** skill stays the reference for jj
-semantics (revsets, filesets, workspaces); its commands map one-for-one onto
-`pyjj`, except `-T`, which takes Jinja2.
+`pyjj hunk`, not `jj-hunk`. The skill's references cover jj semantics
+(revsets, filesets, workspaces), verified against pyjj.
 
 Fall back to `jj` or `jj-hunk` only when pyjj lacks the command or flag, errors,
 or gives a wrong result. Say so in the reply. Every fallback is a pyjj bug

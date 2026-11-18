@@ -16,8 +16,8 @@ on.
 ## Version Control
 
 - Load the **pyjj** skill (`skill({ name: "pyjj" })`) before any VCS operation
-  and use `pyjj`, per *pyjj first* in the shared rules. The **jj** skill is the
-  semantics reference. Never call `git` directly.
+  and use `pyjj`, per *pyjj first* in the shared rules. Its references cover
+  jj semantics. Never call `git` directly.
 - A `.jj` folder means a jj repo: no git write operations. Read-only git-style
   queries (`git log`, `git diff`) the skill wraps safely.
 - **Subagents must not use VCS tools unless the user asked.** log, diff, show,
@@ -26,7 +26,7 @@ on.
   one: confirm with the user, state the context cost, and offer the
   alternative — current file state plus a targeted summary from the primary
   agent.
-- The exception is deliberate isolation: a subagent loading the jj skill *to
+- The exception is deliberate isolation: a subagent loading the pyjj skill *to
   keep* history out of the primary context is the good case.
 
 ## Task reuse
