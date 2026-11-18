@@ -14,10 +14,11 @@
 # nix-serve.
 { lib, pkgs, ... }:
 let
-  v6 = "2a01:4f9:3071:11d7:a3";
-  # SG1's floating /64 (solid-kubernetes environments/sg1/ipv6.nix): the
-  # tunnel addresses move there, beside the old ones until they go.
-  floating6 = "2a01:4f9:c01f:4a67:a3";
+  # SG1's underlay in its floating /64 (solid-kubernetes
+  # environments/sg1/ipv6.nix): node loopbacks at ::n, tunnels at :3::.
+  v6 = "2a01:4f9:c01f:4a67:a3";
+  # The tunnel's addresses in this host's own /64 before SG1 moved them.
+  old6 = "2a01:4f9:3071:11d7:a3";
   peers."9" = "cZKsQKZZKUhes/aHWTbKE6n9f4qA3jJmiH2qTofK60Q=";
   # Up to the highest index, not the count: indexes have gaps.
   names = {
@@ -52,8 +53,8 @@ let
       ip -6 addr replace ${v6}:3::${lib.toHexString k}/127 dev ${dev}
       ip addr replace 10.247.102.254/32 dev ${dev}
       ip -6 addr replace ${v6}:3::fe/128 dev ${dev} nodad
-      ip -6 addr replace ${floating6}:3::${lib.toHexString k}/127 dev ${dev}
-      ip -6 addr replace ${floating6}:3::fe/128 dev ${dev} nodad
+      ip -6 addr del ${old6}:3::${lib.toHexString k}/127 dev ${dev} 2>/dev/null || true
+      ip -6 addr del ${old6}:3::fe/128 dev ${dev} 2>/dev/null || true
       # FRR's IPv6 sessions need a link-local address; WireGuard has none.
       ip -6 addr replace fe80::1/64 dev ${dev}
       ip link set ${dev} up
@@ -178,7 +179,6 @@ in
      neighbor sg1-ll6 graceful-restart
      neighbor 10.247.102.17 peer-group sg1-ll4
      neighbor ${v6}:3::11 peer-group sg1-ll6
-     neighbor ${floating6}:3::11 peer-group sg1-ll6
      address-family ipv4 unicast
       maximum-paths 8
       network 10.100.0.0/24
