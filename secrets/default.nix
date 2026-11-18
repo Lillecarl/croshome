@@ -67,6 +67,7 @@
   # moving entries into host files would otherwise cost.
   #
   #   wg-dc1.key.age   ../hosts/macbook/default.nix   age.secrets.wg-dc1-key
+  #                    ../hosts/dynhetz/dc1.nix       age.secrets.wg-dc1-key
   #
   # While this stays empty the module adds nothing on a host that declares none
   # of its own: its whole `config` sits behind `mkIf (cfg.secrets != { })`, so

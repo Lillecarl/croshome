@@ -32,6 +32,7 @@
     ./nat64.nix
     ./sni-proxy.nix
     ./wireguard.nix
+    ./dc1.nix
     ./sg1-uplink.nix
     ./scan-access.nix
     ./aiscalate.nix

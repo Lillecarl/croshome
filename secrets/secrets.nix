@@ -61,6 +61,9 @@ let
   #   ssh 65.108.150.98 cat /etc/ssh/ssh_host_ed25519_key.pub
   hetztop = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM84ek07rVn/Bj5dvmrhk96xpzbR+FUVu3ob8rmBV9VX";
 
+  # /etc/ssh/ssh_host_ed25519_key.pub, read on dynhetz itself.
+  dynhetz = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBLqbOegjdwBDGBsxvt+eOjVPFVZShh2R3F8FHa3Ibmd";
+
   # The user SSH key that home-manager agenix uses on both macbook and
   # hetztop (and likely cros). This is `~/.ssh/id_ed25519` on those machines:
   #   ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4AwtWUz3usygb2J6owsUJs4X2yTchIGZyI+VDE76tF
@@ -139,11 +142,15 @@ in
   # which is exactly the property `lillecarl-age` exists to provide and would
   # have been quietly cancelled by listing both.
   #
-  # That leaves two readers, and it is worth being honest about which:
-  # `lillecarl-age`, whose passphrase has to still be known, and this Mac's
-  # host key, which does not survive the machine or a disk swap. The passphrase
-  # is therefore the thing that must not be lost -- a password manager, not a
-  # third weak recipient, is the fix for that.
+  # dynhetz is a recipient: User wants a permanent tunnel from it
+  # (../hosts/dynhetz/dc1.nix). It is a public-internet server too, so taking
+  # it yields this credential, as the hetztop paragraph warns. The difference
+  # is that dynhetz reads the key, and its host key below was read on the
+  # machine itself.
+  #
+  # The readers are `lillecarl-age`, whose passphrase has to still be known,
+  # and two host keys, which do not survive their machine or a disk swap. The
+  # passphrase is therefore the thing that must not be lost.
   #
   # `armor` keeps this ASCII rather than binary, so it diffs in git and can be
   # eyeballed. It has to agree with how the file was first written -- this one
@@ -154,6 +161,7 @@ in
     publicKeys = [
       lillecarl-age
       macbook
+      dynhetz
     ];
     armor = true;
   };
