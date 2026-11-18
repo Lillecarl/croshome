@@ -6,6 +6,8 @@
     ./ai-reboot.nix
     ./ai-rebuild.nix
     ./boot-guard.nix
+    ./initrd-wifi.nix
+    ./initrd-wireguard.nix
     ./btrfs.nix
     ./gate.nix
     ./installscript.nix
