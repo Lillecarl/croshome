@@ -98,6 +98,12 @@
       url = "github:ryantm/agenix";
       flake = false;
     };
+    # A source tree for the same reason as agenix. Its modules build
+    # sops-install-secrets with `pkgs.callPackage ../..`, so they need no flake.
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      flake = false;
+    };
     # Builds anyxonsh, vendored under ./pkgs/anyxonsh. Its build machinery
     # resolves Python dependencies flat through pyproject.nix rather than
     # through Nixpkgs' propagation -- see that tree's nix/bridge.nix for why.
