@@ -6,4 +6,5 @@
 {
   boot-guard = import ./boot-guard { inherit mkTest; };
   initrd-remote = import ./initrd-remote { inherit mkTest; };
+  remapper = import ./remapper { inherit mkTest; };
 }
