@@ -14,6 +14,7 @@
     ./cliphist.nix
     ./kitty.nix
     ./niri.nix
+    ./remapper.nix
     ./rofi.nix
     ./swaybg.nix
     ./swayidlelock.nix

@@ -38,6 +38,7 @@
     ./kagi-mcp.nix
     ./mail.nix
     ../modules/home/merged-file.nix
+    ../modules/home/remapper.nix
     ./opencode.nix
     ./packages.nix
     ./pyedit-mcp.nix
