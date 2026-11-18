@@ -185,6 +185,47 @@ base class or `Protocol` declaring the attribute with its default, then read
   both ways by a test (every attribute listed, every listed name exists).
   A `StrEnum` there would restate each name a second time.
 
+## Names the language already uses
+
+Don't use these as names (variables, parameters, attributes, functions,
+fields, modules) unless there is no better option. Shadowing a builtin
+breaks it for the rest of the scope, and every editor colours them as the
+language, so `type = ...` reads as a keyword. Pick the specific word instead:
+`kind` not `type`, `ident`/`user_id` not `id`, `items` not `list`, `path` not
+`file`, `pattern` not `match`.
+
+When an outside schema forces one (a JSON field `type`, an API's `id`), keep
+the Python name specific and map it: a pydantic `alias`, a dataclass
+converter. A trailing underscore (`type_`) is the last resort, not the first.
+
+Derived from Python 3.14 (`keyword.kwlist`, `keyword.softkwlist`,
+`dir(builtins)`), tree-sitter-python's `queries/highlights.scm`, and
+MagicPython (VS Code's grammar). Union of the three:
+
+- Keywords, a syntax error as a name: `False None True and as assert async
+  await break class continue def del elif else except finally for from global
+  if import in is lambda nonlocal not or pass raise return try while with
+  yield`
+- Soft keywords, legal and misleading: `match case type _`
+- Builtin types: `bool bytearray bytes classmethod complex dict float frozenset
+  int list memoryview object property range set slice staticmethod str super
+  tuple type`
+- Builtin functions: `abs aiter all anext any ascii bin breakpoint callable chr
+  compile delattr dir divmod enumerate eval exec filter format getattr globals
+  hasattr hash help hex id input isinstance issubclass iter len locals map max
+  min next oct open ord pow print repr reversed round setattr sorted sum vars
+  zip __import__`
+- Builtin constants and site names: `Ellipsis NotImplemented copyright credits
+  exit license quit`
+- By convention only: `self cls`, and `metaclass` in a class header
+- Python 2 builtins MagicPython still marks: `basestring cmp execfile file
+  intern long raw_input reduce reload unicode xrange`
+- Exception and warning classes (`Exception`, `ValueError`, `TimeoutError`, ...)
+  and dunder names (`__name__`, `__init__`, ...): never as your own names, only
+  as the language defines them.
+- Comment tags MagicPython highlights: `BUG FIXME HACK NOTE TODO XXX`. Not names;
+  use them in a comment only to mean that tag.
+
 ## Prefer pure functions when feasible
 
 A function that takes what it needs and returns a value, touching no state
