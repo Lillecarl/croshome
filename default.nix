@@ -199,6 +199,12 @@ rec {
       pkgs = pkgsFor system;
     };
 
+  # Guests on nixidae's own nixpkgs, not this configuration's: vivarium's
+  # guest modules set boot.initrd.systemd.enable, which this nixpkgs rejects.
+  tests = import ./tests {
+    inherit ((import inputs.nixidae { system = currentSystem; }).vivarium.lib) mkTest;
+  };
+
   hetztop-options = lib.pipe (pkgs.lib.optionAttrSetToDocList hetztop.options) [
     (lib.filter (v: v.visible && !v.internal))
     (lib.foldl' (
