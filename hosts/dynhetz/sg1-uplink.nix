@@ -4,9 +4,8 @@
 # Self-contained so it can be deleted whole: it only adds to options other
 # files own (FRR config, NAT, firewall).
 #
-# SG1's IPv4 egress and public IPv4 services go through sg1-router; dynhetz
-# gives the IPv6 default for its own /64, and the VPN into SG1. The nodes
-# have no tunnels: sg1-wgt picks the upstream by source.
+# SG1's egress and public services, IPv4 and IPv6, go through sg1-router;
+# dynhetz gives only the VPN into SG1. The nodes have no tunnels.
 #
 # The tunnel keeps the old per-node scheme as peer 9: wg-sg1-n9 listens on
 # 51829, dynhetz holds 10.247.102.16/31 and :a3:3::10/127. 10.247.102.254
@@ -129,7 +128,6 @@ in
     ip46tables -A FORWARD -o wg-sg1+ -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     ip46tables -A FORWARD -i wg-sg1+ -o eth0 -j ACCEPT
     ip46tables -A FORWARD -i eth0 -o wg-sg1+ -m state --state ESTABLISHED,RELATED -j ACCEPT
-    ip6tables -A FORWARD -i eth0 -o wg-sg1+ -d 2a01:4f9:3071:11d7:a2::/112 -j ACCEPT
     ip46tables -A FORWARD -i wg-dynhetz -o wg-sg1+ -j ACCEPT
     ip46tables -A FORWARD -i wg-sg1+ -o wg-dynhetz -j ACCEPT
   '';
@@ -140,11 +138,10 @@ in
   services.frr.config = lib.mkAfter ''
     ip prefix-list sg1-in4 seq 10 permit 10.247.100.0/24 le 32
     ip prefix-list sg1-in4 seq 20 permit 10.248.0.0/16 le 32
-    ipv6 prefix-list sg1-in6 seq 10 permit 2a01:4f9:3071:11d7:a0::/76 le 128
     route-map sg1-in4 permit 10
      match ip address prefix-list sg1-in4
-    route-map sg1-in6 permit 10
-     match ipv6 address prefix-list sg1-in6
+    ! SG1's IPv6 is routed by sg1-router, not here.
+    route-map sg1-in6 deny 10
     ! The VPN (wireguard.nix), so SG1 answers the operator here, not by
     ! sg1-router, which drops it.
     ip prefix-list sg1-out4 seq 10 permit 10.100.0.0/24
@@ -190,7 +187,6 @@ in
      address-family ipv6 unicast
       maximum-paths 8
       neighbor sg1-ll6 activate
-      neighbor sg1-ll6 default-originate
       neighbor sg1-ll6 route-map sg1-in6 in
       neighbor sg1-ll6 route-map announce-nothing out
      exit-address-family

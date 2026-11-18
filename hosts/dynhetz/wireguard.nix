@@ -34,12 +34,10 @@
 #
 #   2a01:4f9:3071:11d7:0090::/80  -- wg-dynhetz (this file). Only the
 #                                    /112 at ::90:: is actually in use.
-#   2a01:4f9:3071:11d7:00a0::/76  -- the SG1 cluster in the Dynamist lab
-#                                    (sg1-nix, docs/networking.md): pods
-#                                    :a0::/80, Services :a1::/112,
-#                                    LoadBalancers :a2::/112, fabric
-#                                    :a3::/80; a0 to af. Routed to oobtik
-#                                    over wg-dynhetz (oobtikNets below).
+#   2a01:4f9:3071:11d7:00a0::/76  -- free. SG1 numbered here until it
+#                                    moved to its own floating /64 on
+#                                    sg1-router (solid-kubernetes
+#                                    environments/sg1/ipv6.nix).
 #   2a01:4f9:3071:11d7:00b0::/80  -- pods of the single-node Kubernetes
 #                                    cluster on this host, on cni0. In
 #                                    use: ../dynhetz/kubernetes. That
@@ -216,9 +214,6 @@ let
     "10.247.35.0/24"
     "10.247.100.0/24"
     "10.248.0.0/16"
-    # SG1's IPv6 block: fabric, pods, Services, LoadBalancers. oobtik
-    # passes it to 100gtik and sends the lab's IPv6 default back in here.
-    "2a01:4f9:3071:11d7:a0::/76"
   ];
 
   peerLines = lib.concatMapStrings (p: ''
@@ -289,6 +284,8 @@ assert noCollision "IPv6" userV6;
       ${lib.concatMapStrings (net: ''
         ip route replace ${net} dev wg-dynhetz
       '') oobtikNets}
+      # The free :a0::/76 above: a route set before SG1 moved stays otherwise.
+      ip -6 route del 2a01:4f9:3071:11d7:a0::/76 dev wg-dynhetz 2>/dev/null || true
 
       # The per-user network. Both addresses are on the same interface, so the
       # kernel's connected routes carry each range without anything further.
