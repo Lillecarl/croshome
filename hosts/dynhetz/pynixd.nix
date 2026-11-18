@@ -104,7 +104,14 @@ in
   # The AWS key of IAM user pynixd-cloud-builder, an AWS shared credentials
   # file. Its inline policy only launches, tags and terminates instances
   # tagged pynixd-cloud-builder=true in eu-north-1.
+  #
+  # The same file holds profile `r2`: the Cloudflare R2 token the cold tier
+  # below uses (nixidae/nixidae#1417).
   sops.secrets.pynixd-aws = { };
+  # The cold tier signs what it uploads with this key. Public half:
+  # dynhetz-cold-1:5AkgT7+0BQGIPYS1/WjB1EYt+cjCHQyf3lzCeMwvZB8=
+  sops.secrets.pynixd-cold-key = { };
+  sops.secrets.pynixd-r2-endpoint = { };
   systemd.services.pynixd.environment = {
     AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.pynixd-aws.path;
     AWS_CONFIG_FILE = config.sops.secrets.pynixd-aws.path;
@@ -218,6 +225,25 @@ in
       # of them counted as missing and went to a builder: hours on the
       # GX10s for torch and magma (2026-11-02).
       stores.flox = httpCache "https://cache.flox.dev";
+
+      # The cold tier (nixidae/nixidae#1417): a path the GC would delete is
+      # uploaded here first, and a client that needs it again gets it back
+      # through pynixd. R2, EU jurisdiction, no egress fees.
+      stores.r2-cold = {
+        type = "s3-binary-cache";
+        bucket = "dynhetz-store";
+        # The endpoint names the Cloudflare account: a secret, not settings.
+        endpoint_file = config.sops.secrets.pynixd-r2-endpoint.path;
+        region = "auto";
+        addressing_style = "path";
+        profile = "r2";
+        secret_key = config.sops.secrets.pynixd-cold-key.path;
+        gc_cold = true;
+        # The bucket has no lifecycle rule, so nothing removes an object but
+        # a person: trust the record, and skip a HEAD per path before each
+        # delete.
+        gc_cold_verify = false;
+      };
 
       stores.nix-community-aarch64-linux = nixCommunity {
         host = "aarch64-build-box.nix-community.org";
