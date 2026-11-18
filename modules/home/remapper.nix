@@ -11,6 +11,11 @@ let
   package = cfg.package.withPlugins (
     ps: map (name: ps.${name}) (lib.attrNames cfg.settings.plugins or { })
   );
+  # The daemon validates the file at build time: a typo fails the switch, not the service.
+  checked = pkgs.runCommand "remapper.json" { raw = json.generate "remapper.json" cfg.settings; } ''
+    ${lib.getExe package} --check --config "$raw"
+    cp "$raw" $out
+  '';
 in
 {
   options.services.remapper = {
@@ -35,7 +40,7 @@ in
         After = [ "graphical-session.target" ];
       };
       Service = {
-        ExecStart = "${lib.getExe package} --verbose --config ${json.generate "remapper.json" cfg.settings}";
+        ExecStart = "${lib.getExe package} --verbose --config ${checked}";
         Restart = "always";
         RestartSec = 2;
       };
