@@ -41,21 +41,23 @@ in
           vendor = "2dc8";
           product = "310c";
         }
-      ];
-      # Through an evdev input, not USB: they never leave the host, so niri
-      # gets them back at once. Every node of each device.
-      forward = [
-        # K1301FN keyboard.
-        {
-          vendor = "1c4f";
-          product = "0083";
-        }
-        # Glorious Model D.
+        # Glorious Model D: QEMU's emulated USB mouse is polled every 8 ms,
+        # passthrough keeps its own 1000 Hz.
         {
           vendor = "258a";
           product = "0033";
         }
       ];
+      # The K1301FN keyboard reaches the VM through an evdev input and an
+      # emulated USB keyboard (8 ms polling), not USB passthrough: it never
+      # leaves the host, so niri gets it back at once. Every node of it.
+      forward = [
+        {
+          vendor = "1c4f";
+          product = "0083";
+        }
+      ];
+      usbHid = [ "keyboard" ];
       brightness = {
         primary = "BenQ XL2430T";
         follower = "XWU-CBA";
