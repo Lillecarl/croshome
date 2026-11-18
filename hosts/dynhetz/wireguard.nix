@@ -284,8 +284,6 @@ assert noCollision "IPv6" userV6;
       ${lib.concatMapStrings (net: ''
         ip route replace ${net} dev wg-dynhetz
       '') oobtikNets}
-      # The free :a0::/76 above: a route set before SG1 moved stays otherwise.
-      ip -6 route del 2a01:4f9:3071:11d7:a0::/76 dev wg-dynhetz 2>/dev/null || true
 
       # The per-user network. Both addresses are on the same interface, so the
       # kernel's connected routes carry each range without anything further.
