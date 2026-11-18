@@ -54,7 +54,7 @@ let
       port=${toString port}
       user=${account.userName}
       remote=${remoteName}
-      passfile=${config.age.secrets.migadu-pass.path}
+      passfile=${config.croshome.userSecrets.migadu-pass.path}
       file="''${SIEVE_FILE:-${selfStr}/home/sieve/postspace.sieve}"
 
       usage() {
@@ -167,7 +167,7 @@ let
       set -- ''${args[@]+"''${args[@]}"}
 
       # Usage answers before the secret is read, so `sieve --help` works on a
-      # host where agenix has not run yet. Every other command needs the
+      # host where the secret is not installed yet. Every other command needs the
       # server, so the guard covers all of them here.
       #
       # Not inside `sc`, which reads better but does not work: `active_script`
@@ -183,7 +183,7 @@ let
 
       if [ ! -r "$passfile" ]; then
         echo "sieve: cannot read $passfile" >&2
-        echo "sieve: home agenix writes it at activation -- run ai-rebuild" >&2
+        echo "sieve: system activation writes it -- run ai-rebuild" >&2
         exit 1
       fi
 

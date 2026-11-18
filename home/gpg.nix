@@ -40,8 +40,8 @@ in
   # This module only makes gpg and its agent exist and behave. It decrypts
   # nothing. The secret keys live in ../secrets as age files, and
   # ../secrets/pgp-import puts one into GnuPG. That is a one-time act per
-  # machine, so it is a script you run and not an activation step -- see
-  # ../secrets/README.md for why nothing here needs the agenix home module.
+  # machine, so it is a script you run and not an activation step: GnuPG keeps
+  # the key, so nothing needs to decrypt it at boot.
   programs.gpg = {
     enable = true;
 

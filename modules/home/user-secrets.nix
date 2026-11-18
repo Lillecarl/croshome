@@ -1,5 +1,6 @@
 # Secrets a home-manager module needs as a file. The system decrypts them
-# (../nixos/secrets.nix), so this module only declares and computes the path.
+# (../secrets.nix), so this module only declares and computes the path. With
+# no system underneath (cros), nothing decrypts them.
 {
   config,
   lib,

@@ -9,10 +9,7 @@
   # domain they host. One mailbox, carl@postspace.net: postspace.net is
   # linked to lillecarl.com, both domains carry a catch-all into that
   # mailbox, and every address under either domain is a sending identity.
-  # The password holds a placeholder until filled:
-  #
-  #   cd secrets && agenix -e migadu-pass.age -i identity.age
-  age.secrets.migadu-pass.file = ../secrets/migadu-pass.age;
+  croshome.userSecrets.migadu-pass = { };
 
   accounts.email.maildirBasePath = "mail";
 
@@ -22,7 +19,7 @@
     address = "carl@postspace.net";
     realName = "Carl";
     userName = "carl@postspace.net";
-    passwordCommand = "cat ${config.age.secrets.migadu-pass.path}";
+    passwordCommand = "cat ${config.croshome.userSecrets.migadu-pass.path}";
     imap = {
       host = "imap.migadu.com";
       port = 993;
@@ -61,16 +58,14 @@
 
   # Work mail on Google Workspace. Google accepts no account password over
   # IMAP or SMTP; this is an app password, which needs 2-Step Verification.
-  #
-  #   cd secrets && agenix -e dynamist-mail-pass.age
-  age.secrets.dynamist-mail-pass.file = ../secrets/dynamist-mail-pass.age;
+  croshome.userSecrets.dynamist-mail-pass = { };
 
   accounts.email.accounts.dynamist = {
     flavor = "gmail.com";
     address = "carl.andersson@dynamist.se";
     realName = "Carl Andersson";
     # Google shows app passwords in groups of four; the spaces are not part of it.
-    passwordCommand = "tr -d ' ' < ${config.age.secrets.dynamist-mail-pass.path}";
+    passwordCommand = "tr -d ' ' < ${config.croshome.userSecrets.dynamist-mail-pass.path}";
     # 587, not 465: Hetzner drops outbound 465 to Gmail as it does to Migadu.
     smtp.tls.useStartTls = true;
     folders = {

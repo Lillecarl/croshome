@@ -1,38 +1,16 @@
-# The secrets hetztop's hosting stack reads, and no others.
-#
-# They live here rather than in ../../secrets/default.nix because that file is
-# imported by every NixOS host: an entry there is an entry dynhetz declares,
-# decrypts and keeps in /run for nothing. See that file's comment on the same
-# split.
-#
-# Every one of these is read at system level, so each is encrypted to the host
-# key as well as to lillecarl-age: activation has no terminal and cannot answer
-# a passphrase. Adding one means naming it here, in ./secrets.nix under
-# ../../secrets for its recipients, and -- if a build reads it -- wherever it is
-# used.
-{ config, ... }:
+# The secrets hetztop's hosting stack reads, from
+# ../../secrets/sops/hosts/hetztop.yaml. heycarl's are in ./heycarl.nix and
+# the app role's password in ./postgres.nix, beside what reads them.
 {
   # bcrypt hash of the login password dex checks, no trailing newline, cost 10
-  # or more (`mkpasswd -m bcrypt -R 12`; its default is 5). Re-encrypting the
-  # file is enough: dex reads the hash only at start, so the switch restarts it.
-  age.secrets.dex-password-hash = {
-    file = ../../secrets/dex-password-hash.age;
-  };
-  # The content hash: the path itself is the same string in every generation.
-  systemd.services.dex.restartTriggers = [
-    (builtins.hashFile "sha256" config.age.secrets.dex-password-hash.file)
-  ];
+  # or more (`mkpasswd -m bcrypt -R 12`; its default is 5). dex reads it only
+  # at start.
+  sops.secrets.dex-password-hash.restartUnits = [ "dex.service" ];
 
   # The OAuth2 client secret the first app and dex share: dex reads it to
   # accept the login, the app's gate reads it to redeem that login.
-  age.secrets.dex-client-app = {
-    file = ../../secrets/dex-client-app.age;
-  };
+  sops.secrets.dex-client-app = { };
 
   # The key every gate on this host encrypts its session cookie with.
-  age.secrets.gate-cookie-secret = {
-    file = ../../secrets/gate-cookie-secret.age;
-  };
-
-  # Declared in ./postgres.nix, which is where the role that uses it is.
+  sops.secrets.gate-cookie-secret = { };
 }

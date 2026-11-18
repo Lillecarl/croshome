@@ -20,12 +20,13 @@
     inputs.disko.nixosModules.disko
     inputs.home-manager.nixosModules.home-manager
     ../../modules/nixos
-    ../../secrets
     ./podman.nix
     ./ollama.nix
     ./ttyd.nix
     ./terminfo.nix
   ];
+
+  croshome.secrets.enable = true;
 
   programs.fish.enable = true;
   users.users.lillecarl = {

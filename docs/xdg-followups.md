@@ -24,7 +24,7 @@ aid-web, `xdg-utils`), user-dirs.
   DE (headless `xdg-open https://...`). Ignored on macOS.
 - Trash spec + `trash-cli`: undo for `rm` in interactive shells. Needs an
   alias decision; not taken.
-- Secret Service: agenix files already cover this better headless (no
+- Secret Service: sops files already cover this better headless (no
   keyring-unlock problem). No action.
 
 ## Correctly N/A headless

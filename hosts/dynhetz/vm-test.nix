@@ -52,7 +52,7 @@
 # boot is ever reached.
 #
 # aarch64-linux rather than the real x86_64-linux target: none of what this
-# checks (disk layout, boot, agenix) is architecture-specific, and aarch64
+# checks (disk layout, boot, secrets) is architecture-specific, and aarch64
 # runs natively on the VZ builder instead of under Rosetta emulation. The
 # `requiredFeatures` extension drops disko's hard "kvm" + "nixos-test"
 # requirement: nothing in this environment offers hardware-accelerated

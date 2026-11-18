@@ -36,10 +36,8 @@
     pymuxPackage = (import inputs.pyterm { inherit pkgs; }).pymux;
     extraPackages = [ pkgs.claude-agent-acp ];
     environment.WRAPTY_DISABLE = "1";
-    # Model provider API keys (../../secrets/secrets.nix, aid-env.age). `%t`
-    # and not the secret's `path`: that holds a literal ${XDG_RUNTIME_DIR},
-    # which EnvironmentFile does not expand.
-    environmentFile = "%t/agenix/aid-env";
+    # Telegram and Discord tokens and chat allowlists, KEY=value lines.
+    environmentFile = config.croshome.userSecrets.aid-env.path;
     # Plugin directories (agents, instructions, tools, skills, daemon tasks),
     # ahead of the bundled ones. Your own go in the first, listed so they win a
     # name over aid's examples, at the pinned revision.
@@ -51,26 +49,20 @@
     # with the session's worker credentials. Needs the aid input at 8913f929+.
     allowWorkerCommand = true;
   };
-  # Telegram runs hosted in the daemon now (Lillecarl/aid in-process plugins):
-  # the token and chat allowlist live in aid-env.age beside DEEPSEEK_API_KEY,
-  # which the daemon already sources as its environmentFile.
-  age.secrets.aid-env.file = ../../secrets/aid-env.age;
   # pymux's Claude Code encourager (pyterm's pymux-ai), on the server Carl
   # attaches to here. It asks Claude Haiku whether an agent that stopped
   # could have gone on, and types the next step when it could. Its key is a
   # file the plugin reads at start, never the server's environment, which
-  # every pane inherits: ../../secrets/secrets.nix says why.
+  # every pane inherits: a Claude Code that finds ANTHROPIC_API_KEY bills the
+  # API instead of the subscription.
   programs.pymux.plugins = [ (import inputs.pyterm { inherit pkgs; }).pymux-ai ];
-  age.secrets.pymux-anthropic-key = {
-    file = ../../secrets/pymux-anthropic-key.age;
-    path = "${config.xdg.configHome}/pymux/anthropic-api-key";
+  croshome.userSecrets = {
+    aid-env.file = ../../secrets/sops/hosts/dynhetz.yaml;
+    litellm-env.file = ../../secrets/sops/hosts/dynhetz.yaml;
+    pymux-anthropic-key.file = ../../secrets/sops/hosts/dynhetz.yaml;
   };
-  # pynixd's AWS key for cloud builders (./pynixd.nix reads it as root).
-  age.secrets.pynixd-aws.file = ../../secrets/pynixd-aws.age;
-  systemd.user.services.aid.Unit = {
-    Requires = [ "agenix.service" ];
-    After = [ "agenix.service" ];
-  };
+  xdg.configFile."pymux/anthropic-api-key".source =
+    config.lib.file.mkOutOfStoreSymlink config.croshome.userSecrets.pymux-anthropic-key.path;
   # Off while aid is developed: an agent runs the daemon from ~/Code/aid on
   # the same state and runtime directories. Nothing starts the unit, and
   # aid-web talks to whichever daemon owns the socket.
@@ -111,24 +103,19 @@
   # LiteLLM proxy: one OpenAI-style endpoint on loopback :4000 in front of
   # the OpenCode subscriptions, so every agent CLI speaks the same API.
   # Models come from the file below (edit it to add more); keys come from
-  # the environment, never the store: ../../secrets/litellm-env.age
-  # decrypts with home agenix and lands as this service's EnvironmentFile.
+  # the environment, never the store: litellm-env in
+  # ../../secrets/sops/hosts/dynhetz.yaml is this service's EnvironmentFile.
   # Lists with: curl -H "Authorization: Bearer $LITELLM_MASTER_KEY"
   # localhost:4000/v1/models (key in the decrypted env file).
-  age.secrets.litellm-env.file = ../../secrets/litellm-env.age;
   systemd.user.services.litellm = {
     Unit.Description = "LiteLLM proxy (OpenCode Zen + Go on loopback)";
     Service = {
       ExecStart = "${pkgs.litellm}/bin/litellm --config ${config.xdg.configFile."litellm/config.yaml".source} --host 127.0.0.1 --port 4000";
-      EnvironmentFile = "%t/agenix/litellm-env";
+      EnvironmentFile = config.croshome.userSecrets.litellm-env.path;
       Restart = "always";
       RestartSec = "2";
     };
     Install.WantedBy = [ "default.target" ];
-    Unit = {
-      Requires = [ "agenix.service" ];
-      After = [ "agenix.service" ];
-    };
   };
   xdg.configFile."litellm/config.yaml".text = ''
     model_list:

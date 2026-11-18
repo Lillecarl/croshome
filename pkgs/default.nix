@@ -7,7 +7,7 @@
 ###   * It is applied by `pkgsFor` in ../default.nix, so every attribute here
 ###     exists on all three hosts -- cros included, which is otherwise kept
 ###     deliberately thin. Nix is lazy, so an attribute nothing references
-###     costs nothing; `agenix` is referenced only by the two system hosts.
+###     costs nothing.
 inputs: final: prev:
 let
   # Jool at 4.1.15 plus an unmerged upstream PR, because no released Jool
@@ -121,18 +121,9 @@ in
     src = joolSrc;
   });
 
-  # The agenix CLI, for `agenix -e` and `agenix -r`. Built from the input
-  # source tree rather than from nixpkgs, which has no `agenix` -- only
-  # `ragenix`, a separate Rust reimplementation with its own file format
-  # quirks. See ../flake.nix for why the input is `flake = false`.
-  #
-  # Here in the overlay and not inline in ../secrets/default.nix, so that
-  # `nix run --file . pkgs.agenix` resolves without evaluating a host -- which
-  # is what makes it reachable on a machine this configuration has never
-  # activated. It is the same derivation either way: `callPackage` against
-  # this package set, so it links the same `age` the module runs.
-  agenix = final.callPackage (inputs.agenix.outPath + "/pkgs/agenix.nix") { };
-
+  # `secrets`, the front end to ../secrets/sops. In the overlay so `nix run
+  # --file . pkgs.croshome-secrets` works on a machine this configuration has
+  # never activated.
   croshome-secrets = final.callPackage ./secrets { };
 
   claude-code =
@@ -180,8 +171,7 @@ in
   # from the flake inputs, following this repository's nixpkgs.
   #
   # In the overlay rather than a host file so `nix run --file . pkgs.anyxonsh`
-  # reaches it on a machine this configuration has never activated -- the same
-  # reasoning agenix has.
+  # reaches it on a machine this configuration has never activated.
   #
   # The arguments below are the upstream default shell, verbatim. mkAnyxonsh
   # is additive by design, so a later change here cannot silently lose one of

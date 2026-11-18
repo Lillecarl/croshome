@@ -26,22 +26,6 @@
         "type": "github"
       }
     },
-    "agenix": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1792369191,
-        "narHash": "sha256-Ptf4Drj8JYQDpNGEo9o+Tc7+hyjYxe+zrYO3J4jrYT4=",
-        "owner": "ryantm",
-        "repo": "agenix",
-        "rev": "847720f0e73a77ce6503b63fba6c357c742c28a7",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ryantm",
-        "repo": "agenix",
-        "type": "github"
-      }
-    },
     "agent-slack": {
       "flake": false,
       "locked": {
@@ -550,7 +534,6 @@
     "root": {
       "inputs": {
         "acpcli": "acpcli",
-        "agenix": "agenix",
         "agent-slack": "agent-slack",
         "aid": "aid",
         "bun2nix": "bun2nix",

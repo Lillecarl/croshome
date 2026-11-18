@@ -55,20 +55,16 @@
 
   # The app role's password. Nothing reads it yet -- the app does not exist --
   # but the role does, and a role without one cannot log in over loopback.
-  age.secrets.app-db-password = {
-    file = ../../secrets/app-db-password.age;
-  };
+  sops.secrets.app-db-password.restartUnits = [ "postgresql-app-password.service" ];
 
   systemd.services.postgresql-app-password = {
-    description = "Set the app role's password from its agenix secret";
+    description = "Set the app role's password from its sops secret";
     wantedBy = [ "multi-user.target" ];
     after = [
       "postgresql.service"
-      # agenix installs the secrets through activation scripts, and through
-      # these units where sysusers is on. Ordering against a unit that does not
-      # exist costs nothing.
-      "agenix-install-secrets.service"
-      "agenix-chown.service"
+      # sops-nix installs secrets in an activation script, and through this
+      # unit where sysusers is on. Ordering against a missing unit costs nothing.
+      "sops-install-secrets.service"
     ];
     requires = [ "postgresql.service" ];
     serviceConfig = {
@@ -81,7 +77,7 @@
     # the statement itself runs as postgres, where peer authentication is
     # satisfied.
     script = ''
-      printf "ALTER ROLE app PASSWORD '%s';\n" "$(cat ${config.age.secrets.app-db-password.path})" \
+      printf "ALTER ROLE app PASSWORD '%s';\n" "$(cat ${config.sops.secrets.app-db-password.path})" \
         | ${pkgs.util-linux}/bin/runuser -u postgres -- \
             ${config.services.postgresql.package}/bin/psql -v ON_ERROR_STOP=1 -tA -d postgres
     '';

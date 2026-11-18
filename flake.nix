@@ -73,10 +73,10 @@
     # this configuration calls, so it cannot follow develop until it takes
     # that entry point back.
     #
-    # A source tree, and not a flake, for the same reason as agenix below.
-    # Its `default.nix` takes `pkgs`, so this configuration's package set
-    # builds it and no second nixpkgs is instantiated. Its own flake exists to
-    # wrap that same file for people who want a flake.
+    # A source tree, and not a flake. Its `default.nix` takes `pkgs`, so this
+    # configuration's package set builds it and no second nixpkgs is
+    # instantiated. Its own flake exists to wrap that same file for people
+    # who want a flake.
     #
     # `github:` and not the `git@` SSH remote it is cloned from. The repository
     # is public, so this needs no key -- which matters for hetztop, and for any
@@ -85,21 +85,9 @@
       url = "github:Lillecarl/phabfive/nix-packaging";
       flake = false;
     };
-    # A source tree, and not a flake, for the same reason as agenix above --
-    # and here the reason is sharper. agenix pins its own `nixpkgs` to
-    # nixos-25.05 and does not follow ours, so evaluating its outputs would
-    # instantiate a second package set on a different release.
-    #
-    # Nothing is lost by it. Its flake states `nixosModules.age` and
-    # `darwinModules.age` as the same plain path, ./modules/age.nix, and builds
-    # its CLI with a bare `callPackage ./pkgs/agenix.nix`. ../secrets/default.nix
-    # reaches both directly.
-    agenix = {
-      url = "github:ryantm/agenix";
-      flake = false;
-    };
-    # A source tree for the same reason as agenix. Its modules build
-    # sops-install-secrets with `pkgs.callPackage ../..`, so they need no flake.
+    # A source tree, and not a flake: its flake pins its own nixpkgs, and its
+    # modules build sops-install-secrets with `pkgs.callPackage ../..` from
+    # ours. ../modules/secrets.nix imports them by path.
     sops-nix = {
       url = "github:Mic92/sops-nix";
       flake = false;

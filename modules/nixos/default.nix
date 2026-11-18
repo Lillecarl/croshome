@@ -13,6 +13,6 @@
     ./installscript.nix
     ./nix-gc-sudo.nix
     ./pynixd.nix
-    ./secrets.nix
+    ../secrets.nix
   ];
 }

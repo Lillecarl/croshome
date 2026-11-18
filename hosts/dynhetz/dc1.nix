@@ -1,12 +1,11 @@
 # A permanent tunnel into Dynamist's old datacenter, "dc1". The values are
-# nub's, recorded in ../../secrets/secrets.nix; the Mac runs the same tunnel
-# (../macbook/default.nix). dynhetz dials out and only originates traffic, so
-# the firewall needs nothing.
+# nub's; the Mac runs the same tunnel (../macbook/default.nix). dynhetz dials
+# out and only originates traffic, so the firewall needs nothing.
 { config, ... }:
 {
   # networkd reads PrivateKeyFile as the systemd-network user.
-  age.secrets.wg-dc1-key = {
-    file = ../../secrets/wg-dc1.key.age;
+  sops.secrets.wg-dc1-key = {
+    sopsFile = ../../secrets/sops/dc1.yaml;
     owner = "root";
     group = "systemd-network";
     mode = "0440";
@@ -18,7 +17,7 @@
       Name = "dc1";
     };
     wireguardConfig = {
-      PrivateKeyFile = config.age.secrets.wg-dc1-key.path;
+      PrivateKeyFile = config.sops.secrets.wg-dc1-key.path;
       # networkd adds no routes for AllowedIPs unless told which table.
       RouteTable = "main";
     };

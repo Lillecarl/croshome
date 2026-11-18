@@ -101,13 +101,13 @@ in
   # hangs, so `replace` needs this version.
   nix.package = pkgs.nixVersions.latest;
 
-  # The AWS key of IAM user pynixd-cloud-builder, decrypted by home agenix
-  # (./home.nix); the user lingers, so it is there at boot. pynixd asks for
-  # credentials at its first launch and asks again after a miss, so an
-  # early start before agenix is no failure.
+  # The AWS key of IAM user pynixd-cloud-builder, an AWS shared credentials
+  # file. Its inline policy only launches, tags and terminates instances
+  # tagged pynixd-cloud-builder=true in eu-north-1.
+  sops.secrets.pynixd-aws = { };
   systemd.services.pynixd.environment = {
-    AWS_SHARED_CREDENTIALS_FILE = "/run/user/1000/agenix/pynixd-aws";
-    AWS_CONFIG_FILE = "/run/user/1000/agenix/pynixd-aws";
+    AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.pynixd-aws.path;
+    AWS_CONFIG_FILE = config.sops.secrets.pynixd-aws.path;
   };
 
   services.pynixd = {

@@ -51,11 +51,8 @@ rec {
   # overlay: passing `pkgs` to `homeManagerConfiguration` makes it ignore the
   # `nixpkgs.*` options, so an overlay stated there would silently do nothing.
   #
-  # `./pkgs` takes `inputs` before `final: prev:`. Only one package in it needs
-  # them -- agenix, which is built from a `flake = false` source tree -- but the
-  # alternative was building that one somewhere else, and then `pkgs.agenix`
-  # would not exist. It has to be in the overlay for `nix run --file . pkgs.agenix`
-  # to resolve, and nixpkgs has no `agenix` of its own to fall back on.
+  # `./pkgs` takes `inputs` before `final: prev:`: packages there build from
+  # `flake = false` source trees.
   pkgsFor =
     system:
     import inputs.nixpkgs {

@@ -31,45 +31,27 @@
     # evaluation reads the path.
     /Users/lillecarl/Code/pymacdns/nix/darwin-module.nix
     ./pynixd.nix
-    ../../secrets
+    ../../modules/secrets.nix
   ];
 
   system.stateVersion = 7;
   system.primaryUser = "lillecarl";
 
+  croshome.secrets.enable = true;
+
   # The `dc1` WireGuard key, carried off `nub` before that machine was
-  # decommissioned. ../../secrets/secrets.nix says who may decrypt it and why
-  # it was moved rather than reissued.
+  # decommissioned; it is not reissuable on demand. wg-quick applies it at
+  # runtime through a generated PostUp calling `wg set`, so it never reaches
+  # the world-readable /etc/wireguard/dc1.conf.
   #
-  # Here and not in ../../secrets/default.nix, which is the file that documents
-  # the shape of these entries. Both this host and hetztop import that file, so
-  # an entry there is an entry on both, and hetztop has no use for this key --
-  # it would decrypt it every activation and place it for nothing.
-  #
-  # No `path`, so it lands at /run/agenix/wg-dc1-key, and that is where it
-  # should stay. There is no nix-darwin counterpart to `networking.wireguard`;
-  # the darwin option is `networking.wg-quick.interfaces`, which never writes
-  # the key into its world-readable /etc/wireguard/dc1.conf -- it applies
-  # `privateKeyFile` at runtime through a generated PostUp calling `wg set`. So
-  # pointing that at `config.age.secrets.wg-dc1-key.path` is enough and a
-  # custom location buys nothing.
-  #
-  # Nothing brings the tunnel up yet. When something does, expect an ordering
-  # hazard: wg-quick's launchd daemon and agenix's activate-agenix daemon are
-  # both RunAtLoad with nothing sequencing them, so on a cold boot wg-quick can
-  # start before the secret is on the ramdisk. Its KeepAlive should retry it
-  # into success -- worth confirming with a real reboot rather than assuming.
-  # Verified against nub before that machine's tunnel came down: the running
-  # interface's public key, the key derived from /etc/wireguard/dc1.key, and
-  # the key derived from decrypting this file all agreed. The first of those
-  # three was perishable and is now unrepeatable.
-  age.secrets.wg-dc1-key.file = ../../secrets/wg-dc1.key.age;
+  # Nothing brings the tunnel up yet. When something does, check a cold boot:
+  # wg-quick's launchd daemon and the secret install are not ordered.
+  sops.secrets.wg-dc1-key.sopsFile = ../../secrets/sops/dc1.yaml;
 
   # The dc1 tunnel, rewritten rather than copied. nub used
   # `networking.wireguard.interfaces.dc1`, which nix-darwin does not have --
   # `networking.wg-quick.interfaces` is the only WireGuard option here. The
-  # values were recorded off nub in ../../secrets/secrets.nix before that
-  # machine lost the tunnel.
+  # values were recorded off nub before that machine lost the tunnel.
   #
   # This runs wireguard-go in userspace over a utun device, because macOS has
   # no in-kernel WireGuard. Expect worse throughput and more CPU than nub had.
@@ -79,7 +61,7 @@
     # Read at runtime and never written into the config file: the module
     # applies it through a generated PostUp calling `wg set`, so the key stays
     # out of /etc/wireguard/dc1.conf, which is world readable.
-    privateKeyFile = config.age.secrets.wg-dc1-key.path;
+    privateKeyFile = config.sops.secrets.wg-dc1-key.path;
 
     # Deliberately unset. See the resolver entry below for what replaces it.
     dns = [ ];

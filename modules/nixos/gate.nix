@@ -92,7 +92,7 @@ in
         knows one of these keys knows all of them only because they already had
         to read this file to get it.
       '';
-      example = "/run/agenix/gate-cookie-secret";
+      example = "/run/secrets/gate-cookie-secret";
     };
 
     idp = {
@@ -122,7 +122,7 @@ in
           `mkpasswd -m bcrypt` prints it, and nothing else -- no trailing
           newline, since it is pasted into a YAML value.
 
-          It is a secret and belongs on agenix's ramdisk. Changing it means
+          It is a secret and belongs on the sops ramdisk. Changing it means
           re-encrypting the file and restarting dex; nothing here notices on
           its own.
         '';
@@ -201,7 +201,7 @@ in
                   gate redirects a login here, and the gate reads it to redeem
                   that login, so both sides must be given this same file.
                 '';
-                example = "/run/agenix/dex-client-app";
+                example = "/run/secrets/dex-client-app";
               };
 
               allowedEmails = lib.mkOption {
@@ -359,7 +359,7 @@ in
       # sqlite, and dex runs as a dynamic user: without a state directory its
       # database has nowhere to live that survives a restart.
       #
-      # The client secrets, and the password hash, are on agenix's ramdisk
+      # The client secrets, and the password hash, are on the sops ramdisk
       # rather than under /etc so that nothing is decrypted onto a disk.
       # dex's own sandbox sees /nix/store, /etc and not much else -- and needs
       # no more than that, because the substitution below happens with `+`,

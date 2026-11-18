@@ -16,23 +16,25 @@ in
     oidc = {
       issuer = "https://dex.${gate.baseDomain}";
       clientId = "hey";
-      clientSecretFile = config.age.secrets.dex-client-hey.path;
+      clientSecretFile = config.sops.secrets.dex-client-hey.path;
     };
     google = {
       clientId = "665224742694-e858j6m96c80r9hp1h0u70purmsc8raa.apps.googleusercontent.com";
-      clientSecretFile = config.age.secrets.heycarl-google-client.path;
-      tokenKeyFile = config.age.secrets.heycarl-google-token-key.path;
+      clientSecretFile = config.sops.secrets.heycarl-google-client.path;
+      tokenKeyFile = config.sops.secrets.heycarl-google-token-key.path;
     };
     allowedEmails = [ gate.idp.email ];
     caddy.enable = true;
   };
 
-  age.secrets.dex-client-hey.file = ../../secrets/dex-client-hey.age;
-  age.secrets.heycarl-google-client.file = ../../secrets/heycarl-google-client.age;
-  age.secrets.heycarl-google-token-key.file = ../../secrets/heycarl-google-token-key.age;
+  sops.secrets = {
+    dex-client-hey = { };
+    heycarl-google-client = { };
+    heycarl-google-token-key = { };
+  };
 
   services.gate.idp.clients.hey = {
     redirectURIs = [ "https://hey.lillecarl.com/auth/callback" ];
-    secretFile = config.age.secrets.dex-client-hey.path;
+    secretFile = config.sops.secrets.dex-client-hey.path;
   };
 }

@@ -41,7 +41,6 @@
     ./pipewire.nix
     ./xdg-user-dirs.nix
     ./dynusers.nix
-    ./sops-trial.nix
   ];
   config = {
     # No GPU here: this puts Mesa in /run/opengl-driver, so a GL program

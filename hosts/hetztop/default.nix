@@ -62,12 +62,12 @@
       enable = true;
       baseDomain = "snurr.lillecarl.com";
       acmeEmail = "git@lillecarl.com";
-      cookieSecretFile = config.age.secrets.gate-cookie-secret.path;
+      cookieSecretFile = config.sops.secrets.gate-cookie-secret.path;
       idp = {
         # The login dex checks, not a mailbox: nothing is ever sent to it.
         email = "git@lillecarl.com";
         username = "lillecarl";
-        passwordHashFile = config.age.secrets.dex-password-hash.path;
+        passwordHashFile = config.sops.secrets.dex-password-hash.path;
       };
       apps.app = {
         # Nothing serves this yet. A static 200 is what an authenticated
@@ -75,7 +75,7 @@
         # before the webapp exists; point it at the app's loopback address --
         # `http://127.0.0.1:3000` -- when there is one.
         upstream = "static://200";
-        clientSecretFile = config.age.secrets.dex-client-app.path;
+        clientSecretFile = config.sops.secrets.dex-client-app.path;
       };
     };
 
