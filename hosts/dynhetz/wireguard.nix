@@ -145,6 +145,11 @@ let
       owner = "lillecarl";
       device = "phone";
     }
+    {
+      name = "lillecarl-shitbox";
+      owner = "lillecarl";
+      device = "shitbox";
+    }
   ];
 
   # Every peer: name (hashed into its addresses), owner (whose home gets
