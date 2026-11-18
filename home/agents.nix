@@ -167,6 +167,7 @@ let
   # the installed CLI teaches.
   pyjjSkillLink = agentDir: {
     "${agentDir}/skills/pyjj".source = "${pkgs.pyjj-cli}/share/skills/pyjj-cli/pyjj";
+    "${agentDir}/skills/pyjj-octopus".source = "${pkgs.pyjj-cli}/share/skills/pyjj-cli/pyjj-octopus";
   };
 
   # The skill phabfive ships with itself, same convention again: the package's
