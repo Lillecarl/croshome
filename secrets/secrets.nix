@@ -254,6 +254,20 @@ in
     armor = true;
   };
 
+  # The Anthropic API key the pymux server's Claude Code encourager uses
+  # (pyterm's pymux-ai), the key alone with no newline. ../hosts/dynhetz/home.nix
+  # decrypts it with home agenix to ~/.config/pymux/anthropic-api-key, where
+  # the plugin reads it. Not an EnvironmentFile: every pane inherits the
+  # server's environment, and a Claude Code that finds ANTHROPIC_API_KEY
+  # bills the API instead of the subscription. Same recipients as aid-env.
+  "pymux-anthropic-key.age" = {
+    publicKeys = [
+      lillecarl-age
+      lillecarl-ssh
+    ];
+    armor = true;
+  };
+
   # The access key of IAM user pynixd-cloud-builder (account 963529867168),
   # as an AWS shared credentials file. Its inline policy only launches,
   # tags and terminates instances tagged pynixd-cloud-builder=true in

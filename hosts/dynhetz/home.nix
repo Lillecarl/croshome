@@ -55,6 +55,16 @@
   # the token and chat allowlist live in aid-env.age beside DEEPSEEK_API_KEY,
   # which the daemon already sources as its environmentFile.
   age.secrets.aid-env.file = ../../secrets/aid-env.age;
+  # pymux's Claude Code encourager (pyterm's pymux-ai), on the server Carl
+  # attaches to here. It asks Claude Haiku whether an agent that stopped
+  # could have gone on, and types the next step when it could. Its key is a
+  # file the plugin reads at start, never the server's environment, which
+  # every pane inherits: ../../secrets/secrets.nix says why.
+  programs.pymux.plugins = [ (import inputs.pyterm { inherit pkgs; }).pymux-ai ];
+  age.secrets.pymux-anthropic-key = {
+    file = ../../secrets/pymux-anthropic-key.age;
+    path = "${config.xdg.configHome}/pymux/anthropic-api-key";
+  };
   # pynixd's AWS key for cloud builders (./pynixd.nix reads it as root).
   age.secrets.pynixd-aws.file = ../../secrets/pynixd-aws.age;
   systemd.user.services.aid.Unit = {
