@@ -1,4 +1,4 @@
-"""Grab every event node that matches, each time it appears."""
+"""Serve every event node that matches, each time it appears."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from evdev import InputDevice, ecodes
 from .config import code
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Sequence
 
     from evdev import InputEvent
 
@@ -34,13 +34,13 @@ def matches(dev: InputDevice, match: Match) -> bool:
     return all(code(k) in keys for k in match.keys)
 
 
-def open_matching(node: str, match: Match) -> InputDevice | None:
+def open_matching(node: str, wanted: Sequence[Match]) -> InputDevice | None:
     try:
         dev = InputDevice(node)
     except OSError:
         # Gone again already, or a node this user may not read.
         return None
-    if matches(dev, match):
+    if any(matches(dev, m) for m in wanted):
         return dev
     dev.close()
     return None
@@ -64,9 +64,8 @@ async def grab(dev: InputDevice) -> None:
             return
 
 
-async def read_grabbed(dev: InputDevice, handle: Callable[[InputEvent], None]) -> None:
-    """Hand each of the node's events to `handle`, grabbed, until it is unplugged."""
-    await grab(dev)
+async def read(dev: InputDevice, handle: Callable[[InputEvent], None]) -> None:
+    """Hand each of the node's events to `handle` until it is unplugged."""
     while True:
         await anyio.wait_readable(dev.fd)
         try:
@@ -81,7 +80,9 @@ async def read_grabbed(dev: InputDevice, handle: Callable[[InputEvent], None]) -
             handle(event)
 
 
-async def watch(match: Match, serve: Callable[[InputDevice], Awaitable[None]]) -> None:
+async def watch(
+    wanted: Sequence[Match], serve: Callable[[InputDevice], Awaitable[None]]
+) -> None:
     """Run `serve` on each matching node while it exists. Never returns."""
     context = pyudev.Context()
     monitor = pyudev.Monitor.from_netlink(context)
@@ -113,7 +114,7 @@ async def watch(match: Match, serve: Callable[[InputDevice], Awaitable[None]]) -
                 or node in served
             ):
                 return
-            dev = open_matching(node, match)
+            dev = open_matching(node, wanted)
             if dev is not None:
                 served[node] = anyio.CancelScope()
                 tg.start_soon(guard, dev, served[node])

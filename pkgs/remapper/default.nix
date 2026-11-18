@@ -22,6 +22,7 @@ buildPythonApplication {
   src = lib.fileset.toSource {
     root = ./.;
     fileset = lib.fileset.unions [
+      ./70-remapper.rules
       ./pyproject.toml
       ./src
       ./tests
@@ -49,6 +50,11 @@ buildPythonApplication {
       wireplumber
     ])
   ];
+
+  # services.udev.packages picks it up.
+  postInstall = ''
+    install -Dm444 70-remapper.rules -t $out/lib/udev/rules.d
+  '';
 
   nativeCheckInputs = [ pytestCheckHook ];
   pythonImportsCheck = [ "remapper.daemon" ];

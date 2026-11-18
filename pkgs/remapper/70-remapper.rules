@@ -1,0 +1,3 @@
+# The device remapper feeds the VM. QEMU grabs it, but its grab toggle lets
+# go; niri must not read it then either.
+ACTION=="add|change", SUBSYSTEM=="input", ATTRS{name}=="remapper guest", ENV{LIBINPUT_IGNORE_DEVICE}="1"

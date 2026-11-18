@@ -5,9 +5,10 @@ from typing import TYPE_CHECKING
 import anyio
 import pytest
 from evdev import ecodes
-from remapper.actions import Actions, hostdev, parse_vcp, plugged, sound_volume
+from remapper.actions import Actions, parse_vcp, plugged, sound_volume
 from remapper.chord import Chords
 from remapper.config import Binding, Brightness, Config, Tap, UsbAttach, VmStart
+from remapper.vm import hostdev
 
 if TYPE_CHECKING:
     from collections.abc import Sequence

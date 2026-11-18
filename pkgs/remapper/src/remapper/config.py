@@ -77,6 +77,18 @@ class UsbDetach(Model):
     do: Literal["usb-detach"] = "usb-detach"
 
 
+class Guest(Model):
+    """The forwarded devices and the vmUsb devices to the VM."""
+
+    do: Literal["guest"] = "guest"
+
+
+class Host(Model):
+    """Both back to the host."""
+
+    do: Literal["host"] = "host"
+
+
 class Vcp(Model):
     do: Literal["vcp"] = "vcp"
     model: str
@@ -95,7 +107,16 @@ class Volume(Model):
 
 
 Action = Annotated[
-    Tap | VmStart | VmStop | UsbAttach | UsbDetach | Vcp | Brightness | Volume,
+    Tap
+    | VmStart
+    | VmStop
+    | UsbAttach
+    | UsbDetach
+    | Guest
+    | Host
+    | Vcp
+    | Brightness
+    | Volume,
     Field(discriminator="do"),
 ]
 
@@ -122,6 +143,8 @@ class Config(Model):
     domain: str
     libvirt_uri: str = "qemu:///system"
     vm_usb: list[UsbDevice] = Field(default_factory=list)
+    # Keyboards and mice that reach the VM through an evdev input, not USB.
+    forward: list[Match] = Field(default_factory=list)
     brightness: BrightnessPair | None = None
     sound: Path | None = None
 

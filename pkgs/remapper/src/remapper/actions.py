@@ -13,6 +13,8 @@ from evdev import KeyEvent, ecodes
 
 from .config import (
     Brightness,
+    Guest,
+    Host,
     Tap,
     UsbAttach,
     UsbDetach,
@@ -22,11 +24,13 @@ from .config import (
     Volume,
     code,
 )
+from .vm import evdev_input, hostdev, our_inputs
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from .config import Action, Config, UsbDevice
+    from .config import Action, Config
+    from .route import Router
 
 log = logging.getLogger(__name__)
 
@@ -66,14 +70,6 @@ async def run(argv: Sequence[str], stdin: bytes | None = None) -> str | None:
         )
         return None
     return done.stdout.decode()
-
-
-def hostdev(device: UsbDevice) -> bytes:
-    return (
-        '<hostdev mode="subsystem" type="usb" managed="yes"><source>'
-        f'<vendor id="0x{device.vendor}"/><product id="0x{device.product}"/>'
-        "</source></hostdev>"
-    ).encode()
 
 
 def plugged(root: Path = USB_DEVICES) -> set[tuple[str, str]]:
@@ -119,6 +115,8 @@ class Actions:
     keyboard: Keyboard | None
     run: Runner = run
     usb_root: Path = USB_DEVICES
+    # None when nothing is forwarded.
+    router: Router | None = None
     # One libvirt change at a time: an attach racing a detach leaves either.
     vm_lock: anyio.Lock = field(default_factory=anyio.Lock)
     # ddcutil commands on one I2C bus interleave badly.
@@ -140,6 +138,17 @@ class Actions:
             case UsbAttach():
                 await self.usb(attach=True)
             case UsbDetach():
+                await self.usb(attach=False)
+            case Guest():
+                if self.router is not None:
+                    async with self.vm_lock:
+                        if not await self.attach_input(self.router.path):
+                            return
+                    self.router.to_guest()
+                await self.usb(attach=True)
+            case Host():
+                if self.router is not None:
+                    self.router.to_host()
                 await self.usb(attach=False)
             case Vcp():
                 async with self.ddc_lock:
@@ -177,7 +186,27 @@ class Actions:
             ["virsh", "--connect", self.config.libvirt_uri, *args], stdin
         )
 
+    async def attach_input(self, path: str) -> bool:
+        """Whether the VM reads `path` now. A previous run's input is detached first."""
+        domain = self.config.domain
+        xml = await self.virsh("dumpxml", domain)
+        if xml is None:
+            return False
+        attached, stale = our_inputs(xml, path)
+        for old in stale:
+            await self.virsh("detach-device", domain, "/dev/stdin", "--live", stdin=old)
+        if attached:
+            return True
+        return (
+            await self.virsh(
+                "attach-device", domain, "/dev/stdin", "--live", stdin=evdev_input(path)
+            )
+            is not None
+        )
+
     async def usb(self, *, attach: bool) -> None:
+        if not self.config.vm_usb:
+            return
         verb = "attach-device" if attach else "detach-device"
         here = plugged(self.usb_root) if attach else None
         async with self.vm_lock:
