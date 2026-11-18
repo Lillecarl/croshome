@@ -1,3 +1,10 @@
+## Python: load the `python` skill first
+
+Before writing or editing any Python (a file, a test, a one-off script, a
+heredoc), load the **python** skill. No exception for size. Its Scope section
+decides whether the house rules apply; loading it is not optional either way.
+Harness without skills: read `home/claude/skills/python/SKILL.md` instead.
+
 ## Editing and iterating
 
 Edit files with the file-editing tools. Never rewrite a source file by piping a

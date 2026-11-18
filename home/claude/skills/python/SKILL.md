@@ -1,6 +1,6 @@
 ---
 name: python
-description: House standards for Python in Lillecarl's own projects — async by default, anyio over bare asyncio, real type annotations, `from __future__ import annotations` and `if TYPE_CHECKING:`, named values (StrEnum, Literal, Final) over scattered literals. Load before writing or editing Python in a repository he maintains, or when starting a new one. Deliberately does NOT apply to external projects; see Scope.
+description: House standards for Python in Lillecarl's own projects — async by default, anyio over bare asyncio, real type annotations, `from __future__ import annotations` and `if TYPE_CHECKING:`, named values (StrEnum, Literal, Final) over scattered literals. Load before writing or editing any Python, however small: a file, a test, a script, a heredoc. Its Scope section decides whether the house rules apply; external projects follow their own style.
 ---
 
 # Python standards
