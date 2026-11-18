@@ -70,6 +70,11 @@ let
   # the host keys above, because home agenix decrypts with the *user* key.
   lillecarl-ssh = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIF4AwtWUz3usygb2J6owsUJs4X2yTchIGZyI+VDE76tF lillecarl@macbook";
 
+  # shitbox's home agenix identity, `~/.ssh/agenix` there (from nub). Not
+  # its `~/.ssh/id_ed25519`: that one has a passphrase, and home agenix runs
+  # without a terminal. Not lillecarl-ssh: that private key is not on shitbox.
+  shitbox-user = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPwiL9rEa5vSKnD3yXn+GLuJY0NwWq6CYTYM759TK+80 lillecarl@nub";
+
   # cros is deliberately absent. ChromeOS runs home-manager with no system
   # underneath it, so it has no host key and no activation that runs as root.
   # A secret for that machine needs the home-manager module instead, which is
@@ -203,6 +208,7 @@ in
       macbook
       hetztop
       lillecarl-ssh
+      shitbox-user
     ];
     armor = true;
   };
@@ -218,6 +224,7 @@ in
     publicKeys = [
       lillecarl-age
       lillecarl-ssh
+      shitbox-user
     ];
     armor = true;
   };
@@ -228,6 +235,7 @@ in
     publicKeys = [
       lillecarl-age
       lillecarl-ssh
+      shitbox-user
     ];
     armor = true;
   };
