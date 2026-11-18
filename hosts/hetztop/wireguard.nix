@@ -3,16 +3,19 @@
 #
 # The private key never leaves this host: the module generates it on first
 # start, and only the public key is in the repository.
-{ ... }:
+{ pkgs, lib, ... }:
 let
   port = 51820;
+  key = "/var/lib/wireguard/wg-shitbox.key";
 in
 {
   networking.wireguard.interfaces.wg-shitbox = {
     ips = [ "10.44.33.1/24" ];
     listenPort = port;
-    privateKeyFile = "/var/lib/wireguard/wg-shitbox.key";
+    privateKeyFile = key;
     generatePrivateKeyFile = true;
+    # The public half, readable without root, for shitbox's peer entry.
+    postSetup = "${lib.getExe pkgs.wireguard-tools} pubkey < ${key} > ${key}.pub";
     peers = [
       {
         name = "shitbox";
