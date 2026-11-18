@@ -20,7 +20,7 @@ mkTest {
   nodes.host =
     { pkgs, lib, ... }:
     let
-      remapper = pkgs.python3Packages.callPackage ../../pkgs/remapper { inherit (pkgs) libvirt; };
+      remapper = (pkgs.callPackage ../../pkgs/remapper { }).withPlugins (ps: [ ps.libvirt ]);
       python = pkgs.python3.withPackages (p: [ p.evdev ]);
       json = pkgs.formats.json { };
       config = json.generate "remapper.json" {
@@ -29,25 +29,27 @@ mkTest {
           product = "0001";
           keys = [ "KEY_KP0" ];
         };
-        domain = "nested";
-        forward = [
-          {
-            vendor = "1234";
-            product = "0002";
-          }
-          {
-            vendor = "1234";
-            product = "0003";
-          }
-        ];
+        plugins.libvirt = {
+          domain = "nested";
+          forward = [
+            {
+              vendor = "1234";
+              product = "0002";
+            }
+            {
+              vendor = "1234";
+              product = "0003";
+            }
+          ];
+        };
         bindings = [
           {
             key = "KEY_KP1";
-            action.do = "guest";
+            actions = [ { do = "guest"; } ];
           }
           {
             key = "KEY_KP2";
-            action.do = "host";
+            actions = [ { do = "host"; } ];
           }
         ];
       };

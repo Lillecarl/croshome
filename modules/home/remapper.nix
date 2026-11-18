@@ -7,6 +7,10 @@
 let
   cfg = config.services.remapper;
   json = pkgs.formats.json { };
+  # Each plugin that settings.plugins configures is installed.
+  package = cfg.package.withPlugins (
+    ps: map (name: ps.${name}) (lib.attrNames cfg.settings.plugins or { })
+  );
 in
 {
   options.services.remapper = {
@@ -14,7 +18,11 @@ in
     package = lib.mkPackageOption pkgs "remapper" { };
     settings = lib.mkOption {
       inherit (json) type;
-      description = "The configuration file; `Config` in pkgs/remapper/src/remapper/config.py is its schema.";
+      description = ''
+        The configuration file. `plugins.<name>` configures and installs a
+        plugin from `package.plugins`; its actions are then valid in
+        `bindings`. pkgs/remapper/core/src/remapper/config.py is the schema.
+      '';
     };
   };
 
@@ -27,7 +35,7 @@ in
         After = [ "graphical-session.target" ];
       };
       Service = {
-        ExecStart = "${lib.getExe cfg.package} --verbose --config ${json.generate "remapper.json" cfg.settings}";
+        ExecStart = "${lib.getExe package} --verbose --config ${json.generate "remapper.json" cfg.settings}";
         Restart = "always";
         RestartSec = 2;
       };

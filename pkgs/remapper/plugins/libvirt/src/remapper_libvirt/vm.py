@@ -8,7 +8,9 @@ from typing import TYPE_CHECKING, Final
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from .config import HidKind, UsbDevice
+    from remapper.config import UsbDevice
+
+    from .config import HidKind
 
 # User aliases must start with "ua-"; this one finds our input after a restart.
 ALIAS: Final = "ua-remapper"

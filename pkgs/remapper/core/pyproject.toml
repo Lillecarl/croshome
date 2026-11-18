@@ -1,7 +1,7 @@
 [project]
 name = "remapper"
-version = "0.2.0"
-description = "Numpad remote control for shitbox: VM, USB passthrough, monitors, volume"
+version = "0.3.0"
+description = "A numpad as a remote control, with the actions in plugins"
 requires-python = ">=3.13"
 dependencies = ["anyio", "evdev", "pydantic", "pyudev"]
 

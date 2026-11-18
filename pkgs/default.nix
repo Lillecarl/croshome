@@ -168,8 +168,7 @@ in
 
   vzlink = final.python314.pkgs.callPackage ./vzlink { };
 
-  # The Python set's `libvirt` is the bindings; virsh is in the top-level one.
-  remapper = final.python314.pkgs.callPackage ./remapper { inherit (final) libvirt; };
+  remapper = final.callPackage ./remapper { python3 = final.python314; };
 
   # The xonsh bundle from Lillecarl/anyxonsh, vendored wholesale into
   # ./anyxonsh -- source tree and build machinery together, because the plan

@@ -6,24 +6,20 @@ from typing import TYPE_CHECKING
 
 import anyio
 from evdev import InputEvent, ecodes
-from remapper.actions import Actions
-from remapper.config import Config, Guest, Host
-from remapper.route import Mode, Router
-from remapper.vm import ALIAS, evdev_input, hid_input, plan, stopped
+from remapper.testing import Sink
+from remapper_libvirt import Libvirt
+from remapper_libvirt.config import Guest, Host, LibvirtSettings
+from remapper_libvirt.route import Mode, Router
+from remapper_libvirt.vm import ALIAS, evdev_input, hid_input, plan, stopped
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from remapper.config import HidKind
+    from remapper_libvirt.config import HidKind
 
 PATH = "/dev/input/event30"
-CONFIG = Config.model_validate(
-    {
-        "numpad": {"vendor": "062a", "product": "4101"},
-        "domain": "win",
-        "forward": [{"vendor": "1c4f", "product": "0083"}],
-        "bindings": [],
-    }
+SETTINGS = LibvirtSettings.model_validate(
+    {"domain": "win", "forward": [{"vendor": "1c4f", "product": "0083"}]}
 )
 
 
@@ -41,17 +37,6 @@ class Node:
         if not self.grabbed:
             raise OSError(errno.EINVAL, "not grabbed")
         self.grabbed = False
-
-
-class Sink:
-    def __init__(self) -> None:
-        self.events: list[tuple[int, int, int]] = []
-
-    def write(self, etype: int, code: int, value: int) -> None:
-        self.events.append((etype, code, value))
-
-    def syn(self) -> None:
-        self.write(ecodes.EV_SYN, ecodes.SYN_REPORT, 0)
 
 
 def ev(etype: int, code: int, value: int) -> InputEvent:
@@ -148,7 +133,7 @@ def test_stopped() -> None:
     assert not stopped("")
 
 
-class Libvirt:
+class Virsh:
     """virsh with one running domain, holding whatever was attached to it."""
 
     def __init__(self, *, running: bool = True, inputs: Sequence[bytes] = ()) -> None:
@@ -178,20 +163,25 @@ def source(xml: bytes) -> str | None:
     return None if node is None else node.get("dev")
 
 
+def routed(virsh: Virsh) -> tuple[Libvirt, Router]:
+    plugin = Libvirt(SETTINGS, virsh)
+    router = plugin.router = Router(Sink(), PATH)
+    return plugin, router
+
+
 def test_guest_attaches_once_and_replaces_a_stale_input() -> None:
-    libvirt = Libvirt(inputs=[evdev_input("/dev/input/event9")])
-    router = Router(Sink(), PATH)
-    actions = Actions(CONFIG, None, libvirt, router=router)
-    anyio.run(actions, Guest())
+    virsh = Virsh(inputs=[evdev_input("/dev/input/event9")])
+    plugin, router = routed(virsh)
+    anyio.run(plugin, Guest())
     assert router.mode is Mode.GUEST
-    assert libvirt.inputs == [
+    assert virsh.inputs == [
         hid_input("keyboard"),
         hid_input("mouse"),
         evdev_input(PATH),
     ]
-    anyio.run(actions, Host())
-    anyio.run(actions, Guest())
-    assert libvirt.calls == [
+    anyio.run(plugin, Host())
+    anyio.run(plugin, Guest())
+    assert virsh.calls == [
         "dumpxml",
         "detach-device",
         *["attach-device"] * 3,
@@ -200,6 +190,6 @@ def test_guest_attaches_once_and_replaces_a_stale_input() -> None:
 
 
 def test_guest_stays_on_host_when_attach_fails() -> None:
-    router = Router(Sink(), PATH)
-    anyio.run(Actions(CONFIG, None, Libvirt(running=False), router=router), Guest())
+    plugin, router = routed(Virsh(running=False))
+    anyio.run(plugin, Guest())
     assert router.mode is Mode.HOST
