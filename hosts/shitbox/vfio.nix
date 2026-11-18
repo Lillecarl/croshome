@@ -92,4 +92,7 @@ in
   users.users.lillecarl.extraGroups = [ "libvirtd" ];
 
   environment.systemPackages = [ pkgs.looking-glass-client ];
+
+  # libinput ignores the device remapper feeds the VM (home/remapper.nix).
+  services.udev.packages = [ pkgs.remapper ];
 }

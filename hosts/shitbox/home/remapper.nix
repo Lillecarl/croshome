@@ -1,6 +1,7 @@
-# The wireless numpad (MOSART dongle) drives the gaming VM: USB passthrough,
-# the right monitor's input, brightness and volume. Ported from
-# ~/Code/nixos scripts/remapper2.py, with the same keys.
+# The wireless numpad (MOSART dongle) drives the gaming VM: input routing,
+# the controller's USB passthrough, the right monitor's input, brightness
+# and volume. Ported from ~/Code/nixos scripts/remapper2.py, with the same
+# keys. The numpad itself never goes to the VM, so KP2 always comes back.
 let
   key = k: "KEY_${k}";
   bind = k: action: {
@@ -40,6 +41,10 @@ in
           vendor = "2dc8";
           product = "310c";
         }
+      ];
+      # Through an evdev input, not USB: they never leave the host, so niri
+      # gets them back at once. Every node of each device.
+      forward = [
         # K1301FN keyboard.
         {
           vendor = "1c4f";
@@ -63,8 +68,8 @@ in
           key = key "SPACE";
           sound = true;
         })
-        (bind "KP1" { do = "usb-attach"; })
-        (bind "KP2" { do = "usb-detach"; })
+        (bind "KP1" { do = "guest"; })
+        (bind "KP2" { do = "host"; })
         (bind "KP4" (vcpInput "0x11")) # DisplayPort
         (bind "KP5" (vcpInput "0x0f")) # HDMI
         (bind "KPPLUS" {
