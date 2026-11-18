@@ -11,6 +11,7 @@
     ./hardware.nix
     ./desktop.nix
     ./vfio.nix
+    ./wireguard.nix
   ];
 
   config = {
