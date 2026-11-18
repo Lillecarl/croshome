@@ -133,6 +133,8 @@ in
   # this package set, so it links the same `age` the module runs.
   agenix = final.callPackage (inputs.agenix.outPath + "/pkgs/agenix.nix") { };
 
+  croshome-secrets = final.callPackage ./secrets { };
+
   claude-code =
     let
       baseUrl = "https://downloads.claude.ai/claude-code-releases";
