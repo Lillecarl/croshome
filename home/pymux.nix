@@ -126,12 +126,6 @@
     '';
   };
 
-  # pymux-open-url sends the URL to an attached pymux client, which is how a
-  # headless host reaches the terminal in front of it. `$BROWSER` names one
-  # executable: most programs that read it exec the whole value as a path,
-  # so "pymux open-url" fails there. open-url-shim above puts it on PATH.
-  home.sessionVariables.BROWSER = "pymux-open-url";
-
   xdg.configFile."pymux/linked.conf".source =
     config.lib.file.mkOutOfStoreSymlink "${selfStr}/home/pymux-linked.conf";
 }
