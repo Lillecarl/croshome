@@ -12,6 +12,7 @@
     ./desktop.nix
     ./vfio.nix
     ./wireguard.nix
+    ./initrd-remote.nix
   ];
 
   config = {

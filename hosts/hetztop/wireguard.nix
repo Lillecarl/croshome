@@ -23,6 +23,12 @@ in
         publicKey = "nPky+d8cQ0dT5IfS3NPJX4v3Vmy/YegsLscY2vSWa3U=";
         allowedIPs = [ "10.44.33.2/32" ];
       }
+      {
+        # shitbox's initrd, for a remote unlock: ../shitbox/initrd-remote.nix.
+        name = "shitbox-initrd";
+        publicKey = "/p+07NjcAHlrPXOQTIl7K0yVgnnJfJCyFCcEPjyPdh8=";
+        allowedIPs = [ "10.44.33.3/32" ];
+      }
     ];
   };
 
