@@ -3,7 +3,9 @@
 # is free.
 {
   imports = [
+    ./ai-reboot.nix
     ./ai-rebuild.nix
+    ./boot-guard.nix
     ./btrfs.nix
     ./gate.nix
     ./installscript.nix
