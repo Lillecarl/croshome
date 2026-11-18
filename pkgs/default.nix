@@ -124,7 +124,9 @@ in
   # `secrets`, the front end to ../secrets/sops. In the overlay so `nix run
   # --file . pkgs.croshome-secrets` works on a machine this configuration has
   # never activated.
-  croshome-secrets = final.callPackage ./secrets { };
+  # keyutils passed by hand: the Python set has its own `keyutils` binding,
+  # which has no keyctl.
+  croshome-secrets = final.python3Packages.callPackage ./secrets { inherit (final) keyutils; };
 
   claude-code =
     let

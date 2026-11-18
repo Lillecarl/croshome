@@ -1,5 +1,5 @@
 # sops-nix over ../secrets/sops, for NixOS and nix-darwin. The host decrypts
-# with its ssh host key; recipients live in ../secrets/sops/keys.nix.
+# with its ssh host key; recipients live in ../secrets/sops/keys.json.
 #
 # User secrets: a home-manager module sets `croshome.userSecrets` (see
 # ./home/user-secrets.nix), and this module decrypts each one as root, owned
@@ -15,7 +15,7 @@
 let
   cfg = config.croshome.secrets;
   dir = ../secrets/sops;
-  keys = import (dir + "/keys.nix");
+  keys = lib.importJSON (dir + "/keys.json");
 
   userSecrets = lib.concatMapAttrs (
     user: hm:
@@ -51,9 +51,9 @@ in
       {
         assertion = keys.hosts ? ${cfg.host};
         message = ''
-          ${cfg.host} is not in secrets/sops/keys.nix, so it can decrypt nothing.
-          On ${cfg.host}: ssh-to-age < /etc/ssh/ssh_host_ed25519_key.pub
-          Add the result under hosts, then run `secrets sync`.
+          ${cfg.host} is not in secrets/sops/keys.json, so it can decrypt nothing.
+          Register it: secrets host add ${cfg.host} --ssh <address>
+          (or --generate before a fresh install; see secrets/README.md).
         '';
       }
     ];
