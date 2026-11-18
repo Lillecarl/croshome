@@ -16,6 +16,7 @@
     ./postgres.nix
     ./remote-builder.nix
     ./secrets.nix
+    ./wireguard.nix
   ];
   config = {
     users.users.lillecarl.extraGroups = [
