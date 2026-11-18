@@ -74,6 +74,11 @@
   home.packages =
     with pkgs;
     [
+      # `python` and `python3` on the PATH. Claude Code's hooks under
+      # ./claude run on `#!/usr/bin/env python`, and nothing else here puts
+      # a python there: pymux installs only its own commands.
+      python3
+
       # Version control and code
       ast-grep # structural search and rewrite, where ripgrep only sees text
       binutils
