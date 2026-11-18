@@ -48,6 +48,8 @@
     hardware.graphics.enable = true;
 
     users.users.lillecarl = {
+      # shitbox's own key, so shitbox can fetch its wg-dynhetz profile.
+      openssh.authorizedKeys.keyFiles = [ ../shitbox/lillecarl.pub ];
       # frrvty is what `vtysh` needs, and the only thing it needs: the daemons
       # listen on /run/frr/*.vty, which are srwxrwx--- frr:frrvty, while
       # /run/frr itself is world-traversable. Without it vtysh reaches no
