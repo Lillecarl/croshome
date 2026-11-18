@@ -25,6 +25,7 @@ def _usb_id(value: str) -> str:
 
 
 KeyName = Annotated[str, AfterValidator(_keycode)]
+HidKind = Literal["keyboard", "mouse"]
 UsbIdPart = Annotated[str, AfterValidator(_usb_id)]
 
 
@@ -145,6 +146,9 @@ class Config(Model):
     vm_usb: list[UsbDevice] = Field(default_factory=list)
     # Keyboards and mice that reach the VM through an evdev input, not USB.
     forward: list[Match] = Field(default_factory=list)
+    # The emulated USB devices the VM reads `forward` through. A device
+    # with no kind here falls through to PS/2 or virtio.
+    usb_hid: list[HidKind] = Field(default_factory=lambda: ["keyboard", "mouse"])
     brightness: BrightnessPair | None = None
     sound: Path | None = None
 

@@ -9,10 +9,12 @@ from evdev import InputEvent, ecodes
 from remapper.actions import Actions
 from remapper.config import Config, Guest, Host
 from remapper.route import Mode, Router
-from remapper.vm import ALIAS, evdev_input, our_inputs, stopped
+from remapper.vm import ALIAS, evdev_input, hid_input, plan, stopped
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from remapper.config import HidKind
 
 PATH = "/dev/input/event30"
 CONFIG = Config.model_validate(
@@ -117,16 +119,26 @@ def domain(*inputs: bytes) -> str:
     return f"<domain><devices>{b''.join(inputs).decode()}<input type='mouse' bus='ps2'/></devices></domain>"
 
 
-def test_our_inputs() -> None:
+def test_plan() -> None:
     old = evdev_input("/dev/input/event9")
     foreign = b'<input type="evdev"><source dev="/dev/input/event3"/></input>'
-    assert our_inputs(domain(), PATH) == (False, [])
-    assert our_inputs(domain(evdev_input(PATH), foreign), PATH) == (True, [])
-    attached, stale = our_inputs(domain(old, foreign), PATH)
-    assert not attached
-    assert len(stale) == 1
-    assert b"event9" in stale[0]
-    assert ALIAS.encode() in stale[0]
+    both: list[HidKind] = ["keyboard", "mouse"]
+    hid = [hid_input("keyboard"), hid_input("mouse")]
+    everything = [*hid, evdev_input(PATH)]
+    assert plan(domain(), PATH, both) == ([], everything)
+    assert plan(domain(*everything, foreign), PATH, both) == ([], [])
+    detach, attach = plan(domain(old, foreign, *hid), PATH, both)
+    assert attach == [evdev_input(PATH)]
+    assert len(detach) == 1
+    assert b"event9" in detach[0]
+    assert ALIAS.encode() in detach[0]
+
+
+def test_plan_keyboard_only_leaves_the_mouse_to_passthrough() -> None:
+    assert plan(domain(), PATH, ["keyboard"]) == (
+        [],
+        [hid_input("keyboard"), evdev_input(PATH)],
+    )
 
 
 def test_stopped() -> None:
@@ -172,10 +184,19 @@ def test_guest_attaches_once_and_replaces_a_stale_input() -> None:
     actions = Actions(CONFIG, None, libvirt, router=router)
     anyio.run(actions, Guest())
     assert router.mode is Mode.GUEST
-    assert libvirt.inputs == [evdev_input(PATH)]
+    assert libvirt.inputs == [
+        hid_input("keyboard"),
+        hid_input("mouse"),
+        evdev_input(PATH),
+    ]
     anyio.run(actions, Host())
     anyio.run(actions, Guest())
-    assert libvirt.calls == ["dumpxml", "detach-device", "attach-device", "dumpxml"]
+    assert libvirt.calls == [
+        "dumpxml",
+        "detach-device",
+        *["attach-device"] * 3,
+        "dumpxml",
+    ]
 
 
 def test_guest_stays_on_host_when_attach_fails() -> None:

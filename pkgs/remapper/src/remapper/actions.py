@@ -24,7 +24,7 @@ from .config import (
     Volume,
     code,
 )
-from .vm import evdev_input, hostdev, our_inputs
+from .vm import hostdev, plan
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -187,22 +187,23 @@ class Actions:
         )
 
     async def attach_input(self, path: str) -> bool:
-        """Whether the VM reads `path` now. A previous run's input is detached first."""
+        """Whether the VM reads `path` now, through our USB keyboard and mouse."""
         domain = self.config.domain
         xml = await self.virsh("dumpxml", domain)
         if xml is None:
             return False
-        attached, stale = our_inputs(xml, path)
-        for old in stale:
+        detach, attach = plan(xml, path, self.config.usb_hid)
+        for old in detach:
             await self.virsh("detach-device", domain, "/dev/stdin", "--live", stdin=old)
-        if attached:
-            return True
-        return (
-            await self.virsh(
-                "attach-device", domain, "/dev/stdin", "--live", stdin=evdev_input(path)
-            )
-            is not None
-        )
+        for new in attach:
+            if (
+                await self.virsh(
+                    "attach-device", domain, "/dev/stdin", "--live", stdin=new
+                )
+                is None
+            ):
+                return False
+        return True
 
     async def usb(self, *, attach: bool) -> None:
         if not self.config.vm_usb:
