@@ -49,7 +49,10 @@ in
   };
 
   config = lib.mkIf (config.croshome.userSecrets != { }) {
-    home.packages = [ pkgs.croshome-secrets ];
+    home.packages = [
+      pkgs.croshome-secrets
+      pkgs.sops
+    ];
     home.sessionVariables.SOPS_AGE_KEY_CMD = "secrets key";
   };
 }

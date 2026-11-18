@@ -142,7 +142,8 @@ edit)
 set)
   [ $# -eq 3 ] || die "usage: secrets set FILE KEY < value"
   [ -t 0 ] && die "the value comes from stdin"
-  with_sops set --value-stdin "$2" "$(index "$3")"
+  # --value-stdin wants JSON; -Rs makes the raw bytes one JSON string.
+  jq -Rs . | with_sops set --value-stdin "$2" "$(index "$3")"
   ;;
 get)
   [ $# -eq 3 ] || die "usage: secrets get FILE KEY"
