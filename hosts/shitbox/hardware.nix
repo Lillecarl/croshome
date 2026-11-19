@@ -63,6 +63,11 @@ in
     # AES runs on VAES here, so dm-crypt's work queues cost more latency than
     # the cipher. Baseline before this: 122 us mean QD1 4k read, 840 us fsync.
     bypassWorkqueues = true;
+    # The TPM unlocks it when PCR 7 matches: Secure Boot on, our keys
+    # (./secureboot.nix). The passphrase slot stays for the console and SSH.
+    # Enrolled by hand:
+    #   systemd-cryptenroll --tpm2-device=auto --tpm2-pcrs=7 <device>
+    crypttabExtraOpts = [ "tpm2-device=auto" ];
   };
   services.lvm.boot.thin.enable = true;
 
