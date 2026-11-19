@@ -112,6 +112,8 @@ in
   # dynhetz-cold-1:5AkgT7+0BQGIPYS1/WjB1EYt+cjCHQyf3lzCeMwvZB8=
   sops.secrets.pynixd-cold-key = { };
   sops.secrets.pynixd-r2-endpoint = { };
+  # The NoMac (nomac.app) API key that starts the macOS builders below.
+  sops.secrets.nomac-api-key.sopsFile = ../../secrets/sops/user.yaml;
   systemd.services.pynixd.environment = {
     AWS_SHARED_CREDENTIALS_FILE = config.sops.secrets.pynixd-aws.path;
     AWS_CONFIG_FILE = config.sops.secrets.pynixd-aws.path;
@@ -321,6 +323,20 @@ in
             root_gib = 64;
           };
         };
+        # aarch64-darwin builders as NoMac Macs: an M5 Pro VM with 6 cores
+        # and 8 GB, $0.90 an hour by the minute. One builds from start in
+        # about 65 s (2026-11-19): ready 28 s, then a job installs pynixd.
+        # It has no Hypervisor.framework, so it builds no Linux guest and
+        # takes no `apple-virt` build.
+        nomac = {
+          api_key_file = config.sops.secrets.nomac-api-key.path;
+          templates.mac = {
+            # NoMac stops a Mac at either limit, so a dead dynhetz costs at
+            # most this. The pool below ends an idle one far sooner.
+            spend_cap_usd = 2;
+            idle_timeout_seconds = 1800;
+          };
+        };
         pools =
           map
             (
@@ -346,7 +362,25 @@ in
                 template = "spot-arm";
                 systems = [ "aarch64-linux" ];
               }
-            ];
+            ]
+          ++ [
+            {
+              name = "nomac-darwin";
+              provider = "nomac";
+              template = "mac";
+              systems = [ "aarch64-darwin" ];
+              # As the AWS pools: only a build that asks for `nomac` launches
+              # a Mac or runs on one, so no other agent's build spends money.
+              features = [ "nomac" ];
+              mandatory_features = [ "nomac" ];
+              max_instances = 1;
+              # 6 cores and 8 GB of memory.
+              slots = 3;
+              idle_seconds = 300;
+              # A start can wait in NoMac's queue before the Mac boots.
+              launch_timeout = 300;
+            }
+          ];
       };
 
       # HTTP binary cache for this machine's own daemons, first in their
