@@ -64,6 +64,11 @@ FCC internal photos: <https://fccid.io/E8HKT-1255>.
   `DGND DIS_B VBATT RX GND TX`, plus test pads `SDA`, `SCL`, `CS`, and the
   key matrix as `R0`–`R7` and `S0`–`S15`.
 
+Adapter to buy: Kjell & Company, Luxorparts USB till seriell-adapter för
+Arduino, art.nr 88064 (FT232RL, 5 V/3.3 V switch, sold in about 95 stores).
+Set the switch to 3.3 V. Mail-order fallback: Electrokit CP2102, fixed
+3.3 V, 59 SEK.
+
 Plan once a 3.3 V adapter is here:
 
 1. Open the keyboard. Find and photograph the memory chip next to U3, and
