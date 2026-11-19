@@ -13,6 +13,7 @@
     ./vfio.nix
     ./wireguard.nix
     ./initrd-remote.nix
+    ./secureboot.nix
   ];
 
   config = {

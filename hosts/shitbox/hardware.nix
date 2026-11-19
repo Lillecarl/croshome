@@ -66,18 +66,10 @@ in
   };
   services.lvm.boot.thin.enable = true;
 
-  boot.loader = {
-    efi = {
-      canTouchEfiVariables = true;
-      efiSysMountPoint = "/boot";
-    };
-    grub = {
-      enable = true;
-      enableCryptodisk = true;
-      device = "nodev";
-      efiSupport = true;
-      copyKernels = true;
-    };
+  # The boot loader is lanzaboote: ./secureboot.nix.
+  boot.loader.efi = {
+    canTouchEfiVariables = true;
+    efiSysMountPoint = "/boot";
   };
 
   boot.initrd = {

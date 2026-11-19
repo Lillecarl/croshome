@@ -92,6 +92,13 @@
       url = "github:Mic92/sops-nix";
       flake = false;
     };
+    # A source tree: hosts/shitbox/secureboot.nix imports its module by path
+    # and builds lzbt from our pkgs. Its default.nix brings its own crane and
+    # rust-overlay pins.
+    lanzaboote = {
+      url = "github:nix-community/lanzaboote/v1.2.0";
+      flake = false;
+    };
     # Builds anyxonsh, vendored under ./pkgs/anyxonsh. Its build machinery
     # resolves Python dependencies flat through pyproject.nix rather than
     # through Nixpkgs' propagation -- see that tree's nix/bridge.nix for why.
