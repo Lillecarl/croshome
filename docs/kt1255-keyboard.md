@@ -49,6 +49,10 @@ the keyboard has already connected itself.
   modalias), `05` echoes its value, every other command returns `17 00`.
   None of them remaps keys or opens a debug mode. The sweep script is
   `kt1255_sweep.py` in the 2026-11-19 session scratchpad (not kept).
+- Lenovo's Windows suite (1.5.6.0, `osd.exe` through `fsHid.dll`) sends only
+  `18 01 08` and `18 05 <fn_lock>`. Command `01` echoes any value (`17 <v>`),
+  but no value of `00`, `01`…`80` or `ff` changes Fn: it still sends only a
+  press. The suite has no firmware updater.
 - Report `13` arrives on its own: `13 <battery> <BD_ADDR, 6 bytes>`.
 - SDP lists only SDP and HID. No serial-port or other hidden service.
 
