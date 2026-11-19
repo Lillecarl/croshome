@@ -11,6 +11,10 @@ published history, sending something to a third party), a choice between
 options that would lead to materially different work, or a state that looks
 wrong in a way you cannot explain. Those still stop and ask.
 
+Verification is Agent's call, never a question: which tests, checks or runs
+prove a change before it lands. Run what proves it. Host time and RAM are not
+a reason to ask; a shared remote builder or money still is.
+
 GitHub issues and pull requests outside `github/Lillecarl` and
 `github/nixidae` always need approval first, no matter how obvious the
 report feels. Inside those two the rules above apply unchanged. A bug
