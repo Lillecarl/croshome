@@ -12,7 +12,12 @@
 #
 # The initrd unlocks LUKS, at the console or over SSH on :2222. ./contract.nix pins every value that matters
 # here, checked with ./check-contract before activating a change.
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   pool = "/dev/pool/nixos";
   # noatime: on btrfs an atime update is a copy-on-write of the metadata tree.
@@ -70,6 +75,28 @@ in
     crypttabExtraOpts = [ "tpm2-device=auto" ];
   };
   services.lvm.boot.thin.enable = true;
+
+  # The initrd activates only what boot needs. Left to activate the whole VG,
+  # its udev-started vgchange is still running thin_check on the VM pools when
+  # the initrd tears down for switch-root. The kill reads as "Check of pool
+  # ... failed. Manual repair required!" and leaves the pools inactive with
+  # their _tmeta half up, and stage 2 skips the VG as already handled
+  # (/run/lvm/vgs_online). Measured 2026-11-19 (issue #12); both pools then
+  # passed thin_check when activated by hand.
+  boot.initrd.systemd.contents."/etc/lvm/lvm.conf".text = ''
+    activation/auto_activation_volume_list = [ "pool/nixos", "pool/swap" ]
+  '';
+  systemd.services.lvm-activate-rest = {
+    description = "Activate the LVs the initrd leaves alone (VM thin pools)";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "libvirtd.service" ];
+    after = [ "local-fs.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStart = "${lib.getExe' config.services.lvm.package "lvm"} vgchange -aay pool";
+    };
+  };
 
   # The boot loader is lanzaboote: ./secureboot.nix.
   boot.loader.efi = {
