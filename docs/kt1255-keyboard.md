@@ -44,6 +44,13 @@ the keyboard has already connected itself.
 - Known commands are output report `18 <cmd> <val>`: `01 03` native
   F7/F9/F11, `02 xx` sensitivity, `05 0|1` Fn-lock, `09 0|1` native middle
   button. No other command is documented.
+- Replies come on vendor input report `17`. A sweep of every command with
+  value `00`: `04` returns `17 12 03` (firmware 3.12, the `d0312` in the
+  modalias), `05` echoes its value, every other command returns `17 00`.
+  None of them remaps keys or opens a debug mode. The sweep script is
+  `kt1255_sweep.py` in the 2026-11-19 session scratchpad (not kept).
+- Report `13` arrives on its own: `13 <battery> <BD_ADDR, 6 bytes>`.
+- SDP lists only SDP and HID. No serial-port or other hidden service.
 
 ## USB
 
@@ -67,7 +74,9 @@ FCC internal photos: <https://fccid.io/E8HKT-1255>.
 Adapter to buy: Kjell & Company, Luxorparts USB till seriell-adapter för
 Arduino, art.nr 88064 (FT232RL, 5 V/3.3 V switch, sold in about 95 stores).
 Set the switch to 3.3 V. Mail-order fallback: Electrokit CP2102, fixed
-3.3 V, 59 SEK.
+3.3 V, 59 SEK. Wires: Luxorparts Delbar kopplingskabel 40-pol hane-hona
+(p87900). The pads are bare, so solder a header or wires to them; Kjell's
+Luxorparts Lödkolvset 30 W (249,90 kr) is in most stores.
 
 Plan once a 3.3 V adapter is here:
 
