@@ -53,6 +53,21 @@ the keyboard has already connected itself.
   `18 01 08` and `18 05 <fn_lock>`. Command `01` echoes any value (`17 <v>`),
   but no value of `00`, `01`…`80` or `ff` changes Fn: it still sends only a
   press. The suite has no firmware updater.
+- Static analysis of the whole suite (`fsHid.dll`, `fsHidRaw.dll`, every
+  `osd.exe`, `SetSpeed.exe`, `Wireless.exe`, `HScrollFun.exe`, the service,
+  the co-installer, the INFs): no firmware, bootloader, test or keymap path.
+  Extra facts: mode values 03 (XP), 05 (Vista), 07 (Win7), 08 (Win8+);
+  `Wireless.exe` sends feature `13 07 01` on the consumer collection;
+  input `15 xx 10` is a (re)connect event, `15 01 xx` mic mute, `15 xx 04/00`
+  middle button in software-scroll mode; input `16 <dx> <dy>` carries
+  TrackPoint scroll deltas in software-scroll mode; `10 f1 03` wireless key,
+  `10 f2 03` Win key. The USB INF also matches `USB\VID_17ef&PID_ffee`
+  (maybe a factory ID; unverified).
+- Hands-off probes: only L2CAP PSM 1 (SDP) is open besides HID. GET_REPORT
+  on input `05` answers `05 02` although the descriptor has no report 5.
+  SET_FEATURE `13` with zeros fails (I/O error). `18 08 01` makes the
+  keyboard emit consumer event `10 f3 03`. `18 07 01` returns the plain ack.
+  No command with value `00`, `01` or `ff` exposes the Fn release.
 - Report `13` arrives on its own: `13 <battery> <BD_ADDR, 6 bytes>`.
 - SDP lists only SDP and HID. No serial-port or other hidden service.
 
