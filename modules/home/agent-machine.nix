@@ -55,8 +55,7 @@ let
   # right host without being told. The native one is named separately above.
   builderTable = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (
-      sys: b:
-      "| `${sys}` | `${b.host}`${lib.optionalString (sys == system) " *(this machine)*"} |"
+      sys: b: "| `${sys}` | `${b.host}`${lib.optionalString (sys == system) " *(this machine)*"} |"
     ) builders
   );
 

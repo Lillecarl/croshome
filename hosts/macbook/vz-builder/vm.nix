@@ -77,44 +77,60 @@ let
   # not, and the runner fills them in with jq. vzvm rejects unknown keys, so
   # this has to match its schema exactly -- see nixos/modules/virtualisation/
   # vz-vm.nix in the same nixpkgs, which builds the same object.
-  vzConfig = pkgs.writeText "vz-builder-vzvm.json" (builtins.toJSON {
-    memorySizeMiB = cfg.memory;
-    kernel = "${kernel}/Image";
-    initrd = "${netbootRamdisk}/initrd";
-    cmdline = "init=${toplevel}/init ${toString guest.config.boot.kernelParams}";
-    nestedVirtualization = cfg.nestedVirtualization;
+  vzConfig = pkgs.writeText "vz-builder-vzvm.json" (
+    builtins.toJSON {
+      memorySizeMiB = cfg.memory;
+      kernel = "${kernel}/Image";
+      initrd = "${netbootRamdisk}/initrd";
+      cmdline = "init=${toplevel}/init ${toString guest.config.boot.kernelParams}";
+      nestedVirtualization = cfg.nestedVirtualization;
 
-    console = {
-      mode = "file";
-      path = "${cfg.stateDir}/console.log";
-    };
+      console = {
+        mode = "file";
+        path = "${cfg.stateDir}/console.log";
+      };
 
-    # Host TCP to guest vsock. The guest's sshd listens on vsock:22 (see
-    # ./guest.nix), and `connect` below dials this loopback port, so a build
-    # needs no address in the guest's NAT and no name resolution.
-    # The second forward reaches vzlink-guest, which tells the supervisor
-    # whether nix-daemon serves once sshd answers.
-    vsock.forwards = [
-      {
-        listen = "127.0.0.1:${toString cfg.internalPort}";
-        vsockPort = 22;
-      }
-      {
-        listen = "127.0.0.1:${toString cfg.readinessPort}";
-        vsockPort = guest.config.virtualisation.vzlink.readinessVsockPort;
-      }
-    ];
+      # Host TCP to guest vsock. The guest's sshd listens on vsock:22 (see
+      # ./guest.nix), and `connect` below dials this loopback port, so a build
+      # needs no address in the guest's NAT and no name resolution.
+      # The second forward reaches vzlink-guest, which tells the supervisor
+      # whether nix-daemon serves once sshd answers.
+      vsock.forwards = [
+        {
+          listen = "127.0.0.1:${toString cfg.internalPort}";
+          vsockPort = 22;
+        }
+        {
+          listen = "127.0.0.1:${toString cfg.readinessPort}";
+          vsockPort = guest.config.virtualisation.vzlink.readinessVsockPort;
+        }
+      ];
 
-    # Order matters to vzvm: the first disk is /dev/vda, the second /dev/vdb.
-    # ./guest.nix keys the store layer off vda and swap off vdb.
-    disks =
-      [ { path = storeDisk; readOnly = false; } ]
-      ++ lib.optional (cfg.swapSize > 0) { path = swapDisk; readOnly = false; };
+      # Order matters to vzvm: the first disk is /dev/vda, the second /dev/vdb.
+      # ./guest.nix keys the store layer off vda and swap off vdb.
+      disks = [
+        {
+          path = storeDisk;
+          readOnly = false;
+        }
+      ]
+      ++ lib.optional (cfg.swapSize > 0) {
+        path = swapDisk;
+        readOnly = false;
+      };
 
-    shares =
-      [ { tag = "keys"; path = keyDir; } ]
-      ++ lib.optional (cfg.hostStore != "off") { tag = "hostnix"; path = "/nix"; };
-  });
+      shares = [
+        {
+          tag = "keys";
+          path = keyDir;
+        }
+      ]
+      ++ lib.optional (cfg.hostStore != "off") {
+        tag = "hostnix";
+        path = "/nix";
+      };
+    }
+  );
 
   # Run a Linux command in the builder, for the Linux-only things a Nix build
   # cannot do: anything that wants a network, a real /proc, a mount namespace,

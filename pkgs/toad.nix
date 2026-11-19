@@ -55,11 +55,15 @@ let
         hash = "sha256-GFn+DNpR10G/0qii6wKnh3InbIaDuvriJCCN9M9rsWg=";
       };
       doCheck = false;
-      dependencies = (lib.filter (d: d.pname or "" != "platformdirs") (old.dependencies or [ ])) ++ [ platformdirs' ];
+      dependencies = (lib.filter (d: d.pname or "" != "platformdirs") (old.dependencies or [ ])) ++ [
+        platformdirs'
+      ];
     });
 
     textual-serve' = textual-serve.overridePythonAttrs (old: {
-      dependencies = (lib.filter (d: d.pname or "" != "textual") (old.dependencies or [ ])) ++ [ textual' ];
+      dependencies = (lib.filter (d: d.pname or "" != "textual") (old.dependencies or [ ])) ++ [
+        textual'
+      ];
     });
 
     aiosqlite' = aiosqlite.overridePythonAttrs (old: rec {

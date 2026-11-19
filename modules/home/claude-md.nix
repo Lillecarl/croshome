@@ -63,9 +63,11 @@ let
     "ci-monitors.md"
   ];
 
-  onDisk = dir: lib.attrNames (
-    lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir dir)
-  );
+  onDisk =
+    dir:
+    lib.attrNames (
+      lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir dir)
+    );
 
   # Both directions, because each one fails silently on its own. A name in the
   # list with no file writes an `@` line that resolves to nothing, and the

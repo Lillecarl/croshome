@@ -60,19 +60,25 @@ rec {
   # The verdict on one run.
   verdict =
     name: from:
-    runCommand name { passthru = { run = from; }; } ''
-      status="$(cat ${from}/status)"
-      if [ "$status" != "0" ]; then
-        echo "${name}: the suite ended with $status" >&2
-        echo "" >&2
-        tail -n 30 "${from}/log" >&2
-        echo "" >&2
-        echo "The whole log, and everything the run left, is at:" >&2
-        echo "    ${from}" >&2
-        exit 1
-      fi
-      touch "$out"
-    '';
+    runCommand name
+      {
+        passthru = {
+          run = from;
+        };
+      }
+      ''
+        status="$(cat ${from}/status)"
+        if [ "$status" != "0" ]; then
+          echo "${name}: the suite ended with $status" >&2
+          echo "" >&2
+          tail -n 30 "${from}/log" >&2
+          echo "" >&2
+          echo "The whole log, and everything the run left, is at:" >&2
+          echo "    ${from}" >&2
+          exit 1
+        fi
+        touch "$out"
+      '';
 
   # Both halves at once, which is what a check is.
   suite = args: command: verdict args.name (run args command);

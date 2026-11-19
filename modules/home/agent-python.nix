@@ -35,9 +35,7 @@ let
     chmod 0555 $out/bin/${checkName}
   '';
 
-  names = lib.sort lib.lessThan (
-    lib.unique (map (p: p.pname or (lib.getName p)) package.modules)
-  );
+  names = lib.sort lib.lessThan (lib.unique (map (p: p.pname or (lib.getName p)) package.modules));
 
   section = ''
     ## Python for scripts: `${cfg.executableName}`

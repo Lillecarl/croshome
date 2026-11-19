@@ -68,7 +68,9 @@
     # Verified against the chart with `helm template` directly, so no bug is
     # being papered over on the easykubenix side.
     transformers = [
-      (map (object: if object.kind or null == "PriorityClass" then object // { value = 1000000; } else object))
+      (map (
+        object: if object.kind or null == "PriorityClass" then object // { value = 1000000; } else object
+      ))
     ];
 
     values = {

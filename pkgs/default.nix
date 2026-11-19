@@ -261,12 +261,13 @@ in
       {
         nativeBuildInputs = [ final.makeWrapper ];
         meta.description = "tmux-driven completion tests for the vendored anyxonsh";
-      } ''
-      mkdir -p $out/bin
-      makeWrapper ${final.anyxonsh.venv}/bin/python $out/bin/anyxonsh-tests \
-        --add-flags "${./anyxonsh/tests/completions.py}" \
-        --prefix PATH : ${final.anyxonsh}/bin
-    '';
+      }
+      ''
+        mkdir -p $out/bin
+        makeWrapper ${final.anyxonsh.venv}/bin/python $out/bin/anyxonsh-tests \
+          --add-flags "${./anyxonsh/tests/completions.py}" \
+          --prefix PATH : ${final.anyxonsh}/bin
+      '';
 
   kagi-mcp = final.python3.pkgs.callPackage ./kagi-mcp { };
 
@@ -517,7 +518,11 @@ in
 
   # Built on this configuration's pyterm, so its libpymux and the pymux in
   # `pyterm` above come from one revision: their wire protocol still moves.
-  aid = (import inputs.aid.outPath { pkgs = final; inherit (inputs) pyterm; }).aid;
+  aid =
+    (import inputs.aid.outPath {
+      pkgs = final;
+      inherit (inputs) pyterm;
+    }).aid;
 
   # `pyjj`, the CLI, and `pyjjui`, the TUI. Both rest on pyjj-bindings, which
   # compiles jj-lib and the crate tree under it from source -- so the first

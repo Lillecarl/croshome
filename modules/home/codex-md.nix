@@ -48,9 +48,11 @@ let
     "compaction.md"
   ];
 
-  onDisk = dir: lib.attrNames (
-    lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir dir)
-  );
+  onDisk =
+    dir:
+    lib.attrNames (
+      lib.filterAttrs (n: t: t == "regular" && lib.hasSuffix ".md" n) (builtins.readDir dir)
+    );
 
   # Both directions, because each one fails silently on its own: a name in
   # the list with no file drops the section here, and a file with no entry in

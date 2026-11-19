@@ -127,34 +127,33 @@ in
           };
         };
 
-        outputs =
-            {
-              # Right Huawei
-              DP-1 = {
-                mode = {
-                  width = 2560;
-                  height = 1440;
-                  refresh = 164.802;
-                };
-                position = {
-                  x = 1080;
-                  y = 240;
-                };
-              };
-              # Left BENQ
-              DP-2 = {
-                mode = {
-                  width = 1920;
-                  height = 1080;
-                  refresh = 143.996;
-                };
-                position = {
-                  x = 0;
-                  y = 0;
-                };
-                transform.rotation = 90;
-              };
+        outputs = {
+          # Right Huawei
+          DP-1 = {
+            mode = {
+              width = 2560;
+              height = 1440;
+              refresh = 164.802;
             };
+            position = {
+              x = 1080;
+              y = 240;
+            };
+          };
+          # Left BENQ
+          DP-2 = {
+            mode = {
+              width = 1920;
+              height = 1080;
+              refresh = 143.996;
+            };
+            position = {
+              x = 0;
+              y = 0;
+            };
+            transform.rotation = 90;
+          };
+        };
 
         layout = {
           background-color = "transparent";

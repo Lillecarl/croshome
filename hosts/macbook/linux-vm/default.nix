@@ -103,9 +103,7 @@ let
 
   # Delivered over the key share at start-up, so changing who may log in does
   # not rebuild the guest.
-  authorizedKeysFile = pkgs.writeText "linux-vm-authorized-keys" (
-    lib.concatLines cfg.authorizedKeys
-  );
+  authorizedKeysFile = pkgs.writeText "linux-vm-authorized-keys" (lib.concatLines cfg.authorizedKeys);
 
   sshOpts = [
     "-i"

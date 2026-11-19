@@ -1,4 +1,9 @@
-{ writeShellApplication, coreutils, gnugrep, gawk }:
+{
+  writeShellApplication,
+  coreutils,
+  gnugrep,
+  gawk,
+}:
 writeShellApplication {
   name = "aisudo";
   runtimeInputs = [

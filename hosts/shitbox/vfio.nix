@@ -27,7 +27,11 @@ let
     "system.slice"
     "user.slice"
   ];
-  pin = cpus: lib.concatMapStringsSep "\n" (s: "${systemctl} set-property --runtime -- ${s} AllowedCPUs=${cpus}") slices;
+  pin =
+    cpus:
+    lib.concatMapStringsSep "\n" (
+      s: "${systemctl} set-property --runtime -- ${s} AllowedCPUs=${cpus}"
+    ) slices;
 
   hook = pkgs.writeShellScript "${vm}-hook" ''
     # https://libvirt.org/hooks.html#etc-libvirt-hooks-qemu

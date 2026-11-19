@@ -10,7 +10,12 @@
 # the configuration as a hash. Two reasons: the configuration is in a public
 # repository, and rotating a password should mean re-encrypting one file rather
 # than re-hashing it and editing a second.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 {
   services.postgresql = {
     enable = true;

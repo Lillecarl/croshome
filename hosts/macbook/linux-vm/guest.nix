@@ -265,7 +265,10 @@ in
     # silently re-read-only the writable overlay above on every boot. Keep the
     # two options a store can honour anyway; drop immutability, which here is
     # false by construction: the upper layer is this machine's own disk.
-    boot.nixStoreMountOpts = [ "nodev" "nosuid" ];
+    boot.nixStoreMountOpts = [
+      "nodev"
+      "nosuid"
+    ];
 
     services.openssh = {
       enable = true;

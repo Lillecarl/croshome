@@ -81,7 +81,8 @@ in
     group = "root";
     shell = "${initrdUnlockShell}";
   };
-  boot.initrd.systemd.contents."/etc/ssh/authorized_keys.d/lillecarl".text = lib.readFile ../../lillecarl.pub;
+  boot.initrd.systemd.contents."/etc/ssh/authorized_keys.d/lillecarl".text =
+    lib.readFile ../../lillecarl.pub;
   users.enforceIdUniqueness = false;
 
   # A physical keyboard never times out waiting for a LUKS passphrase; this

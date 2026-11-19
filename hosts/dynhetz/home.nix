@@ -110,7 +110,9 @@
   systemd.user.services.litellm = {
     Unit.Description = "LiteLLM proxy (OpenCode Zen + Go on loopback)";
     Service = {
-      ExecStart = "${pkgs.litellm}/bin/litellm --config ${config.xdg.configFile."litellm/config.yaml".source} --host 127.0.0.1 --port 4000";
+      ExecStart = "${pkgs.litellm}/bin/litellm --config ${
+        config.xdg.configFile."litellm/config.yaml".source
+      } --host 127.0.0.1 --port 4000";
       EnvironmentFile = config.croshome.userSecrets.litellm-env.path;
       Restart = "always";
       RestartSec = "2";

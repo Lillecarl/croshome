@@ -17,7 +17,12 @@
 # route, is a dead end -- that option is what *this* module would also be
 # defining, and referencing it here is a genuine infinite recursion, not
 # just a laziness problem.
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
   cfg = config.boot.loader.systemd-boot;
   espMain = config.boot.loader.efi.efiSysMountPoint;

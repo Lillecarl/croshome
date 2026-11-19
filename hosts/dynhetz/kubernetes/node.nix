@@ -80,8 +80,7 @@ in
           "--bootstrap-kubeconfig=/etc/kubernetes/bootstrap-kubelet.conf"
           + " --kubeconfig=/etc/kubernetes/kubelet.conf";
         KUBELET_CONFIG_ARGS =
-          "--config=/var/lib/kubelet/config.yaml"
-          + " --config-dir=/etc/kubernetes/kubelet.conf.d";
+          "--config=/var/lib/kubelet/config.yaml" + " --config-dir=/etc/kubernetes/kubelet.conf.d";
       };
       serviceConfig = {
         # Written by kubeadm, so absent until it has run -- hence the leading

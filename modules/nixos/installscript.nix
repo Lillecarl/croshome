@@ -40,12 +40,14 @@ in
         pkgs.writeScriptBin "imageinstall" # bash
           ''
             #! ${pkgs.runtimeShell}
-            PATH=${lib.makeBinPath [
-              pkgs.nixos-anywhere
-              pkgs.openssh
-              pkgs.coreutils
-              pkgs.gawk
-            ]}:$PATH
+            PATH=${
+              lib.makeBinPath [
+                pkgs.nixos-anywhere
+                pkgs.openssh
+                pkgs.coreutils
+                pkgs.gawk
+              ]
+            }:$PATH
             set -euo pipefail
             set -x
 

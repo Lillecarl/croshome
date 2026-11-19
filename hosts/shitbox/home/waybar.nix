@@ -23,16 +23,16 @@ in
       };
 
       style = # scss
-      ''
-        * {
-          font-family: "Hack Nerd Font";
-          color: @text;
-        }
+        ''
+          * {
+            font-family: "Hack Nerd Font";
+            color: @text;
+          }
 
-        #waybar {
-          background-color: @base;
-        }
-      '';
+          #waybar {
+            background-color: @base;
+          }
+        '';
 
       settings = {
         mainBar = {
@@ -45,26 +45,25 @@ in
           modules-center = [
             "niri/window"
           ];
-          modules-right =
-            [
-              "niri/language"
-              "backlight"
-              "battery"
-              "pulseaudio"
-            ]
-            ++ (
-              if bluetooth then
-                [
-                  "bluetooth"
-                ]
-              else
-                [ ]
-            )
-            ++ [
-              "tray"
-              "custom/notification"
-              "clock"
-            ];
+          modules-right = [
+            "niri/language"
+            "backlight"
+            "battery"
+            "pulseaudio"
+          ]
+          ++ (
+            if bluetooth then
+              [
+                "bluetooth"
+              ]
+            else
+              [ ]
+          )
+          ++ [
+            "tray"
+            "custom/notification"
+            "clock"
+          ];
 
           clock = {
             interval = 1;

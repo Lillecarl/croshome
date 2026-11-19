@@ -79,15 +79,13 @@ suite
   {
     name = "ocahub-tui-e2e";
     inputs = [
-        (python3.withPackages (
-          ps: [
-            ps.pytest
-            ps.pytest-timeout
-            ps.anyio
-            ps.mcp
-            ps.pyzmq
-          ]
-        ))
+      (python3.withPackages (ps: [
+        ps.pytest
+        ps.pytest-timeout
+        ps.anyio
+        ps.mcp
+        ps.pyzmq
+      ]))
       ocahub
       pymux
       # The mock provider: the agents' models, on both wires.

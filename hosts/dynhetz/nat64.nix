@@ -189,24 +189,24 @@ in
         #
         # ICMP is in the list on purpose: without it `ping` from a pod fails
         # while TCP works, which reads as a routing problem and is not one.
-          pool4 =
-            [
-              # The static forward below owns this port: outside the
-              # dynamic range, so outbound masquerading never hands it
-              # out. It must also be said here because a BIB entry may
-              # only name an address already in pool4 -- Jool refuses the
-              # config otherwise (measured: error 22, "does not belong to
-              # pool4"). 6443's only other listener (the host apiserver's
-              # *:6443 socket) is firewall-dead on this address (see the
-              # BIB entry below). 443 is not here: ./sni-proxy.nix
-              # listens on it, and a pool4 port never reaches the host.
-              {
-                protocol = "TCP";
-                prefix = "${nodeIPv4}/32";
-                "port range" = "6443-6443";
-              }
-            ]
-          ++ map
+        pool4 = [
+          # The static forward below owns this port: outside the
+          # dynamic range, so outbound masquerading never hands it
+          # out. It must also be said here because a BIB entry may
+          # only name an address already in pool4 -- Jool refuses the
+          # config otherwise (measured: error 22, "does not belong to
+          # pool4"). 6443's only other listener (the host apiserver's
+          # *:6443 socket) is firewall-dead on this address (see the
+          # BIB entry below). 443 is not here: ./sni-proxy.nix
+          # listens on it, and a pool4 port never reaches the host.
+          {
+            protocol = "TCP";
+            prefix = "${nodeIPv4}/32";
+            "port range" = "6443-6443";
+          }
+        ]
+        ++
+          map
             (protocol: {
               inherit protocol;
               prefix = "${nodeIPv4}/32";

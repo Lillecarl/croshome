@@ -129,7 +129,8 @@ let
     "jsjoh"
     "rholm"
     "taron"
-  ] ++ [ "lillecarl" ];
+  ]
+  ++ [ "lillecarl" ];
 
   # Extra devices of one account, each a peer of its own: its own key, its
   # own address from the hash of `name`, so it can be connected at the
@@ -187,8 +188,10 @@ let
   # of the hash; no reduction, so nothing to get wrong.
   userV6 =
     user:
-    let h = hashOf user;
-    in "2a01:4f9:3071:11d7:e3:${builtins.substring 4 4 h}:${builtins.substring 8 4 h}:${builtins.substring 12 4 h}";
+    let
+      h = hashOf user;
+    in
+    "2a01:4f9:3071:11d7:e3:${builtins.substring 4 4 h}:${builtins.substring 8 4 h}:${builtins.substring 12 4 h}";
 
   # A hash can collide, and a collision here hands two people one address and
   # breaks both. 1 in 1800 for v4 at this headcount, far less for v6 -- rare

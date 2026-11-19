@@ -93,13 +93,9 @@ in
         lib.mapAttrsToList (
           relPath: entry:
           let
-            settingsFile = pkgs.writeText "merged-file-settings.json" (
-              builtins.toJSON entry.settings
-            );
+            settingsFile = pkgs.writeText "merged-file-settings.json" (builtins.toJSON entry.settings);
           in
-          "run ${lib.getExe pkgs.merged-file} --path ${
-            lib.escapeShellArg "${config.home.homeDirectory}/${relPath}"
-          } --format ${entry.format} --settings ${settingsFile}${
+          "run ${lib.getExe pkgs.merged-file} --path ${lib.escapeShellArg "${config.home.homeDirectory}/${relPath}"} --format ${entry.format} --settings ${settingsFile}${
             lib.optionalString (!entry.create) " --no-create"
           }"
         ) cfg

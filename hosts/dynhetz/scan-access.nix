@@ -12,9 +12,8 @@
     # doCheck = false: the writer's flake8 gate re-fires on whatever the
     # --ignore list replaces (W503 was next). The file is a plain Python
     # script; syntax errors surface on first run, not in a rebuild.
-    (pkgs.writers.writePython3Bin "scan-access"
-      { doCheck = false; }
-      (builtins.readFile ./scan-access.py
-      ))
+    (pkgs.writers.writePython3Bin "scan-access" { doCheck = false; } (
+      builtins.readFile ./scan-access.py
+    ))
   ];
 }

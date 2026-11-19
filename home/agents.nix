@@ -201,29 +201,30 @@ let
   #   v1 implementations do not run in v2. opencode.jsonc is a checkout
   #   file, so v2's own edits show up as working-copy changes.
   opencode2 =
-    (runsOnDarwinButFailsTheCheck inputs.llm-agents.packages.${system}.opencode2).overrideAttrs (old: {
-      nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
-      # No install check on the wrapper: the redirected XDG_DATA_HOME below
-      # expands $HOME at runtime, and the sandbox's HOME (/homeless-shelter)
-      # is read-only, so v2 dies creating its log dir before --version
-      # prints. The unwrapped binary passes its own check; the wrapper was
-      # run outside the sandbox instead: `opencode2 --version` says 2.0.27
-      # and `debug paths config`/`db` land in the isolated roots.
-      doInstallCheck = false;
-      postFixup =
-        (old.postFixup or "")
-        # --run, not --set: --set bakes the value at build time, and $HOME
-        # at build time is the sandbox (/homeless-shelter) under double
-        # quotes or a literal `$HOME` under single quotes, which v2 takes
-        # as a relative path off the working directory. --run lines land
-        # verbatim in the wrapper script, so $HOME expands when it runs.
-        + ''
-          wrapProgram $out/bin/opencode2 \
-            --run 'export XDG_CONFIG_HOME="$HOME/.config-opencode2"' \
-            --run 'export XDG_DATA_HOME="$HOME/.local/share-opencode2"' \
-            --run 'export XDG_STATE_HOME="$HOME/.local/state-opencode2"'
-        '';
-    });
+    (runsOnDarwinButFailsTheCheck inputs.llm-agents.packages.${system}.opencode2).overrideAttrs
+      (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ pkgs.makeWrapper ];
+        # No install check on the wrapper: the redirected XDG_DATA_HOME below
+        # expands $HOME at runtime, and the sandbox's HOME (/homeless-shelter)
+        # is read-only, so v2 dies creating its log dir before --version
+        # prints. The unwrapped binary passes its own check; the wrapper was
+        # run outside the sandbox instead: `opencode2 --version` says 2.0.27
+        # and `debug paths config`/`db` land in the isolated roots.
+        doInstallCheck = false;
+        postFixup =
+          (old.postFixup or "")
+          # --run, not --set: --set bakes the value at build time, and $HOME
+          # at build time is the sandbox (/homeless-shelter) under double
+          # quotes or a literal `$HOME` under single quotes, which v2 takes
+          # as a relative path off the working directory. --run lines land
+          # verbatim in the wrapper script, so $HOME expands when it runs.
+          + ''
+            wrapProgram $out/bin/opencode2 \
+              --run 'export XDG_CONFIG_HOME="$HOME/.config-opencode2"' \
+              --run 'export XDG_DATA_HOME="$HOME/.local/share-opencode2"' \
+              --run 'export XDG_STATE_HOME="$HOME/.local/state-opencode2"'
+          '';
+      });
 in
 {
   config = {
@@ -326,7 +327,7 @@ in
 
           # pymux supports kitty OSC99 for notifications
           preferredNotifChannel = "kitty";
-          
+
         };
       };
     });

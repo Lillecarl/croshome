@@ -92,7 +92,14 @@ let
 
   # The runner is the half that can move to nixpkgs: it knows nothing about
   # nix-darwin. See ./vm.nix.
-  vm = import ./vm.nix { inherit lib pkgs cfg guest; };
+  vm = import ./vm.nix {
+    inherit
+      lib
+      pkgs
+      cfg
+      guest
+      ;
+  };
 
   inherit (guest.config.system.build) toplevel;
 

@@ -16,26 +16,23 @@ let
     lib.filterAttrs (_: type: type == "directory") (builtins.readDir dynusers)
   );
 
-  keyFiles = name:
+  keyFiles =
+    name:
     map (file: dynusers + "/${name}/${file}") (
-      lib.filter (lib.hasSuffix ".pub") (
-        builtins.attrNames (builtins.readDir (dynusers + "/${name}"))
-      )
+      lib.filter (lib.hasSuffix ".pub") (builtins.attrNames (builtins.readDir (dynusers + "/${name}")))
     );
 in
 {
   users.mutableUsers = true;
 
   users.users = lib.listToAttrs (
-    map
-      (name: {
-        inherit name;
-        value = {
-          isNormalUser = true;
-          shell = pkgs.fish;
-          openssh.authorizedKeys.keyFiles = keyFiles name;
-        };
-      })
-      userNames
+    map (name: {
+      inherit name;
+      value = {
+        isNormalUser = true;
+        shell = pkgs.fish;
+        openssh.authorizedKeys.keyFiles = keyFiles name;
+      };
+    }) userNames
   );
 }

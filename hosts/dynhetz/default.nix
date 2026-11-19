@@ -14,13 +14,14 @@
 #    hangs off the link-local gateway.
 #  - `usePredictableInterfaceNames = false`, so the NIC is `eth0` here exactly
 #    as it was in the rescue system the machine was probed from.
-{ config
-, pkgs
-, lib
-, modulesPath
-, inputs
-, homeArgs
-, ...
+{
+  config,
+  pkgs,
+  lib,
+  modulesPath,
+  inputs,
+  homeArgs,
+  ...
 }:
 {
   imports = [

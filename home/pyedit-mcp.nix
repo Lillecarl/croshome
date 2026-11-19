@@ -49,9 +49,11 @@ let
   '';
 in
 {
-  home.file = lib.genAttrs (map (dir: "${dir}/skills/pyedit") config.programs.claudeCode.configDirs) (_: {
-    source = claudePlugin;
-  });
+  home.file =
+    lib.genAttrs (map (dir: "${dir}/skills/pyedit") config.programs.claudeCode.configDirs)
+      (_: {
+        source = claudePlugin;
+      });
 
   home.mergedFile.".config/opencode/opencode.json" = {
     format = "json";

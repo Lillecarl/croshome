@@ -56,9 +56,10 @@ let
   # where the other harnesses get it: it takes the FIRST existing file out of
   # ~/.config/opencode/AGENTS.md then ~/.claude/CLAUDE.md, and the AGENTS.md
   # above shadows CLAUDE.md completely. See ../modules/home/agent-machine.nix.
-  instructions =
-    [ "${config.home.homeDirectory}/${config.programs.agentMachine.relPath}" ]
-    ++ map (f: "${selfStr}/home/agents/shared/${f}") shared;
+  instructions = [
+    "${config.home.homeDirectory}/${config.programs.agentMachine.relPath}"
+  ]
+  ++ map (f: "${selfStr}/home/agents/shared/${f}") shared;
 in
 {
   config = {
@@ -109,8 +110,9 @@ in
     # Linux only: pystemctl runs on the Linux hosts, and its package does
     # not evaluate on darwin at all.
     home.file.".config/opencode/skills/pystemctl" = lib.mkIf platform.isLinux {
-      source =
-        "${(import inputs.pystemctl.outPath { inherit pkgs; }).pystemctl}/share/skills/pystemctl/pystemctl";
+      source = "${
+        (import inputs.pystemctl.outPath { inherit pkgs; }).pystemctl
+      }/share/skills/pystemctl/pystemctl";
     };
 
     # phabfive ships its own skill too. ./agents.nix links the same store path

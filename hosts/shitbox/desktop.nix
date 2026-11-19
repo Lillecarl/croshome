@@ -18,7 +18,9 @@
       let
         withOldDisplayInfo = pkgs.extend (
           final: _: {
-            libdisplay-info_0_2 = final.callPackage "${inputs.nixpkgs-stable}/pkgs/by-name/li/libdisplay-info_0_2/package.nix" { };
+            libdisplay-info_0_2 =
+              final.callPackage "${inputs.nixpkgs-stable}/pkgs/by-name/li/libdisplay-info_0_2/package.nix"
+                { };
           }
         );
       in

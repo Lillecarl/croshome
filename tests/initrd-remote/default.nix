@@ -139,7 +139,9 @@ mkTest (
       script = ../initrd-remote.py;
       after = [ "boot" ];
     };
-    settings.gated = "${(systems.box.extendModules { modules = [ remote ]; }).config.system.build.toplevel}";
+    settings.gated = "${(systems.box.extendModules { modules = [ remote ]; })
+      .config.system.build.toplevel
+    }";
 
     nodes.box =
       { settings, ... }:

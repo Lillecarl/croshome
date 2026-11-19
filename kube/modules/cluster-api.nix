@@ -88,9 +88,15 @@ let
 in
 {
   importyaml = {
-    cluster-api-core = components (release "core-components.yaml" "sha256-sv/0LLXjVEDtljpGPFqxKABEgbWkM26gAFgSvi/34qg=");
-    cluster-api-bootstrap-kubeadm = components (release "bootstrap-components.yaml" "sha256-Ki0k+DJEptrmDjXZ5y6Txqw8IJ7txGcYRze7juz9Y7s=");
-    cluster-api-control-plane-kubeadm = components (release "control-plane-components.yaml" "sha256-eqgntD7uiY2Fl7s5t9tc91XIcsek2miwXMOp81xFnJM=");
+    cluster-api-core = components (
+      release "core-components.yaml" "sha256-sv/0LLXjVEDtljpGPFqxKABEgbWkM26gAFgSvi/34qg="
+    );
+    cluster-api-bootstrap-kubeadm = components (
+      release "bootstrap-components.yaml" "sha256-Ki0k+DJEptrmDjXZ5y6Txqw8IJ7txGcYRze7juz9Y7s="
+    );
+    cluster-api-control-plane-kubeadm = components (
+      release "control-plane-components.yaml" "sha256-eqgntD7uiY2Fl7s5t9tc91XIcsek2miwXMOp81xFnJM="
+    );
     cluster-api-kubevirt = {
       src = pkgs.fetchurl {
         url = "https://github.com/kubernetes-sigs/cluster-api-provider-kubevirt/releases/download/v${capkVersion}/infrastructure-components.yaml";
