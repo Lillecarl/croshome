@@ -78,6 +78,15 @@ Set the switch to 3.3 V. Mail-order fallback: Electrokit CP2102, fixed
 (p87900). The pads are bare, so solder a header or wires to them; Kjell's
 Luxorparts Lödkolvset 30 W (249,90 kr) is in most stores.
 
+Opening it ([thinkpads.com teardown](https://www.forum.thinkpads.com/viewtopic.php?t=122701),
+[bdm.cc](https://bdm.cc/2016/06/lenovo-bluetooth-keyboard-repairs/)): the case
+has no screws. The top trim ring snaps onto the bottom half; start at a bottom
+corner with fingers or a plastic pry tool. The keyboard is glued to the bottom
+case and must be pried up. Disconnect the flat flex cable early. The only
+screws (3) hold the TrackPoint. In the FCC photos the main board shows its
+component side up, so the pad row is probably on the underside: expect to
+lift the board out.
+
 Plan once a 3.3 V adapter is here:
 
 1. Open the keyboard. Find and photograph the memory chip next to U3, and
