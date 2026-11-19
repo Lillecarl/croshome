@@ -38,6 +38,15 @@ in
           # fetches from dynhetz took every slot and none finished in 45
           # minutes (2026-10-24). Back once pynixd handles that load.
           systems = [ "aarch64-darwin" ];
+          # Nix's own default features on macOS (`apple-virt` since 2.19).
+          # Without them dynhetz registers this Mac with none, and sends it
+          # no build that needs one: no vivarium krun guest, which needs
+          # `apple-virt`.
+          system_features = [
+            "apple-virt"
+            "benchmark"
+            "big-parallel"
+          ];
           server_host_key_paths = [ "/Users/lillecarl/.ssh/id_ed25519" ];
         };
 
