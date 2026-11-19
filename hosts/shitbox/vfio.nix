@@ -80,6 +80,21 @@ in
     softdep nvidia pre: vfio_pci
   '';
 
+  # vfio-pci never initialises the card, so it keeps scanning out the
+  # firmware's boot frame on DP, and the monitor's auto input select jumps to
+  # it whenever the Arc's output sleeps. A bus reset blanks it (measured
+  # 2026-11-19, issue #10).
+  systemd.services.rtx-blank = {
+    description = "Reset the passthrough RTX so it stops showing the boot frame";
+    wantedBy = [ "multi-user.target" ];
+    before = [ "libvirtd.service" ];
+    unitConfig.ConditionPathExists = "/sys/bus/pci/devices/0000:09:00.0/reset";
+    serviceConfig = {
+      Type = "oneshot";
+      ExecStart = "${pkgs.bash}/bin/sh -c 'echo 1 > /sys/bus/pci/devices/0000:09:00.0/reset'";
+    };
+  };
+
   virtualisation.libvirtd = {
     enable = true;
     qemu = {
