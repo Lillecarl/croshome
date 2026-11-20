@@ -34,6 +34,8 @@ Put the OpenPGP passphrase into gpg-agent, once, for both keys.
   pgp-unlock personal
   pgp-unlock --status    what the agent holds
   pgp-unlock --lock      forget it again
+  pgp-unlock --from FILE [work|personal]
+                         read the passphrase from FILE, not the terminal
 
 Both keys share a passphrase, but gpg-agent caches per subkey. So unlocking
 one leaves the other locked, and a commit in a repository that signs with the
@@ -93,6 +95,14 @@ status() {
   done
 }
 
+# `--from FILE` reads the passphrase from FILE instead of the terminal: the
+# path the TPM-sealed credential takes at login (./gpg.nix).
+pwfile=
+if [ "${1:-}" = "--from" ]; then
+  pwfile=${2:?pgp-unlock: --from needs a file}
+  shift 2
+fi
+
 case "${1:-both}" in
 -h | --help)
   usage
@@ -139,13 +149,15 @@ if [ ${#todo[@]} -eq 0 ]; then
   exit 0
 fi
 
-if [ ! -t 0 ]; then
+if [ -n "$pwfile" ]; then
+  pw=$(<"$pwfile")
+elif [ ! -t 0 ]; then
   echo "pgp-unlock: ${todo[*]} still locked, and unlocking needs a terminal" >&2
   exit 1
+else
+  read -r -s -p "OpenPGP passphrase: " pw
+  echo
 fi
-
-read -r -s -p "OpenPGP passphrase: " pw
-echo
 if [ -z "$pw" ]; then
   echo "pgp-unlock: refusing an empty passphrase" >&2
   exit 1

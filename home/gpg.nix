@@ -137,4 +137,28 @@ in
   # Only once the keys exist. `pgp-unlock` names both fingerprints, so before
   # ../secrets/pgp-create has run there is nothing for it to unlock.
   home.packages = lib.optional haveKeys pgp-unlock;
+
+  # Unlock at login from a passphrase sealed to this machine's TPM, on a host
+  # that has one. It runs only where the sealed file exists, so elsewhere it is
+  # a no-op. Seal once per machine, and again after a dbx, key or BIOS change
+  # moves PCR 7:
+  #
+  #   systemd-creds --user encrypt --name=pgp-passphrase --with-key=tpm2 \
+  #     --tpm2-pcrs=7 - ~/.config/credstore.encrypted/pgp-passphrase
+  #
+  # It gives no more than one `pgp-unlock` per boot already gives: anything
+  # running as this user can sign while logged in. The passphrase stays
+  # useless off this board, or with Secure Boot off.
+  systemd.user.services.pgp-unlock-tpm = lib.mkIf (platform.isLinux && haveKeys) {
+    Unit = {
+      Description = "Unlock the OpenPGP keys from the TPM-sealed passphrase";
+      ConditionPathExists = "%h/.config/credstore.encrypted/pgp-passphrase";
+    };
+    Service = {
+      Type = "oneshot";
+      LoadCredentialEncrypted = "pgp-passphrase:%h/.config/credstore.encrypted/pgp-passphrase";
+      ExecStart = "${lib.getExe pgp-unlock} --from %d/pgp-passphrase";
+    };
+    Install.WantedBy = [ "default.target" ];
+  };
 }
