@@ -53,7 +53,15 @@
     theme.name = "adw-gtk3-dark";
     theme.package = pkgs.adw-gtk3;
     gtk4.theme = config.gtk.theme;
+    # For GTK3 apps that ask the setting rather than the theme name.
+    gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
   };
+
+  # The one switch most apps read: xdg-desktop-portal reports it as
+  # org.freedesktop.appearance color-scheme, which Firefox, Chromium,
+  # Electron, libadwaita and Qt 6 follow. Unset, the portal says "no
+  # preference" and they pick light.
+  dconf.settings."org/gnome/desktop/interface".color-scheme = "prefer-dark";
   home.pointerCursor = {
     enable = true;
     name = "catppuccin-mocha-blue-cursors";

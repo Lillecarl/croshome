@@ -45,5 +45,14 @@
         "ctrl+shift+9" = "no_op";
       };
     };
+
+    # kitty's desktop-ui portal answers the Settings portal before GNOME's
+    # (~/.config/xdg-desktop-portal/portals.conf, written by
+    # `kitten desktop-ui enable-portal`), so this, not dconf, is the
+    # color-scheme apps see. Its default is no preference, which apps read
+    # as light.
+    xdg.configFile."kitty/desktop-ui-portal.conf".text = ''
+      color_scheme dark
+    '';
   };
 }
