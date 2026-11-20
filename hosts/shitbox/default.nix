@@ -14,6 +14,7 @@
     ./wireguard.nix
     ./initrd-remote.nix
     ./secureboot.nix
+    ./audio.nix
   ];
 
   config = {
