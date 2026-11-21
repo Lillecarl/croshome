@@ -219,6 +219,19 @@ let
   peerLines = lib.concatMapStrings (p: ''
     wg_user_peer ${p.name} ${userV4 p.name} ${userV6 p.name} ${p.owner} ${p.prefix}
   '') wgPeers;
+
+  # Peers of the account that owns this machine reach every port on it, so a
+  # service in development binds to the tunnel address and the phone opens it.
+  # Matching on the source address is safe: WireGuard drops a packet whose
+  # source is not in its sender's allowed-ips, and each address below is a
+  # /32 or /128 held by one peer. The MikroTik's 0.0.0.0/0 cannot claim it,
+  # because a longer prefix wins.
+  hostOwner = "lillecarl";
+  ownPeers = lib.filter (p: p.owner == hostOwner) wgPeers;
+  ownPeerRules = lib.concatMapStrings (p: ''
+    iptables -w -A nixos-fw -i wg-dynhetz -s ${userV4 p.name} -j nixos-fw-accept
+    ip6tables -w -A nixos-fw -i wg-dynhetz -s ${userV6 p.name} -j nixos-fw-accept
+  '') ownPeers;
 in
 assert noCollision "IPv4" userV4;
 assert noCollision "IPv6" userV6;
@@ -652,5 +665,6 @@ assert noCollision "IPv6" userV6;
     ip46tables -A FORWARD -i eth0 -o wg-dynhetz -m state --state ESTABLISHED,RELATED -j ACCEPT
     ip46tables -A FORWARD -i wg-dynhetz -o eth0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
     ip46tables -A FORWARD -i eth0 -o wg-dynhetz -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu
+    ${ownPeerRules}
   '';
 }
