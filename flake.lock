@@ -406,11 +406,11 @@
     "nixidae-pynixd": {
       "flake": false,
       "locked": {
-        "lastModified": 1795354094,
-        "narHash": "sha256-lHCcWS0RDWBYcWqxrC+LrU/Dg5nawB2xV6mCW/0fvos=",
+        "lastModified": 1795354753,
+        "narHash": "sha256-siVrtkqvMDiEaTrNkGTQ2JGNIVLWFtfDKAnQ3MWsr7U=",
         "owner": "nixidae",
         "repo": "nixidae",
-        "rev": "3832c18492daeef9781f1d5062dddd6cfdea6971",
+        "rev": "6765a8eda0c67820f8c6fae1944d557502da89f9",
         "type": "github"
       },
       "original": {
