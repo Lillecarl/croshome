@@ -55,6 +55,13 @@
     .${pkgs.stdenv.hostPlatform.system}
   ];
   time.timeZone = "Europe/Stockholm";
+
+  # English, with Swedish formats: 24-hour time, ISO dates, metric, A4.
+  # en_SE (like en_DK) writes numbers 1 234,5, which breaks bash's printf
+  # '%f' and CSV tools, so numbers are en_GB's 1,234.5. Chromium has no
+  # en-SE and falls back to en-GB.
+  i18n.defaultLocale = "en_SE.UTF-8";
+  i18n.extraLocaleSettings.LC_NUMERIC = "en_GB.UTF-8";
   # Terminfo packages for terminals we're using
   environment.systemPackages = with pkgs.pkgsBuildBuild; [
     foot.terminfo
