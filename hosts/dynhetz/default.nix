@@ -33,6 +33,7 @@
     ./nat64.nix
     ./sni-proxy.nix
     ./wireguard.nix
+    ./dev-proxy.nix
     ./dc1.nix
     ./sg1-uplink.nix
     ./scan-access.nix
