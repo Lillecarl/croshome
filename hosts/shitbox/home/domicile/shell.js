@@ -37,14 +37,8 @@ export const Shell = (root, domicile) => {
   domicile.windows.on("focuschange", draw);
 
   const terminal = () => domicile.processes.launch(["kitty"]);
-  // SIGTERM ends domicile cleanly. Its control socket is
-  // domicile-ipc.<launcher pid>.sock, and every app it starts has it.
-  const quit = () =>
-    domicile.processes.launch([
-      "sh",
-      "-c",
-      'p=${DOMICILE_SOCK##*/domicile-ipc.}; kill -TERM "${p%.sock}"',
-    ]);
+  // ../domicile.nix installs it.
+  const quit = () => domicile.processes.launch(["domicile-quit"]);
   domicile.keyboard.grab("Meta+Return");
   domicile.keyboard.grab("Meta+Shift+E");
   domicile.keyboard.on("shortcut", ({ chord }) => {
