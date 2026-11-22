@@ -149,6 +149,13 @@ let
       owner = "lillecarl";
       device = "shitbox";
     }
+    # Its own key, so the always-on -int tunnel runs beside any account
+    # profile.
+    {
+      name = "lillecarl-macbook";
+      owner = "lillecarl";
+      device = "macbook";
+    }
   ];
 
   # Every peer: name (hashed into its addresses), owner (whose home gets
@@ -522,6 +529,16 @@ assert noCollision "IPv6" userV6;
             "2a01:4f9:3071:11d7::/64" \
             "DNS = 2a01:4f9:3071:11d7:e3::1" \
             "Lab only, IPv6 only, plus *.dynhetz.internal: <port>.dynhetz.internal opens 127.0.0.1:<port> on dynhetz. Every DNS query goes to dynhetz while this is up; your other traffic stays off the tunnel."
+
+          # Always-on: dynhetz's own ranges in both families, no default
+          # route and no DNS line. IPv4 because without a default route macOS
+          # asks for A records only (row three above). The client resolves
+          # the proxy's names itself, at 10.101.0.1 (../macbook/default.nix).
+          wg_user_conf "-int" \
+            "$v4/16, $v6/80" \
+            "10.100.0.0/24, 10.101.0.0/16, 2a01:4f9:3071:11d7::/64" \
+            "" \
+            "dynhetz's own addresses only, both families. No default route and no DNS: safe to leave on. Resolve dynhetz.lillecarl.com and dynhetz.internal at 10.101.0.1 yourself (macOS: /etc/resolver)."
         fi
 
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
@@ -541,6 +558,8 @@ assert noCollision "IPv6" userV6;
           if [ "$own" = own ]; then
             install -o "$owner" -g users -m 0600 \
               "users/$user-dev.conf" "/home/$owner/$prefix-dev.conf" || true
+            install -o "$owner" -g users -m 0600 \
+              "users/$user-int.conf" "/home/$owner/$prefix-int.conf" || true
           fi
 
           # The previous names, removed rather than left to rot. wg-dynhetz.conf
@@ -567,6 +586,7 @@ assert noCollision "IPv6" userV6;
         rm -f "users/$stale.key" "users/$stale.pub" \
               "users/$stale-lab.conf" "users/$stale-v6.conf" \
               "users/$stale-dual.conf" "users/$stale-dev.conf" \
+              "users/$stale-int.conf" \
               "users/$stale.conf" "users/$stale-full.conf"
       done
 

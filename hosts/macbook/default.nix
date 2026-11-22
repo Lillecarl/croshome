@@ -200,6 +200,17 @@
     nameserver 10.0.250.1
   '';
 
+  # dynhetz's dev proxy (pymux, aid web, <port>.<domain>) through the
+  # wg-macbook-int tunnel: dnsmasq on dynhetz's tunnel address answers both.
+  # The tunnel is WireGuard.app with that file imported, on demand, so it
+  # registers a network service; wg-quick would not (../dynhetz/wireguard.nix).
+  environment.etc."resolver/dynhetz.lillecarl.com".text = ''
+    nameserver 10.101.0.1
+  '';
+  environment.etc."resolver/dynhetz.internal".text = ''
+    nameserver 10.101.0.1
+  '';
+
   # The fallback, staged but off. `enable = false` means the module produces
   # nothing at all -- its whole config sits behind `mkIf cfg.enable` -- so this
   # is a settings block waiting for a decision, not a running daemon.
@@ -315,6 +326,17 @@
       {
         domain = "dynami.st";
         nameservers = [ "10.0.250.1" ];
+        priority = -100;
+      }
+      # No public records exist: Quad9 would answer NXDOMAIN.
+      {
+        domain = "dynhetz.lillecarl.com";
+        nameservers = [ "10.101.0.1" ];
+        priority = -100;
+      }
+      {
+        domain = "dynhetz.internal";
+        nameservers = [ "10.101.0.1" ];
         priority = -100;
       }
     ];
