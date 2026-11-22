@@ -4,9 +4,16 @@
 {
   xdg.configFile."domicile/shell.js".source = ./domicile/shell.js;
 
-  # SIGTERM ends domicile cleanly. Its control socket is
-  # domicile-ipc.<launcher pid>.sock, and every app it starts has it.
+  # Without an icon theme domicile looks icons up in hicolor only, where
+  # tray icons named from a full theme (udiskie's) do not exist. catppuccin
+  # installs Papirus (catppuccin-papirus-folders).
+  xdg.configFile."domicile/domicile.json".text = builtins.toJSON {
+    theme.icon_theme = "Papirus-Dark";
+  };
+
   home.packages = [
+    # SIGTERM ends domicile cleanly. Its control socket is
+    # domicile-ipc.<launcher pid>.sock, and every app it starts has it.
     (pkgs.writeShellScriptBin "domicile-quit" ''
       pid=''${DOMICILE_SOCK##*/domicile-ipc.}
       pid=''${pid%.sock}
