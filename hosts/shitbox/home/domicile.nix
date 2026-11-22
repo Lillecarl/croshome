@@ -13,6 +13,8 @@
       "nngceckbapebfimnlniiiahkandclblb" # Bitwarden
       "mlomiejdfkolichcflejclcbmpeaniij" # Ghostery
     ];
+    # Vim scrolling and link hints, from its checkout.
+    extensions.unpacked = [ "~/Code/domicile-svelte/extensions/pagekeys" ];
     # Once per session. A shell's own start hook reruns on every load-shell.
     startup.commands = [ [ "kitty" ] ];
   };
