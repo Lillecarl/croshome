@@ -11,6 +11,8 @@
     theme.icon_theme = "Papirus-Dark";
     # Bitwarden.
     extensions.web_store = [ "nngceckbapebfimnlniiiahkandclblb" ];
+    # Once per session. A shell's own start hook reruns on every load-shell.
+    startup.commands = [ [ "kitty" ] ];
   };
 
   home.packages = [

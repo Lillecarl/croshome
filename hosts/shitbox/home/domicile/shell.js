@@ -1,5 +1,5 @@
-// Bootstrap domicile shell: windows side by side, kitty at start and on
-// Meta+Return. Stands in until the Svelte shell can.
+// Bootstrap domicile shell: windows side by side, kitty on Meta+Return.
+// Stands in until the Svelte shell can.
 export const Shell = (root, domicile) => {
   const main = document.createElement("main");
   main.style.cssText =
@@ -51,5 +51,4 @@ export const Shell = (root, domicile) => {
         break;
     }
   });
-  terminal();
 };
