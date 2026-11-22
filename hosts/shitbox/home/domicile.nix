@@ -1,7 +1,19 @@
 # Log in on tty2 and domicile takes the screen; niri keeps tty1. Exiting
 # domicile logs out of tty2.
-{ lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 let
+  extensions = import ./domicile/extensions.nix { inherit pkgs; };
+  # Loaded from writable copies, not the store: Chromium writes an unpacked
+  # extension's indexed declarativeNetRequest rules into its own directory,
+  # and Ghostery's ads list failed to load from the read-only store path
+  # ("dnr-ads.json: Internal error while parsing rules").
+  extensionDir = "${config.xdg.dataHome}/domicile/extensions";
+
   # Sites as apps: a window of their own with no address bar, in a browser
   # profile, raised rather than opened again (docs/architecture/WEB-APPS.md
   # in domicile). Icons are Papirus names.
@@ -63,6 +75,24 @@ in
     categories = [ "Network" ];
   }) webApps;
 
+  # A copy is replaced only when its store path changes, so the rules Chromium
+  # indexed into it stay. A running desktop loads a replaced one on
+  # `domicile load-extension <dir>`, or its next start. Before linkGeneration,
+  # which links the config naming them: domicile reads it as soon as it
+  # changes.
+  home.activation.domicileExtensions = lib.hm.dag.entryBetween [ "linkGeneration" ] [ "writeBoundary" ] (
+    lib.concatStrings (
+      lib.mapAttrsToList (name: source: ''
+        if [ "$(readlink ${extensionDir}/${name}.source)" != "${source}" ]; then
+          run mkdir -p ${extensionDir}
+          run rm -rf ${extensionDir}/${name}
+          run cp -r --no-preserve=mode ${source} ${extensionDir}/${name}
+          run ln -sfn ${source} ${extensionDir}/${name}.source
+        fi
+      '') extensions
+    )
+  );
+
   xdg.configFile."domicile/shell.js".source = ./domicile/shell.js;
 
   # Without an icon theme domicile looks icons up in hicolor only, where
@@ -70,12 +100,13 @@ in
   # installs Papirus (catppuccin-papirus-folders).
   xdg.configFile."domicile/domicile.json".text = builtins.toJSON {
     theme.icon_theme = "Papirus-Dark";
-    extensions.web_store = [
-      "nngceckbapebfimnlniiiahkandclblb" # Bitwarden
-      "mlomiejdfkolichcflejclcbmpeaniij" # Ghostery
+    # Unpacked, not from the Web Store: see ./domicile/extensions.nix.
+    extensions.unpacked = [
+      "${extensionDir}/bitwarden"
+      "${extensionDir}/ghostery"
+      # Vim scrolling and link hints, from its checkout.
+      "~/Code/domicile-svelte/extensions/pagekeys"
     ];
-    # Vim scrolling and link hints, from its checkout.
-    extensions.unpacked = [ "~/Code/domicile-svelte/extensions/pagekeys" ];
     # Once per session. A shell's own start hook reruns on every load-shell.
     startup.commands = [ [ "kitty" ] ];
     # Each profile has its own sign-ins, site data and extensions. The default
