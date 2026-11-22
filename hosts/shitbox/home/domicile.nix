@@ -9,8 +9,10 @@
   # installs Papirus (catppuccin-papirus-folders).
   xdg.configFile."domicile/domicile.json".text = builtins.toJSON {
     theme.icon_theme = "Papirus-Dark";
-    # Bitwarden.
-    extensions.web_store = [ "nngceckbapebfimnlniiiahkandclblb" ];
+    extensions.web_store = [
+      "nngceckbapebfimnlniiiahkandclblb" # Bitwarden
+      "mlomiejdfkolichcflejclcbmpeaniij" # Ghostery
+    ];
     # Once per session. A shell's own start hook reruns on every load-shell.
     startup.commands = [ [ "kitty" ] ];
   };
