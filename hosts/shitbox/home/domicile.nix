@@ -1,7 +1,68 @@
 # Log in on tty2 and domicile takes the screen; niri keeps tty1. Exiting
 # domicile logs out of tty2.
-{ pkgs, ... }:
+{ lib, pkgs, ... }:
+let
+  # Sites as apps: a window of their own with no address bar, in a browser
+  # profile, raised rather than opened again (docs/architecture/WEB-APPS.md
+  # in domicile). Icons are Papirus names.
+  webApps = {
+    slack-work = {
+      name = "Slack (Work)";
+      url = "https://dynamist.slack.com/";
+      profile = "work";
+      icon = "slack";
+    };
+    gmail-work = {
+      name = "Gmail (Work)";
+      url = "https://mail.google.com/";
+      profile = "work";
+      icon = "gmail";
+    };
+    calendar-work = {
+      name = "Google Calendar (Work)";
+      url = "https://calendar.google.com/";
+      profile = "work";
+      icon = "calendar";
+    };
+    messenger = {
+      name = "Messenger";
+      url = "https://www.messenger.com/";
+      profile = "personal";
+      icon = "caprine";
+    };
+    element = {
+      name = "Element";
+      url = "https://app.element.io/";
+      profile = "personal";
+      icon = "element";
+    };
+    migadu = {
+      name = "Migadu";
+      url = "https://webmail.migadu.com/";
+      profile = "personal";
+      icon = "mail-client";
+    };
+    gmail-personal = {
+      name = "Gmail (Personal)";
+      url = "https://mail.google.com/";
+      profile = "personal";
+      icon = "gmail";
+    };
+    discord = {
+      name = "Discord";
+      url = "https://discord.com/app";
+      profile = "personal";
+      icon = "discord";
+    };
+  };
+in
 {
+  xdg.desktopEntries = lib.mapAttrs (id: app: {
+    inherit (app) name icon;
+    exec = "domicile open --app --profile ${app.profile} --id ${id} --reuse focus ${app.url}";
+    categories = [ "Network" ];
+  }) webApps;
+
   xdg.configFile."domicile/shell.js".source = ./domicile/shell.js;
 
   # Without an icon theme domicile looks icons up in hicolor only, where
@@ -17,6 +78,33 @@
     extensions.unpacked = [ "~/Code/domicile-svelte/extensions/pagekeys" ];
     # Once per session. A shell's own start hook reruns on every load-shell.
     startup.commands = [ [ "kitty" ] ];
+    # Each profile has its own sign-ins, site data and extensions. The default
+    # is the profile browsing always used, so its sign-ins stay.
+    browser = {
+      profiles = {
+        personal = {
+          name = "Personal";
+          color = "#0d9488";
+        };
+        work = {
+          name = "Work";
+          color = "#d97706";
+        };
+        private = {
+          name = "Private";
+          color = "#a78bfa";
+          private = true;
+        };
+      };
+      order = [
+        "personal"
+        "work"
+        "private"
+      ];
+      default_profile = "personal";
+      default_private_profile = "private";
+      sites."dynamist.slack.com" = "work";
+    };
   };
 
   home.packages = [
