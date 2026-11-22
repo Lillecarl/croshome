@@ -13,7 +13,9 @@
 #
 # Both halves listen only on the tunnel address, and ./wireguard.nix lets
 # only the owner's own peers reach it. A peer reaches this through the -dev
-# profile, which points DNS at the resolver below.
+# profile, which points all DNS at the resolver below, or through the -int
+# profile plus a client-side resolver for these two domains only (the Mac:
+# ../macbook/default.nix).
 { config, lib, ... }:
 let
   # This host on wg-dynhetz (./wireguard.nix).
@@ -24,8 +26,11 @@ let
 
   # Not pymux web's default 8080: pynixd's binary cache holds that port here
   # (./pynixd.nix). Run `pymux web --port 37816`.
+  # aid and dex: ./aid-web.nix (home-manager) owns these ports.
   named = {
     pymux = 37816;
+    aid = 37815;
+    dex = 37814;
   };
 
   routes = domain: ''
@@ -65,11 +70,14 @@ in
         tunnelV6
         tunnelV4
       ];
-      # AAAA only. The -dev profile has no IPv4, so an A answer sends the
-      # client to a 10.101 address over its normal network first.
+      # Both families. The -int profile needs the A answer: without a
+      # default route macOS reports no IPv6 and getaddrinfo asks for A only
+      # (./wireguard.nix). A v6-only -dev client tries the AAAA first.
       address = [
         "/${domain}/${tunnelV6}"
+        "/${domain}/${tunnelV4}"
         "/${tlsDomain}/${tunnelV6}"
+        "/${tlsDomain}/${tunnelV4}"
       ];
       # Everything else goes to the host's own resolver, read from
       # /etc/resolv.conf (systemd-resolved).
@@ -77,6 +85,11 @@ in
       bogus-priv = true;
     };
   };
+
+  # This host resolves through systemd-resolved, not the dnsmasq above, and
+  # no public record exists. aid web fetches dex's discovery document and
+  # tokens server-side, so it needs these names too.
+  networking.hosts.${tunnelV6} = map (name: "${name}.${tlsDomain}") (lib.attrNames named);
 
   # A token for Cloudflare's API: DNS Edit and Zone Read on lillecarl.com.
   sops.secrets.cloudflare-dns-token = { };

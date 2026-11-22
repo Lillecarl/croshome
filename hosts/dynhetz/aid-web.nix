@@ -1,9 +1,13 @@
-# aid's web UI with a local dex as its OIDC provider, both on localhost only.
+# aid's web UI with a local dex as its OIDC provider. Both listen on localhost;
+# ./dev-proxy.nix serves them over the WireGuard tunnel with TLS, as
+# https://aid.dynhetz.lillecarl.com and https://dex.dynhetz.lillecarl.com.
+# A plain port forward to 127.0.0.1:37815 cannot log in: the redirect URI and
+# the Secure session cookie both name the https origin.
 #
 # A test setup, so its secrets are made on this machine rather than kept in
 # ../../secrets: `aid-web-secrets` writes a client secret, a session secret and
 # a login password to ~/.local/state/aid-web the first time it runs, and never
-# again. Log in at http://127.0.0.1:37815 as `email` below, with the password in
+# again. Log in as `email` below, with the password in
 # ~/.local/state/aid-web/password. Delete that directory to make new ones.
 #
 # dex keeps its state in memory: a restart logs everyone out, nothing else.
@@ -18,7 +22,9 @@ let
   # Registered range, below the dynamic one (49152+), so an outgoing connection never takes them first.
   dexPort = 37814;
   webPort = 37815;
-  issuer = "http://127.0.0.1:${toString dexPort}/dex";
+  # ./dev-proxy.nix's names. Ports here and in its `named` must agree.
+  baseUrl = "https://aid.dynhetz.lillecarl.com";
+  issuer = "https://dex.dynhetz.lillecarl.com/dex";
   stateDir = "${config.xdg.stateHome}/aid-web";
   envFile = "${stateDir}/env";
 
@@ -33,7 +39,7 @@ let
           id = "aid";
           name = "aid";
           secretEnv = "AID_OIDC_CLIENT_SECRET";
-          redirectURIs = [ "http://127.0.0.1:${toString webPort}/auth/callback" ];
+          redirectURIs = [ "${baseUrl}/auth/callback" ];
         }
       ];
       enablePasswordDB = true;
@@ -75,7 +81,7 @@ in
   services.aid.web = {
     enable = true;
     bind = "127.0.0.1:${toString webPort}";
-    inherit issuer;
+    inherit baseUrl issuer;
     allowEmails = [ email ];
     environmentFile = envFile;
     speechModel = config.services.aid.package.speechModel;
