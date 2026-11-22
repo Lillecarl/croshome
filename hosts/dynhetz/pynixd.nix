@@ -112,6 +112,11 @@ in
   # dynhetz-cold-1:5AkgT7+0BQGIPYS1/WjB1EYt+cjCHQyf3lzCeMwvZB8=
   sops.secrets.pynixd-cold-key = { };
   sops.secrets.pynixd-r2-endpoint = { };
+  # The bearer token for SG1's VictoriaTraces (OTLP ingest and the Jaeger
+  # API at http://10.247.100.60:8427), the raw token without "Bearer ".
+  # SG1 generates it (solid-kubernetes components/vm/traces, "Access from
+  # outside"); this is a copy, to replace after an SG1 rebuild.
+  sops.secrets.victoriatraces-sg1-token = { };
   # The NoMac (nomac.app) API key that starts the macOS builders below.
   sops.secrets.nomac-api-key.sopsFile = ../../secrets/sops/user.yaml;
   systemd.services.pynixd.environment = {

@@ -60,6 +60,9 @@
     aid-env.file = ../../secrets/sops/hosts/dynhetz.yaml;
     litellm-env.file = ../../secrets/sops/hosts/dynhetz.yaml;
     pymux-anthropic-key.file = ../../secrets/sops/hosts/dynhetz.yaml;
+    # The same token pynixd uses (./pynixd.nix), for agents that query
+    # SG1's traces as this user.
+    victoriatraces-sg1-token.file = ../../secrets/sops/hosts/dynhetz.yaml;
   };
   xdg.configFile."pymux/anthropic-api-key".source =
     config.lib.file.mkOutOfStoreSymlink config.croshome.userSecrets.pymux-anthropic-key.path;
