@@ -219,10 +219,6 @@ let
     "10.248.0.0/16"
   ];
 
-  peerLines = lib.concatMapStrings (p: ''
-    wg_user_peer ${p.name} ${userV4 p.name} ${userV6 p.name} ${p.owner} ${p.prefix}
-  '') wgPeers;
-
   # Peers of the account that owns this machine reach every port on it, so a
   # service in development binds to the tunnel address and the phone opens it.
   # Matching on the source address is safe: WireGuard drops a packet whose
@@ -230,7 +226,14 @@ let
   # /32 or /128 held by one peer. The MikroTik's 0.0.0.0/0 cannot claim it,
   # because a longer prefix wins.
   hostOwner = "lillecarl";
-  ownPeers = lib.filter (p: p.owner == hostOwner) wgPeers;
+  isOwn = p: p.owner == hostOwner;
+  ownPeers = lib.filter isOwn wgPeers;
+
+  peerLines = lib.concatMapStrings (p: ''
+    wg_user_peer ${p.name} ${userV4 p.name} ${userV6 p.name} ${p.owner} ${p.prefix} ${
+      if isOwn p then "own" else "other"
+    }
+  '') wgPeers;
   ownPeerRules = lib.concatMapStrings (p: ''
     iptables -w -A nixos-fw -i wg-dynhetz -s ${userV4 p.name} -j nixos-fw-accept
     ip6tables -w -A nixos-fw -i wg-dynhetz -s ${userV6 p.name} -j nixos-fw-accept
@@ -319,7 +322,7 @@ assert noCollision "IPv6" userV6;
       install -d -m 0700 users
 
       wg_user_peer() {
-        local user="$1" v4="$2" v6="$3" owner="$4" prefix="$5"
+        local user="$1" v4="$2" v6="$3" owner="$4" prefix="$5" own="$6"
 
         if [ ! -f "users/$user.key" ]; then
           wg genkey > "users/$user.key"
@@ -509,6 +512,18 @@ assert noCollision "IPv6" userV6;
           "DNS = 2a01:4f9:3071:11d7::2" \
           "Dual stack. ALL your traffic egresses from dynhetz -- IPv6 with your own global address, IPv4 NATed out of this host. Expect CAPTCHAs and wrong geolocation, since you appear to be in a Hetzner datacenter."
 
+        # The lab profile plus DNS from ./dev-proxy.nix, which answers
+        # *.dynhetz.internal and passes every other name on without DNS64.
+        # Only the owner's peers get it: the firewall lets only them reach
+        # the proxy behind those names.
+        if [ "$own" = own ]; then
+          wg_user_conf "-dev" \
+            "$v6/80" \
+            "2a01:4f9:3071:11d7::/64" \
+            "DNS = 2a01:4f9:3071:11d7:e3::1" \
+            "Lab only, IPv6 only, plus *.dynhetz.internal: <port>.dynhetz.internal opens 127.0.0.1:<port> on dynhetz. Every DNS query goes to dynhetz while this is up; your other traffic stays off the tunnel."
+        fi
+
         # install(1) rather than a tmpfiles `C` rule: `C` copies only when the
         # destination does not exist, so a rule cannot refresh a file a user
         # already has.
@@ -523,6 +538,10 @@ assert noCollision "IPv6" userV6;
             "users/$user-v6.conf" "/home/$owner/$prefix-v6.conf" || true
           install -o "$owner" -g users -m 0600 \
             "users/$user-dual.conf" "/home/$owner/$prefix-dual.conf" || true
+          if [ "$own" = own ]; then
+            install -o "$owner" -g users -m 0600 \
+              "users/$user-dev.conf" "/home/$owner/$prefix-dev.conf" || true
+          fi
 
           # The previous names, removed rather than left to rot. wg-dynhetz.conf
           # was lab-only and wg-dynhetz-full.conf blackholed IPv4; leaving
@@ -547,7 +566,7 @@ assert noCollision "IPv6" userV6;
         wg set wg-dynhetz peer "$(cat "users/$stale.pub")" remove || true
         rm -f "users/$stale.key" "users/$stale.pub" \
               "users/$stale-lab.conf" "users/$stale-v6.conf" \
-              "users/$stale-dual.conf" \
+              "users/$stale-dual.conf" "users/$stale-dev.conf" \
               "users/$stale.conf" "users/$stale-full.conf"
       done
 
