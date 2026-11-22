@@ -15,6 +15,7 @@
     ./initrd-remote.nix
     ./secureboot.nix
     ./audio.nix
+    ./domicile.nix
   ];
 
   config = {

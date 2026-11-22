@@ -12,6 +12,7 @@
   imports = [
     ./avizo.nix
     ./cliphist.nix
+    ./domicile.nix
     ./kitty.nix
     ./niri.nix
     ./remapper.nix

@@ -49,6 +49,14 @@
       inputs.nixpkgs.follows = "nixpkgs";
       inputs.nixpkgs-stable.follows = "nixpkgs-stable";
     };
+    # shitbox's second desktop, run from tty2 beside niri. Follows nixpkgs:
+    # the compositor and engine load /run/opengl-driver with domicile's own
+    # glibc, and its pinned nixpkgs (Sep 2026) fails its module's driver
+    # check against ours. So it builds locally, not from its cache.
+    domicile = {
+      url = "github:cprussin/domicile/release";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     llm-agents = {
       url = "github:numtide/llm-agents.nix";
       # Follows nixpkgs. This needs the installAgentSkills helper (nixpkgs
