@@ -15,8 +15,10 @@ let
   tunnelV4 = "10.101.0.1";
   domain = "dynhetz.internal";
 
+  # Not pymux web's default 8080: pynixd's binary cache holds that port here
+  # (./pynixd.nix). Run `pymux web --port 37816`.
   named = {
-    pymux = 8080;
+    pymux = 37816;
   };
 in
 {
