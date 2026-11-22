@@ -17,9 +17,14 @@
     '')
   ];
 
+  # The Svelte shell from its checkout while it is developed there
+  # (`bun run build` in ~/Code/domicile-svelte); this repository's
+  # bootstrap shell when it is not built.
   programs.fish.loginShellInit = ''
     if test "$XDG_VTNR" = 2
-      domicile ~/.config/domicile/shell.js
+      set -l shell ~/Code/domicile-svelte/shell/dist/shell.js
+      test -f $shell; or set shell ~/.config/domicile/shell.js
+      domicile $shell
       exit
     end
   '';
