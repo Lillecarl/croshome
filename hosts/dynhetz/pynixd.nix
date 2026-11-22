@@ -138,6 +138,14 @@ in
     settings = {
       log_level = "INFO";
       plugins = [ "/etc/pynixd/filter.py" ];
+      # Each build's life as spans in SG1's VictoriaTraces (nixidae/nixidae#1570).
+      # Read them with the Jaeger API: /select/jaeger/api/traces?service=pynixd-dynhetz,
+      # with `start` and `end` in microseconds.
+      tracing = {
+        endpoint = "http://10.247.100.60:8427/insert/opentelemetry/v1/traces";
+        bearer_token_file = config.sops.secrets.victoriatraces-sg1-token.path;
+        service_name = "pynixd-dynhetz";
+      };
       # Evidence phase for age-based GC: the hourly loop runs, but deletes
       # are refused (`GCNotPermittedError`) until the liveness mirror shows
       # sustained zero-divergence. The refused passes log as
