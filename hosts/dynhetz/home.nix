@@ -15,12 +15,11 @@
     ./touchgate.nix
   ];
 
-  # aid runs from a dev profile: `devprofile deploy aid` builds croshome's
-  # pkgs.aid against ~/Code/aid and restarts it, with no ai-rebuild. dex is
-  # pkgs.dex-oidc and stays pinned. See ../../modules/home/devprofiles.nix.
-  # Not aid.service: the daemon is aid-dev, run from the ~/Code/aid checkout.
-  # A second daemon on the same sockets and state fights it (Telegram 409,
-  # lost PR worktrees).
+  # aid web and the CLI run from a dev profile: `devprofile deploy aid` builds
+  # croshome's pkgs.aid against ~/Code/aid and restarts aid-web, with no
+  # ai-rebuild. dex is pkgs.dex-oidc and stays pinned. See
+  # ../../modules/home/devprofiles.nix. The daemon runs the checkout itself
+  # (`services.aid.checkout` below), so a restart picks up its code.
   programs.devProfiles.profiles.aid = {
     package = pkgs.aid;
     units = [ "aid-web.service" ];
@@ -32,18 +31,31 @@
   services.aid = {
     enable = true;
     package = config.programs.devProfiles.profiles.aid.shim;
+    # The daemon runs this checkout's dev shell: `systemctl --user restart
+    # aid` runs the code in it, uncommitted edits included.
+    checkout = "${config.home.homeDirectory}/Code/aid";
+    nixPackage = osConfig.nix.package;
     # aid's claude-tty sessions run in a pymux server aid starts with this.
     pymuxPackage = (import inputs.pyterm { inherit pkgs; }).pymux;
-    extraPackages = [ pkgs.claude-agent-acp ];
+    extraPackages = [
+      pkgs.claude-agent-acp
+      # prreview's builder.
+      (import inputs.nixidae {
+        inherit pkgs;
+        inherit (pkgs.stdenv.hostPlatform) system;
+      }).pynix-review.packages.default
+    ];
+    # The SG1 vLLM server's share for this daemon (aid's slots).
+    modelSlots."vllm.sg1.ch.se.eu.org" = 2;
     environment.WRAPTY_DISABLE = "1";
-    # Telegram and Discord tokens and chat allowlists, KEY=value lines.
+    # Chat plugin tokens and allowlists, and the model API keys, KEY=value lines.
     environmentFile = config.croshome.userSecrets.aid-env.path;
     # Plugin directories (agents, instructions, tools, skills, daemon tasks),
     # ahead of the bundled ones. Your own go in the first, listed so they win a
-    # name over aid's examples, at the pinned revision.
+    # name over aid's examples, from the checkout the daemon runs.
     pluginsPath = [
       "${config.xdg.configHome}/aid/plugins"
-      "${inputs.aid.outPath + "/examples"}"
+      "${config.services.aid.checkout}/examples"
     ];
     # Sessions may name their own worker command; a command runs as the daemon
     # with the session's worker credentials. Needs the aid input at 8913f929+.
@@ -66,11 +78,6 @@
   };
   xdg.configFile."pymux/anthropic-api-key".source =
     config.lib.file.mkOutOfStoreSymlink config.croshome.userSecrets.pymux-anthropic-key.path;
-  # Off while aid is developed: an agent runs the daemon from ~/Code/aid on
-  # the same state and runtime directories. Nothing starts the unit, and
-  # aid-web talks to whichever daemon owns the socket.
-  systemd.user.services.aid.Install.WantedBy = lib.mkForce [ ];
-  systemd.user.services.aid-web.Unit.Wants = lib.mkForce [ ];
 
   # There is a NixOS underneath this one, so take its stateVersion rather than
   # keep a second copy that can drift from it.
