@@ -9,6 +9,8 @@
   # installs Papirus (catppuccin-papirus-folders).
   xdg.configFile."domicile/domicile.json".text = builtins.toJSON {
     theme.icon_theme = "Papirus-Dark";
+    # Bitwarden.
+    extensions.web_store = [ "nngceckbapebfimnlniiiahkandclblb" ];
   };
 
   home.packages = [
