@@ -1,0 +1,156 @@
+diff -ruN htop.orig/DisplayOptionsPanel.c htop/DisplayOptionsPanel.c
+--- a/DisplayOptionsPanel.c	2026-11-22 14:06:36.886542371 +0100
++++ b/DisplayOptionsPanel.c	2026-11-22 14:07:43.207370501 +0100
+@@ -283,6 +283,7 @@
+    Panel_add(super, (Object*) CheckItem_newByRef("Highlight program \"basename\"", &(settings->highlightBaseName)));
+    Panel_add(super, (Object*) CheckItem_newByRef("Highlight out-dated/removed programs (red) / libraries (yellow)", &(settings->highlightDeletedExe)));
+    Panel_add(super, (Object*) CheckItem_newByRef("Shadow distribution path prefixes", &(settings->shadowDistPathPrefix)));
++   Panel_add(super, (Object*) CheckItem_newByRef("Shorten Nix store paths (/nix/store/hash-name -> /n/s/h-name)", &(settings->shortenNixStorePaths)));
+    Panel_add(super, (Object*) CheckItem_newByRef("Merge exe, comm and cmdline in Command", &(settings->showMergedCommand)));
+    Panel_add(super, (Object*) CheckItem_newByRef("- Try to find comm in cmdline (when Command is merged)", &(settings->findCommInCmdline)));
+    Panel_add(super, (Object*) CheckItem_newByRef("- Try to strip exe from cmdline (when Command is merged)", &(settings->stripExeFromCmdline)));
+diff -ruN htop.orig/Process.c htop/Process.c
+--- a/Process.c	2026-11-22 14:06:36.889523963 +0100
++++ b/Process.c	2026-11-22 14:08:20.478353147 +0100
+@@ -174,6 +174,72 @@
+    return dstStr;
+ }
+ 
++#define NIX_STORE_DIR "/nix/store/"
++#define NIX_STORE_DIR_LEN (sizeof(NIX_STORE_DIR) - 1)
++#define NIX_HASH_LEN 32
++/* "/n/s/" plus the first hash character and the dash */
++#define NIX_SHORT_LEN 7
++
++/* Nix's base32 alphabet leaves out e, o, t and u. */
++static bool isNixBase32(char c) {
++   return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'z' && c != 'e' && c != 'o' && c != 't' && c != 'u');
++}
++
++/* Length of "/nix/store/<hash>-" at s, or 0 when s does not start with one. */
++static size_t nixStorePrefixLen(const char* s) {
++   if (strncmp(s, NIX_STORE_DIR, NIX_STORE_DIR_LEN) != 0)
++      return 0;
++   for (size_t i = 0; i < NIX_HASH_LEN; i++)
++      if (!isNixBase32(s[NIX_STORE_DIR_LEN + i]))
++         return 0;
++   if (s[NIX_STORE_DIR_LEN + NIX_HASH_LEN] != '-')
++      return 0;
++   return NIX_STORE_DIR_LEN + NIX_HASH_LEN + 1;
++}
++
++static size_t shiftPastDeletion(size_t pos, size_t at, size_t count) {
++   if (pos <= at)
++      return pos;
++   return pos >= at + count ? pos - count : at;
++}
++
++/*
++ * Rewrites every "/nix/store/<hash>-<name>" in s to "/n/s/<h>-<name>", the
++ * way fish abbreviates a path, in place. The highlights count characters,
++ * not bytes, so they move by what was cut before them.
++ */
++static void shortenNixStorePaths(char* s, ProcessCmdlineHighlight* highlights, size_t highlightCount) {
++   char* w = s;
++   size_t chars = 0;
++   for (const char* r = s; *r;) {
++      const size_t len = nixStorePrefixLen(r);
++      if (!len) {
++         if (((unsigned char)*r & 0xC0) != 0x80)
++            chars++;
++         *w++ = *r++;
++         continue;
++      }
++
++      const char hashStart = r[NIX_STORE_DIR_LEN];
++      r += len;
++      w = stpcpy(w, "/n/s/");
++      *w++ = hashStart;
++      *w++ = '-';
++
++      for (size_t i = 0; i < highlightCount; i++) {
++         ProcessCmdlineHighlight* hl = &highlights[i];
++         const size_t start = shiftPastDeletion(hl->offset, chars + NIX_SHORT_LEN, len - NIX_SHORT_LEN);
++         const size_t end = shiftPastDeletion(hl->offset + hl->length, chars + NIX_SHORT_LEN, len - NIX_SHORT_LEN);
++         hl->offset = start;
++         hl->length = end - start;
++      }
++      chars += NIX_SHORT_LEN;
++   }
++   *w = '\0';
++}
++
++static void makeCommandStr(Process* this, const Settings* settings);
++
+ /*
+  * This function makes the merged Command string. It also stores the offsets of the
+  * basename, comm w.r.t the merged Command string - these offsets will be used by
+@@ -182,6 +248,16 @@
+  */
+ void Process_makeCommandStr(Process* this, const Settings* settings) {
+    ProcessMergedCommand* mc = &this->mergedCommand;
++   const uint64_t before = mc->lastUpdate;
++
++   makeCommandStr(this, settings);
++
++   if (settings->shortenNixStorePaths && mc->str && mc->lastUpdate != before)
++      shortenNixStorePaths(mc->str, mc->highlights, MINIMUM(mc->highlightCount, ARRAYSIZE(mc->highlights)));
++}
++
++static void makeCommandStr(Process* this, const Settings* settings) {
++   ProcessMergedCommand* mc = &this->mergedCommand;
+ 
+    bool showMergedCommand = settings->showMergedCommand;
+    bool showProgramPath = settings->showProgramPath;
+@@ -680,6 +756,12 @@
+       } else if (String_startsWith(this->procCwd, "/proc/") && strstr(this->procCwd, " (deleted)") != NULL) {
+          attr = CRT_colors[PROCESS_SHADOW];
+          cwd = "main thread terminated";
++      } else if (settings->shortenNixStorePaths && strstr(this->procCwd, NIX_STORE_DIR)) {
++         char* shortCwd = xStrdup(this->procCwd);
++         shortenNixStorePaths(shortCwd, NULL, 0);
++         Row_printLeftAlignedField(str, attr, shortCwd, 25);
++         free(shortCwd);
++         return;
+       } else {
+          cwd = this->procCwd;
+       }
+diff -ruN htop.orig/Settings.c htop/Settings.c
+--- a/Settings.c	2026-11-22 14:06:36.889523963 +0100
++++ b/Settings.c	2026-11-22 14:07:40.386294575 +0100
+@@ -489,6 +489,8 @@
+          this->findCommInCmdline = atoi(option[1]);
+       } else if (String_eq(option[0], "strip_exe_from_cmdline")) {
+          this->stripExeFromCmdline = atoi(option[1]);
++      } else if (String_eq(option[0], "shorten_nix_store_paths")) {
++         this->shortenNixStorePaths = atoi(option[1]);
+       } else if (String_eq(option[0], "show_merged_command")) {
+          this->showMergedCommand = atoi(option[1]);
+       } else if (String_eq(option[0], "header_margin")) {
+@@ -819,6 +821,7 @@
+    printSettingInteger("highlight_changes_delay_secs", this->highlightDelaySecs);
+    printSettingInteger("find_comm_in_cmdline", this->findCommInCmdline);
+    printSettingInteger("strip_exe_from_cmdline", this->stripExeFromCmdline);
++   printSettingInteger("shorten_nix_store_paths", this->shortenNixStorePaths);
+    printSettingInteger("show_merged_command", this->showMergedCommand);
+    printSettingInteger("header_margin", this->headerMargin);
+    printSettingInteger("screen_tabs", this->screenTabs);
+@@ -948,6 +951,7 @@
+    this->highlightDelaySecs = DEFAULT_HIGHLIGHT_SECS;
+    this->findCommInCmdline = true;
+    this->stripExeFromCmdline = true;
++   this->shortenNixStorePaths = true;
+    this->showMergedCommand = false;
+    this->hideFunctionBar = 0;
+    this->headerMargin = true;
+diff -ruN htop.orig/Settings.h htop/Settings.h
+--- a/Settings.h	2026-11-22 14:06:36.890523992 +0100
++++ b/Settings.h	2026-11-22 14:07:33.942120300 +0100
+@@ -99,6 +99,7 @@
+    int highlightDelaySecs;
+    bool findCommInCmdline;
+    bool stripExeFromCmdline;
++   bool shortenNixStorePaths;
+    bool showMergedCommand;
+    bool updateProcessNames;
+    bool accountGuestInCPUMeter;

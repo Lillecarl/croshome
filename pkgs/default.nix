@@ -309,6 +309,15 @@ in
     ];
   });
 
+  # Shows /nix/store/<hash>-name as /n/s/<h>-name in the Command and CWD
+  # columns. Display options: "Shorten Nix store paths"; htoprc key
+  # shorten_nix_store_paths, on by default.
+  htop = prev.htop.overrideAttrs (pattrs: {
+    patches = pattrs.patches or [ ] ++ [
+      ./htop-shorten-nix-store-paths.patch
+    ];
+  });
+
   # spotify-player with PulseAudio output instead of rodio/ALSA, so it plays
   # into pymux's forwarded speaker: pymux's private PipeWire sets
   # PULSE_SERVER in every pane, and a Pulse client follows it while an ALSA
