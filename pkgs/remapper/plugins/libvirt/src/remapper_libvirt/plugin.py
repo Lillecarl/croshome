@@ -16,7 +16,7 @@ from remapper.plugin import Plugin
 from remapper.process import run
 
 from .config import Guest, Host, LibvirtSettings, UsbAttach, UsbDetach, VmStart, VmStop
-from .route import GUEST_KEYS, GUEST_NAME, GUEST_RELS, Router
+from .route import GUEST_KEYS, GUEST_NAME, GUEST_RELS, HOST_NAME, Router
 from .vm import hostdev, plan, stopped
 
 if TYPE_CHECKING:
@@ -81,14 +81,17 @@ class Libvirt(Plugin[LibvirtSettings]):
             return
         with contextlib.ExitStack() as stack:
             guest = self.guest or new_guest(stack)
-            router = self.router = Router(*guest)
+            remap = new_host if self.settings.caps_as_ctrl_esc else None
+            router = self.router = Router(*guest, remap)
 
             async def forwarded(dev: InputDevice) -> None:
-                router.add(dev)
+                if remap is not None:
+                    await all_up(dev)
+                node = router.add(dev)
                 try:
-                    await read(dev, router.handle)
+                    await read(dev, lambda event: router.handle(event, node))
                 finally:
-                    router.remove(dev)
+                    router.remove(node)
 
             async with anyio.create_task_group() as tg:
                 tg.start_soon(watch, self.settings.forward, forwarded)
@@ -193,6 +196,30 @@ class Libvirt(Plugin[LibvirtSettings]):
                 log.warning("virsh event: %s", e or "exited")
             # Nothing announces that libvirtd is back.
             await anyio.sleep(EVENTS_RETRY)
+
+
+async def all_up(dev: InputDevice) -> None:
+    """Until no key of `dev` is down: after a grab the host would never see it go up."""
+    while dev.active_keys():
+        await anyio.wait_readable(dev.fd)
+        with contextlib.suppress(BlockingIOError):
+            for _ in dev.read():
+                pass
+
+
+def new_host(dev: InputDevice) -> UInput:
+    """The device the host reads instead of `dev`.
+
+    With no vendor and product of `dev`: a copy of those matches `forward`.
+    """
+    capabilities = dev.capabilities()
+    keys = set(capabilities.get(ecodes.EV_KEY, []))
+    if ecodes.KEY_CAPSLOCK in keys:
+        keys |= {ecodes.KEY_LEFTCTRL, ecodes.KEY_ESC}
+    events = {ecodes.EV_KEY: sorted(keys)}
+    if rels := capabilities.get(ecodes.EV_REL):
+        events[ecodes.EV_REL] = rels
+    return UInput(events, name=HOST_NAME)
 
 
 def new_guest(stack: contextlib.ExitStack) -> tuple[Writer, str]:

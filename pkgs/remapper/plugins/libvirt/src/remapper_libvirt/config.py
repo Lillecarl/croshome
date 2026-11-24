@@ -16,6 +16,9 @@ class LibvirtSettings(Model):
     vm_usb: list[UsbDevice] = Field(default_factory=list)
     # Keyboards and mice that reach the VM through an evdev input, not USB.
     forward: list[Match] = Field(default_factory=list)
+    # On the host too, take `forward` over and make Caps Lock Ctrl, Esc on a
+    # tap, and Caps Lock together with Esc.
+    caps_as_ctrl_esc: bool = False
     # The emulated USB devices the VM reads `forward` through. A device
     # with no kind here falls through to PS/2 or virtio.
     usb_hid: list[HidKind] = Field(default_factory=lambda: ["keyboard", "mouse"])

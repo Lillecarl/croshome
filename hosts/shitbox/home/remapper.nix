@@ -64,6 +64,7 @@ in
             }
           ];
           usbHid = [ "keyboard" ];
+        capsAsCtrlEsc = true;
         };
         ddc.brightness = {
           primary = "BenQ XL2430T";
