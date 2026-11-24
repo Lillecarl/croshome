@@ -7,7 +7,9 @@
   ...
 }:
 let
-  extensions = import ./domicile/extensions.nix { inherit pkgs; };
+  extensions = import ./domicile/extensions.nix { inherit pkgs; } // {
+    catppuccin = pkgs.callPackage ./domicile/catppuccin { inherit (config.catppuccin) accent flavor; };
+  };
   # Loaded from writable copies, not the store: Chromium writes an unpacked
   # extension's indexed declarativeNetRequest rules into its own directory,
   # and Ghostery's ads list failed to load from the read-only store path
@@ -149,6 +151,7 @@ in
     # Unpacked, not from the Web Store: see ./domicile/extensions.nix.
     extensions.unpacked = [
       "${extensionDir}/bitwarden"
+      "${extensionDir}/catppuccin"
       "${extensionDir}/ghostery"
       # Vim scrolling and link hints, from its checkout.
       "~/Code/domicile-svelte/extensions/pagekeys"
