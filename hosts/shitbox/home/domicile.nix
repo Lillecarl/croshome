@@ -100,6 +100,12 @@ in
   # installs Papirus (catppuccin-papirus-folders).
   xdg.configFile."domicile/domicile.json".text = builtins.toJSON {
     theme.icon_theme = "Papirus-Dark";
+    # swayidle's timeouts under niri. A playing video or another inhibitor
+    # holds both off.
+    idle = {
+      lock_after_seconds = 300;
+      blank_after_seconds = 1800;
+    };
     # Unpacked, not from the Web Store: see ./domicile/extensions.nix.
     extensions.unpacked = [
       "${extensionDir}/bitwarden"
