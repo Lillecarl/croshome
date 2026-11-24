@@ -100,6 +100,17 @@ in
   # installs Papirus (catppuccin-papirus-folders).
   xdg.configFile."domicile/domicile.json".text = builtins.toJSON {
     theme.icon_theme = "Papirus-Dark";
+    # Meta+Space in the shell switches to the next.
+    input.keyboard.keymaps = [
+      {
+        name = "eurkey";
+        xkb_layout = "eu";
+      }
+      {
+        name = "swedish";
+        xkb_layout = "se";
+      }
+    ];
     # swayidle's timeouts under niri. A playing video or another inhibitor
     # holds both off.
     idle = {
