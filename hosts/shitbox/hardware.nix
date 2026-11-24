@@ -156,6 +156,7 @@ in
     "kvm-amd"
     "i915"
     "nct6775" # ROG STRIX B550-F GAMING WIFI II sensors
+    "drivetemp" # SATA drives' temperatures
   ];
   boot.kernelParams = [
     "i915.enable_guc=2"
