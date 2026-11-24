@@ -25,14 +25,14 @@
   ];
 
   # Log in on tty1 and the session starts: the login environment goes to a
-  # file niri.service reads (below), then fish waits on the unit and logs out
-  # when niri exits.
+  # file niri.service reads (below), then systemctl waits on the unit and the
+  # login ends when niri exits. `exec`, as fish goes on to a prompt after
+  # `exit` in config.fish.
   programs.fish.loginShellInit = ''
     if test "$XDG_VTNR" = 1
       systemctl --user stop graphical-session.target
       env | string match --invert --regex '^SHLVL=' >$XDG_RUNTIME_DIR/nirienv
-      systemctl --user --wait start niri
-      exit
+      exec systemctl --user --wait start niri
     end
   '';
   xdg.configFile."systemd/user/niri.service.d/override.conf".text = ''
