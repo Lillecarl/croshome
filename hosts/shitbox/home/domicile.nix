@@ -126,6 +126,8 @@ in
     idle = {
       lock_after_seconds = 300;
       blank_after_seconds = 1800;
+      # The mouse moves by itself.
+      ignore_pointer = true;
     };
     # Unpacked, not from the Web Store: see ./domicile/extensions.nix.
     extensions.unpacked = [
