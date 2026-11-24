@@ -21,6 +21,10 @@ let
   };
 in
 {
+  # Typing goes through it. A weight and not Nice: the user manager's LimitNICE
+  # is 0, so a unit with a negative Nice fails to start.
+  systemd.user.services.remapper.Service.CPUWeight = 10000;
+
   services.remapper = {
     enable = true;
     settings = {

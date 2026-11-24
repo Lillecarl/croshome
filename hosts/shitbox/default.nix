@@ -16,6 +16,7 @@
     ./secureboot.nix
     ./audio.nix
     ./domicile.nix
+    ./priority.nix
   ];
 
   config = {
