@@ -186,8 +186,10 @@ in
 
   services.udev.extraRules = ''
     ACTION=="add|change", SUBSYSTEM=="block", ATTR{queue/scheduler}=="*kyber*", ATTR{queue/scheduler}="kyber"
-    # Keep the SINOWEALTH mouse from waking the machine.
-    SUBSYSTEM=="usb", ATTRS{idVendor}=="258a", ATTRS{idProduct}=="0033", ATTR{power/wakeup}="disabled"
+    # Keep the SINOWEALTH mouse from waking the machine. On an interface's
+    # bind, because usbhid turns wakeup on as it probes the mouse's keyboard
+    # interface, after the device's own add event.
+    ACTION=="bind", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTRS{idVendor}=="258a", ATTRS{idProduct}=="0033", RUN+="${pkgs.runtimeShell} -c 'echo disabled > /sys$devpath/../power/wakeup'"
   '';
 
   nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
