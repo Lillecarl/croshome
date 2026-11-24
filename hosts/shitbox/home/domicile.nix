@@ -93,6 +93,16 @@ in
     )
   );
 
+  # The routing domicile installs system-wide, again where it outranks
+  # ~/.config/xdg-desktop-portal/portals.conf. That file, from `kitten
+  # desktop-ui enable-portal`, sends file choosers to kitty, which draws them
+  # as a layer-shell panel: domicile has none, and the chooser times out.
+  xdg.configFile."xdg-desktop-portal/domicile-portals.conf".text = ''
+    [preferred]
+    default=domicile
+    org.freedesktop.impl.portal.Secret=gnome-keyring
+  '';
+
   xdg.configFile."domicile/shell.js".source = ./domicile/shell.js;
 
   # Without an icon theme domicile looks icons up in hicolor only, where
