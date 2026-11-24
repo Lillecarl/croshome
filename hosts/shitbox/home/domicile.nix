@@ -14,6 +14,9 @@ let
   # ("dnr-ads.json: Internal error while parsing rules").
   extensionDir = "${config.xdg.dataHome}/domicile/extensions";
 
+  # The id comes from the `key` in its manifest, so it is the Web Store's.
+  bitwardenPage = "chrome-extension://nngceckbapebfimnlniiiahkandclblb/popup/index.html?uilocation=popout";
+
   # Sites as apps: a window of their own with no address bar, in a browser
   # profile, raised rather than opened again (docs/architecture/WEB-APPS.md
   # in domicile). Icons are Papirus names.
@@ -43,10 +46,23 @@ let
       icon = "caprine";
     };
     element = {
-      name = "Element";
+      name = "Element (Matrix)";
       url = "https://app.element.io/";
       profile = "personal";
       icon = "element";
+    };
+    # The extension's own page, so its unlocked vault. Each profile has one.
+    bitwarden = {
+      name = "Bitwarden (Personal)";
+      url = bitwardenPage;
+      profile = "personal";
+      icon = "bitwarden";
+    };
+    bitwarden-work = {
+      name = "Bitwarden (Work)";
+      url = bitwardenPage;
+      profile = "work";
+      icon = "bitwarden";
     };
     migadu = {
       name = "Migadu";
@@ -71,7 +87,8 @@ in
 {
   xdg.desktopEntries = lib.mapAttrs (id: app: {
     inherit (app) name icon;
-    exec = "domicile open --app --profile ${app.profile} --id ${id} --reuse focus ${app.url}";
+    # Quoted: `?` is reserved in an Exec.
+    exec = ''domicile open --app --profile ${app.profile} --id ${id} --reuse focus "${app.url}"'';
     categories = [ "Network" ];
   }) webApps;
 
