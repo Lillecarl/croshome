@@ -4,7 +4,7 @@
 # The disk was laid out by disko from ~/Code/nixos; this states what that
 # produced, as plain values, because disko is only needed to format:
 #
-#   USB stick  ESP, partlabel USBEFI, mounted on /boot
+#   USB stick  ESP, partlabel USBEFI2, mounted on /boot
 #   2x SSD     mdraid1 "root" -> LUKS "crypted" -> LVM vg "pool"
 #              pool/nixos  btrfs, subvolumes rootfs /home /nix /var /srv
 #              pool/swap   swap
@@ -39,13 +39,17 @@ in
     "/var" = subvol "/var" [ "defaults" ];
     "/srv" = subvol "/srv" [ "defaults" ];
     "/boot" = {
-      device = "/dev/disk/by-partlabel/USBEFI";
+      device = "/dev/disk/by-partlabel/USBEFI2";
       fsType = "vfat";
       options = [
         "umask=0077"
         "flush"
         "noatime"
         "errors=remount-ro"
+        # A dead stick must not stop a boot that got past it. An unmounted
+        # /boot still fails a switch: the initrd's SSH keys are missing.
+        "nofail"
+        "x-systemd.device-timeout=15s"
       ];
     };
   };
