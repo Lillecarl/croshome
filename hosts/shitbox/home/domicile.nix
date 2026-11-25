@@ -143,7 +143,7 @@ in
     # swayidle's timeouts under niri. A playing video or another inhibitor
     # holds both off.
     idle = {
-      lock_after_seconds = 300;
+      lock_after_seconds = 600;
       blank_after_seconds = 1800;
       # The mouse moves by itself.
       ignore_pointer = true;
