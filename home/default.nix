@@ -21,6 +21,7 @@
     ../modules/home/agent-python.nix
     ../modules/home/devprofiles.nix
     ./agent-python.nix
+    ./ai-keys.nix
     ./agents.nix
     ./ask.nix
     ../modules/home/claude-code.nix
