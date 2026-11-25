@@ -1,6 +1,5 @@
 {
   lib,
-  config,
   pkgs,
   ...
 }:
@@ -12,17 +11,20 @@ let
 in
 {
   config = lib.mkIf true {
+    # niri's alone: domicile offers no layer-shell, and its shell page draws
+    # the background itself.
     systemd.user.services.swaybg = {
       Unit = {
         Description = "Sway background image daemon";
-        PartOf = [ config.wayland.systemd.target ];
+        PartOf = [ "niri.service" ];
+        After = [ "niri.service" ];
       };
 
       Service = {
         ExecStart = "${lib.getExe pkgs.swaybg} --image ${backgroundImage} --mode center";
       };
       Install = {
-        WantedBy = [ config.wayland.systemd.target ];
+        WantedBy = [ "niri.service" ];
       };
     };
   };
