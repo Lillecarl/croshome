@@ -156,8 +156,6 @@ in
       # Vim scrolling and link hints, from its checkout.
       "~/Code/domicile-svelte/extensions/pagekeys"
     ];
-    # Once per session. A shell's own start hook reruns on every load-shell.
-    startup.commands = [ [ "kitty" ] ];
     # Each profile has its own sign-ins, site data and extensions. The default
     # is the profile browsing always used, so its sign-ins stay.
     browser = {
