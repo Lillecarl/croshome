@@ -148,6 +148,10 @@ in
       # The mouse moves by itself.
       ignore_pointer_motion = true;
     };
+    # The engine's own ad and tracker blocking, Brave's filter engine, with
+    # its default lists in standard mode. Ghostery stays for its annoyance
+    # (consent banner) blocking.
+    content_blocking = { };
     # Unpacked, not from the Web Store: see ./domicile/extensions.nix.
     extensions.unpacked = [
       "${extensionDir}/bitwarden"
