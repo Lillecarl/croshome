@@ -52,10 +52,6 @@ in
   # key, shared with this machine's user. A missing file fails the daemon
   # at startup, never silently.
   environment.etc."pynixd/builders/macbook.pub".source = ../../lillecarl.pub;
-  # SSH host keys of the SG1 nodes (solid-kubernetes environments/sg1/nixos,
-  # modules/common/lab.nix). n1-n3 register as x86_64-linux builders, the
-  # GX10s as aarch64-linux, until the cluster goes to production.
-  environment.etc."pynixd/builders/sg1.pub".source = ./sg1-builders.pub;
   # SG1 pynixd-0's host key: the public half of Secret nixkube/ssh-key,
   # matching ssh-keyscan on 2026-11-26.
   environment.etc."pynixd/builders/sg1-pynixd.known_hosts".text = ''
@@ -347,7 +343,6 @@ in
         port = 2235;
         authorized_builder_keys = [
           "/etc/pynixd/builders/macbook.pub"
-          "/etc/pynixd/builders/sg1.pub"
         ];
       };
 
