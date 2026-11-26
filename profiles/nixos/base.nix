@@ -107,6 +107,11 @@
   # until this runs.
   services.fstrim.enable = true;
 
+  # Firmware updates from LVFS: `fwupdmgr get-updates`, then `fwupdmgr update`.
+  # The stable lvfs remote ships enabled, and fwupd-refresh.timer fetches its
+  # metadata. Nothing installs by itself.
+  services.fwupd.enable = true;
+
   programs.mosh = {
     enable = true;
     openFirewall = true;

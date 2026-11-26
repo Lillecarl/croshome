@@ -49,7 +49,6 @@
 
   services.udisks2.enable = true; # udiskie
   hardware.uinput.enable = true;
-  services.fwupd.enable = true;
   services.avahi = {
     enable = true;
     nssmdns4 = true;
