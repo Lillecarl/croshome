@@ -286,18 +286,29 @@ in
         gc_cold_verify = false;
       };
 
-      # SG1's central pynixd (solid-kubernetes, nixkube/pynixd-0) as a
-      # substituter only. Every sg1 kubeapply pushes its closure there, and
-      # the SG1 nodes, which build for this daemon, register as builders,
-      # which pynixd never asks for a path. Without this, a path GC'd here
-      # was built again on SG1 although SG1 held it (2026-11-26).
+      # SG1's central pynixd (solid-kubernetes, nixkube/pynixd-0), as a
+      # builder and a substituter. It builds in its in-cluster builder Jobs
+      # and build pods, never in the node daemons. Every sg1 kubeapply
+      # pushes its closure there; without this store, a path GC'd here was
+      # built again on SG1 although SG1 held it (2026-11-26).
       stores.sg1-pynixd = {
         type = "ssh-subprocess";
         host = "pynixd.sg1.ch.se.eu.org";
         username = "nix";
         known_hosts = "/etc/pynixd/builders/sg1-pynixd.known_hosts";
         client_keys = [ "/home/lillecarl/.ssh/id_ed25519" ];
-        no_schedule = true;
+        # What the builder Jobs declare (nix.conf system-features). No kvm:
+        # the pods have no /dev/kvm, so a VM test stays here.
+        systems = [
+          "x86_64-linux"
+          "aarch64-linux"
+        ];
+        system_features = [
+          "nixos-test"
+          "benchmark"
+          "big-parallel"
+        ];
+        # Its load is the builders', which sg1's pynixd places itself.
         monitor = false;
         probe = false;
       };
