@@ -21,10 +21,9 @@
     ./eurkey.nix
     ./power.nix
     # The darwin counterpart of the pynixd import in
-    # hosts/hetztop/default.nix: the pinned umbrella, same reason. The
-    # umbrella is `flake = false`, so this is the source tree and no second
-    # flake is evaluated.
-    ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/darwin")
+    # hosts/hetztop/default.nix. The umbrella is `flake = false`, so this is
+    # the source tree and no second flake is evaluated.
+    ((import inputs.nixidae { }).sources.pynixd + "/nix/darwin")
     # pymacdns by path: under active development in a checkout next door,
     # so a flake input would only add a lock entry that overrides.nix
     # immediately replaced. Only this host imports it, so no other

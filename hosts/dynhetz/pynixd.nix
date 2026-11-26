@@ -128,13 +128,17 @@ in
     enable = true;
     # `replace`: pynixd takes /nix/var/nix/daemon-socket/socket and nix-daemon
     # moves behind it as nix-daemon-upstream.socket/.service, so every client
-    # reaches pynixd. nix-daemon still runs the builds; pynixd only proxies.
-    # The module masks Nix's own two units, so switch-to-configuration moves
+    # reaches pynixd. pynixd runs the builds itself (`stores.local.daemon`
+    # below); nix-daemon only waits there as a way back. The module masks Nix's own two units, so switch-to-configuration moves
     # the sockets in both directions with no hand step.
     #
     # If pynixd misbehaves, the real daemon is still on the upstream socket:
     #   nix --store unix:///nix/var/nix/daemon-socket/upstream ...
     mode = "replace";
+    # The way back if daemonless pynixd breaks, with no build and no daemon:
+    #   /run/current-system/specialisation/nix-daemon/bin/switch-to-configuration test
+    # `test` keeps the boot entry, so a reboot returns to pynixd.
+    fallback = true;
     settings = {
       log_level = "INFO";
       plugins = [ "/etc/pynixd/filter.py" ];
@@ -196,7 +200,15 @@ in
       # Declaring the matrix gives the local store one outright: scheduled,
       # and no probe. Features mirror nix.settings.system-features on this
       # host (./default.nix).
+      #
+      # Daemonless (nixidae/nixidae#1155): pynixd opens the store and runs
+      # every build itself, each in a cgroup below its own unit. The store at
+      # `/` reads as the system daemon's unless `managed` says it is pynixd's.
+      pressure.build_cgroup = "/sys/fs/cgroup/system.slice/pynixd.service";
       stores.local = {
+        daemon = false;
+        managed = true;
+        pynixd_writes = true;
         systems = [ "x86_64-linux" ];
         system_features = [
           "nixos-test"

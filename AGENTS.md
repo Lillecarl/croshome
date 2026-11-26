@@ -97,13 +97,13 @@ entry with a local checkout.
   revision", as cleanup.
 - So a rebuild builds what every overridden checkout holds now, including other
   agents' uncommitted work. Read the diff before activating (next section).
-- Exception: `nixidae-pynixd`. Same repository as `nixidae`, a separate input,
-  normally not overridden. pynixd replaces the system nix daemon, and a rebuild
-  that changes it restarts the daemon and cancels every running build on the
-  machine. Overridden, any agent's rebuild would ship another agent's half-done
-  pynixd edits and kill everyone's builds. It moves only on a deliberate
-  `nix flake update nixidae-pynixd`. An agent working on pynixd may override it
-  for the duration, marked `# TEMP`, and removes the line when done.
+- pynixd comes from `nixidae` too, so a rebuild ships the pynixd that
+  `~/Code/nixidae` holds. On dynhetz it is the store daemon itself
+  (daemonless). A change reaches it by handover, and builds in flight
+  complete; a store-settings or schema change restarts it and cancels them.
+  The default checkout follows `main`: land pynixd work before a rebuild.
+  If pynixd breaks, switch to its fallback with no build:
+  `/run/current-system/specialisation/nix-daemon/bin/switch-to-configuration test`.
 
 ## Reading a change before activating it
 

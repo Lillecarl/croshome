@@ -472,22 +472,6 @@
         "type": "github"
       }
     },
-    "nixidae-pynixd": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1795580210,
-        "narHash": "sha256-VC/D3U3bsAOCET2qvPybZrKXAYftwO/cxUxrV1hleqc=",
-        "owner": "nixidae",
-        "repo": "nixidae",
-        "rev": "483b31bf17013b70318bcb6666bca32af01b4776",
-        "type": "github"
-      },
-      "original": {
-        "owner": "nixidae",
-        "repo": "nixidae",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1794554816,
@@ -635,7 +619,6 @@
         "niri": "niri",
         "nix-darwin": "nix-darwin",
         "nixidae": "nixidae",
-        "nixidae-pynixd": "nixidae-pynixd",
         "nixpkgs": "nixpkgs",
         "nixpkgs-stable": "nixpkgs-stable",
         "phabfive": "phabfive",

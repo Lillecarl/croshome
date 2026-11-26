@@ -6,17 +6,16 @@
   ...
 }:
 let
-  # The pinned umbrella resolves pynixd from its own nix/sources.lock, so
-  # the revision is the one `nixidae-pynixd` pins and no separate pynixd
-  # input exists. It never names a path in overrides.nix: a rebuild that
-  # changes pynixd restarts the system daemon and cancels every running build.
-  nixidaePynixd = import inputs.nixidae-pynixd { inherit pkgs; };
+  # pynixd from the same umbrella as every other nixidae source, so
+  # ./overrides.nix moves it with the checkout. A change reaches the running
+  # daemon by handover, and builds in flight complete.
+  nixidaePynixd = import inputs.nixidae { inherit pkgs; };
 in
 {
   # `.sources` reads the lock and needs no package set, which is what keeps
   # it safe to name in `imports`.
   imports = [
-    ((import inputs.nixidae-pynixd { }).sources.pynixd + "/nix/nixos")
+    ((import inputs.nixidae { }).sources.pynixd + "/nix/nixos")
   ];
 
   config = lib.mkMerge [

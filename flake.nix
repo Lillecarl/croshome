@@ -139,15 +139,6 @@
       flake = false;
     };
 
-    # The same umbrella, pinned a second time for pynixd alone. pynixd runs
-    # in `replace` mode in front of the system daemon, so its revision moves
-    # only on a deliberate `nix flake update nixidae-pynixd` -- never through
-    # ./overrides.nix, which names `nixidae` and leaves this one alone.
-    nixidae-pynixd = {
-      url = "github:nixidae/nixidae";
-      flake = false;
-    };
-
     # pymux and the libraries it is built on. home/pymux.nix imports the
     # home-manager module out of this tree.
     #
