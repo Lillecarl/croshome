@@ -56,6 +56,11 @@ in
   # modules/common/lab.nix). n1-n3 register as x86_64-linux builders, the
   # GX10s as aarch64-linux, until the cluster goes to production.
   environment.etc."pynixd/builders/sg1.pub".source = ./sg1-builders.pub;
+  # SG1 pynixd-0's host key: the public half of Secret nixkube/ssh-key,
+  # matching ssh-keyscan on 2026-11-26.
+  environment.etc."pynixd/builders/sg1-pynixd.known_hosts".text = ''
+    pynixd.sg1.ch.se.eu.org ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJUrpNJ1Gj2XhIdESE9o8MRAjXIsdFrXwpxcMxY56FbZ
+  '';
   # nixidae's GitHub Actions runners, as a trusted client of the listener
   # below: they build here and substitute from here. The private half is the
   # repository secret PYNIXD_BUILDER_KEY.
@@ -279,6 +284,22 @@ in
         # a person: trust the record, and skip a HEAD per path before each
         # delete.
         gc_cold_verify = false;
+      };
+
+      # SG1's central pynixd (solid-kubernetes, nixkube/pynixd-0) as a
+      # substituter only. Every sg1 kubeapply pushes its closure there, and
+      # the SG1 nodes, which build for this daemon, register as builders,
+      # which pynixd never asks for a path. Without this, a path GC'd here
+      # was built again on SG1 although SG1 held it (2026-11-26).
+      stores.sg1-pynixd = {
+        type = "ssh-subprocess";
+        host = "pynixd.sg1.ch.se.eu.org";
+        username = "nix";
+        known_hosts = "/etc/pynixd/builders/sg1-pynixd.known_hosts";
+        client_keys = [ "/home/lillecarl/.ssh/id_ed25519" ];
+        no_schedule = true;
+        monitor = false;
+        probe = false;
       };
 
       stores.nix-community-aarch64-linux = nixCommunity {
