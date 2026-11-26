@@ -124,6 +124,15 @@ in
     AWS_CONFIG_FILE = config.sops.secrets.pynixd-aws.path;
   };
 
+  # Nix asks only pynixd's HTTP cache (./default.nix), which is down in the
+  # fallback. There Nix asks the caches pynixd raced instead: every
+  # `http-binary-cache` store below, in turn. Above ./default.nix's mkForce.
+  specialisation.nix-daemon.configuration.nix.settings.substituters = lib.mkOverride 40 (
+    lib.mapAttrsToList (_: store: store.url) (
+      lib.filterAttrs (_: store: store.type or null == "http-binary-cache") config.services.pynixd.settings.stores
+    )
+  );
+
   services.pynixd = {
     enable = true;
     # `replace`: pynixd takes /nix/var/nix/daemon-socket/socket and nix-daemon
