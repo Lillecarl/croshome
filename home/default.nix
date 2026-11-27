@@ -40,6 +40,7 @@
     ../modules/home/merged-file.nix
     ../modules/home/remapper.nix
     ../modules/home/user-secrets.nix
+    ./domicile-mcp.nix
     ./opencode.nix
     ./packages.nix
     ./pyedit-mcp.nix
