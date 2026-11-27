@@ -17,8 +17,10 @@ function dclaude --description "shared ~/.claude, work login from the token in ~
         echo "dclaude2: $token_file is missing; run `claude setup-token` with the work login and save what it prints there" >&2
         return 1
     end
-    # Undo a prior dclaude in this shell; default backend is ~/.claude anyway.
-    set --export CLAUDE_CONFIG_DIR ~/.claude
+    # Unset, not ~/.claude: set to any value, Claude Code reads
+    # $CLAUDE_CONFIG_DIR/.claude.json in place of ~/.claude.json, and that
+    # file holds MCP servers, project trust and the account.
+    set --erase CLAUDE_CONFIG_DIR
     set --export CLAUDE_DISPLAY_ACCOUNT dynamist
     CLAUDE_CODE_OAUTH_TOKEN=(string trim < $token_file) claude $argv
 end
