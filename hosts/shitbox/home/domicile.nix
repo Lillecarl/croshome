@@ -190,7 +190,9 @@ in
   };
 
   home.packages = [
-    pkgs.element-desktop
+    # domicile names itself in XDG_CURRENT_DESKTOP, which Chromium's safeStorage
+    # does not know, so it falls back to a hardcoded key. gnome-keyring runs.
+    (pkgs.element-desktop.override { commandLineArgs = "--password-store=gnome-libsecret"; })
     # SIGTERM ends domicile cleanly. Its control socket is
     # domicile-ipc.<launcher pid>.sock, and every app it starts has it.
     (pkgs.writeShellScriptBin "domicile-quit" ''
