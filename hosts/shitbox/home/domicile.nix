@@ -183,9 +183,14 @@ in
       default_private_profile = "private";
       sites."dynamist.slack.com" = "work";
     };
+    # Element desktop on the desktop's own browser rather than its bundled
+    # Chromium, beside the element web app to compare. See ELECTRON-APPS.md
+    # in domicile's docs/use.
+    electron.apps = [ "element-desktop.desktop" ];
   };
 
   home.packages = [
+    pkgs.element-desktop
     # SIGTERM ends domicile cleanly. Its control socket is
     # domicile-ipc.<launcher pid>.sock, and every app it starts has it.
     (pkgs.writeShellScriptBin "domicile-quit" ''
