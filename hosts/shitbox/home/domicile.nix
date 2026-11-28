@@ -189,6 +189,11 @@ in
     electron.apps = [ "element-desktop.desktop" ];
   };
 
+  # Element desktop lays this over its bundled config. The bundled
+  # default_theme ("light") counts as a choice, so Element ignored "match
+  # system theme"; app.element.io sets none.
+  xdg.configFile."Element/config.json".text = builtins.toJSON { default_theme = null; };
+
   home.packages = [
     # domicile names itself in XDG_CURRENT_DESKTOP, which Chromium's safeStorage
     # does not know, so it falls back to a hardcoded key. gnome-keyring runs.
